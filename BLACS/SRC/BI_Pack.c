@@ -38,12 +38,16 @@ BLACBUFF *BI_Pack(BLACSCONTEXT *ctxt,BVOID *A,BLACBUFF *bp,MPI_Datatype Dtype)
 #endif
    if (bp == NULL)
    {
-      // MPI_Pack_size_c exists but no need to invoke it for a count of one==1
+      /* NOTE: MPI_Pack_size_c exists but no need to invoke it for a count of one==1.
+       * The count parameter (one) refers to the number of MPI datatypes, not elements.
+       * Large arrays are handled via MPI derived types, keeping count=1.
+       */
       info=MPI_Pack_size(one, Dtype, ctxt->scp->comm, &i);
       bp = BI_GetBuff(i);
    }
 
    i = 0;
+   /* bp->Len is defined as Int (always int), so it always fits in int parameter. */
    info=MPI_Pack(A, one, Dtype, bp->Buff, bp->Len, &i, ctxt->scp->comm);
    bp->dtype = MPI_PACKED;
    bp->N = i;

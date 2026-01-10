@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdarg.h>
+#include <string.h>
+#include <ctype.h>
+#include <limits.h>
 #include <mpi.h>
 
 /*
@@ -24,113 +27,135 @@
 
 /*
  * MPI wrapper definitions for ILP64 support
- * Can be compiled in three way (in order of priority)
- * 1. BigMPI
- * 2. MPI 4.0+ with MPI_count variants
- * 3. Standard MPI with int counts
+ * Supports two configurations:
+ * 1. MPI 4.0+ with _c variants supporting MPI_Count
+ * 2. Standard MPI with int counts (MPI < 4.0)
+ *
+ * Note: BigMPI is NOT supported because it lacks support for custom
+ * reduction operations (MPI_Op_create), which are fundamental to ScaLAPACK.
  */
-#ifdef BIGMPI
-#define MpiInt MPI_Count
-inline int _MPI_Isend(const void *buf, MPI_Count count, MPI_Datatype datatype, int dest,
-              int tag, MPI_Comm comm, MPI_Request *request) {
-	return MPIX_Isend_x(buf, count, datatype, dest, tag, comm, request);
-}
-inline int _MPI_Irecv(void *buf, MPI_Count count, MPI_Datatype datatype,
-		int source, int tag, MPI_Comm comm, MPI_Request *request) {
-	return MPIX_Irecv_x (buf, count, datatype, source, tag, comm, request);
-}
-inline int _MPI_Op_create(MPI_User_function_c *user_fn, int commute, MPI_Op *op) {
-	return BigMPI_Op_create (user_fn, commute, op);
-}
-inline int _MPI_Type_create_struct(MPI_Count count,
-                             const MPI_Count array_of_blocklengths[],
-                             const MPI_Count array_of_displacements[],
-                             const MPI_Datatype array_of_types[],
-                             MPI_Datatype *newtype) {
-	// TODO BigMPI doesn't have a _x variant for Type_create_struct
-	// perhaps fall back to Standar MPI if count fits an int
-	return MPI_ERR_COUNT;
-}
-inline int _MPI_Type_indexed(MPI_Count count, const MPI_Count array_of_blocklengths[],
-                       const MPI_Count array_of_displacements[],
-                       MPI_Datatype oldtype, MPI_Datatype *newtype) {
-	// TODO BigMPI doesn't have a _x variant for Type_indexed
-	// perhaps fall back to Standar MPI if count fits an int
-	return MPI_ERR_COUNT;
-}
-#else // no BIGMPI
-/* If there is no BigMPI, but there is
- * an MPI implementation v4.x use
- * that for large tranfers. Caveat:
- * there are some incomplete v4.x
- * implementations around which will fail.
- * Hopefully they will be fixed
- * before this goes to production
- */
-#if MPI_VERSION==4
-#define MpiInt MPI_Count
-inline int _MPI_Isend(const void *buf, MPI_Count count, MPI_Datatype datatype, int dest,
-              int tag, MPI_Comm comm, MPI_Request *request) {
-	return MPI_Isend_c(buf, count, datatype, dest, tag, comm, request);
-}
-inline int _MPI_Irecv(void *buf, MPI_Count count, MPI_Datatype datatype,
-		int source, int tag, MPI_Comm comm, MPI_Request *request) {
-	return MPI_Irecv_c (buf, count, datatype, source, tag, comm, request);
-}
-inline int _MPI_Op_create(MPI_User_function_c *user_fn, int commute, MPI_Op *op) {
-	return MPI_Op_create_c (user_fn, commute, op);
-}
-inline int _MPI_Type_create_struct(MPI_Count count,
-                             const MPI_Count array_of_blocklengths[],
-                             const MPI_Count array_of_displacements[],
-                             const MPI_Datatype array_of_types[],
-                             MPI_Datatype *newtype) {
-	return MPI_Type_create_struct_c(count, array_of_blocklengths,
-                             array_of_displacements, array_of_types,
-                             newtype);
-}
-inline int _MPI_Type_indexed(MPI_Count count, const MPI_Count array_of_blocklengths[],
-                       const MPI_Count array_of_displacements[],
-                       MPI_Datatype oldtype, MPI_Datatype *newtype) {
-	return MPI_Type_indexed_c(count, array_of_blocklengths, array_of_displacements,
-                       oldtype, newtype);
-}
-/* Otherwise default to non-big
- * transfers
- */
-#else // no MPI v4
-#define MpiInt int
-inline int _MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest,
-              int tag, MPI_Comm comm, MPI_Request *request) {
-	return MPI_Isend(buf, count, datatype, dest, tag, comm, request);
-}
-inline int _MPI_Irecv(void *buf, int count, MPI_Datatype datatype,
-		int source, int tag, MPI_Comm comm, MPI_Request *request) {
-	return MPI_Irecv (buf, count, datatype, source, tag, comm, request);
-}
-inline int _MPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op) {
-	return MPI_Op_create (user_fn, commute, op);
-}
-inline int _MPI_Type_create_struct(int count, const int array_of_blocklengths[],
-                           const MPI_Aint array_of_displacements[],
-                           const MPI_Datatype array_of_types[],
-                           MPI_Datatype *newtype) {
-	return MPI_Type_create_struct(count, array_of_blocklengths,
-                             array_of_displacements, array_of_types,
-                             newtype);
-}
-int MPI_Type_indexed(int count, const int array_of_blocklengths[],
-                     const int array_of_displacements[], MPI_Datatype oldtype,
-                     MPI_Datatype *newtype) {
-	return MPI_Type_indexed(count, array_of_blocklengths, array_of_displacements,
-                       oldtype, newtype);
-}
-#endif // MPI version
-#endif // BIGMPI
 
-#if defined(BIGMPI) && (MPI_VERSION >= 4)
-  #warning "Both BIGMPI and MPI 4.0 are available. BIGMPI takes precedence."
-#endif
+#if MPI_VERSION >= 4
+    /* MPI 4.0+ with _c variants supporting MPI_Count */
+    #define MpiInt MPI_Count
+
+    static inline int _MPI_Isend(const void *buf, MPI_Count count, MPI_Datatype datatype,
+                          int dest, int tag, MPI_Comm comm, MPI_Request *request) {
+      return MPI_Isend_c(buf, count, datatype, dest, tag, comm, request);
+    }
+
+    static inline int _MPI_Irecv(void *buf, MPI_Count count, MPI_Datatype datatype,
+                          int source, int tag, MPI_Comm comm, MPI_Request *request) {
+      return MPI_Irecv_c(buf, count, datatype, source, tag, comm, request);
+    }
+
+    static inline int _MPI_Send(const void *buf, MPI_Count count, MPI_Datatype datatype,
+                         int dest, int tag, MPI_Comm comm) {
+      return MPI_Send_c(buf, count, datatype, dest, tag, comm);
+    }
+
+    static inline int _MPI_Recv(void *buf, MPI_Count count, MPI_Datatype datatype,
+                         int source, int tag, MPI_Comm comm, MPI_Status *status) {
+      return MPI_Recv_c(buf, count, datatype, source, tag, comm, status);
+    }
+
+    static inline int _MPI_Op_create(MPI_User_function_c *user_fn, int commute, MPI_Op *op) {
+      return MPI_Op_create_c(user_fn, commute, op);
+    }
+
+    static inline int _MPI_Type_create_struct(MPI_Count count,
+                                        const MPI_Count array_of_blocklengths[],
+                                        const MPI_Aint array_of_displacements[],
+                                        const MPI_Datatype array_of_types[],
+                                        MPI_Datatype *newtype) {
+      return MPI_Type_create_struct_c(count, array_of_blocklengths,
+                                       array_of_displacements,
+                                       array_of_types, newtype);
+    }
+
+    static inline int _MPI_Type_indexed(MPI_Count count,
+                                  const MPI_Count array_of_blocklengths[],
+                                  const MPI_Count array_of_displacements[],
+                                  MPI_Datatype oldtype, MPI_Datatype *newtype) {
+      return MPI_Type_indexed_c(count, array_of_blocklengths,
+                                 array_of_displacements, oldtype, newtype);
+    }
+
+    static inline int _MPI_Bcast(void *buffer, MPI_Count count, MPI_Datatype datatype,
+                          int root, MPI_Comm comm) {
+      return MPI_Bcast_c(buffer, count, datatype, root, comm);
+    }
+
+    static inline int _MPI_Reduce(const void *sendbuf, void *recvbuf, MPI_Count count,
+                           MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm) {
+      return MPI_Reduce_c(sendbuf, recvbuf, count, datatype, op, root, comm);
+    }
+
+    static inline int _MPI_Allreduce(const void *sendbuf, void *recvbuf, MPI_Count count,
+                              MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
+      return MPI_Allreduce_c(sendbuf, recvbuf, count, datatype, op, comm);
+    }
+
+  #else /* MPI version < 4 */
+    /* Standard MPI with int counts */
+    #define MpiInt int
+
+    static inline int _MPI_Isend(const void *buf, int count, MPI_Datatype datatype,
+                          int dest, int tag, MPI_Comm comm, MPI_Request *request) {
+      return MPI_Isend(buf, count, datatype, dest, tag, comm, request);
+    }
+
+    static inline int _MPI_Irecv(void *buf, int count, MPI_Datatype datatype,
+                          int source, int tag, MPI_Comm comm, MPI_Request *request) {
+      return MPI_Irecv(buf, count, datatype, source, tag, comm, request);
+    }
+
+    static inline int _MPI_Send(const void *buf, int count, MPI_Datatype datatype,
+                         int dest, int tag, MPI_Comm comm) {
+      return MPI_Send(buf, count, datatype, dest, tag, comm);
+    }
+
+    static inline int _MPI_Recv(void *buf, int count, MPI_Datatype datatype,
+                         int source, int tag, MPI_Comm comm, MPI_Status *status) {
+      return MPI_Recv(buf, count, datatype, source, tag, comm, status);
+    }
+
+    static inline int _MPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op) {
+      return MPI_Op_create(user_fn, commute, op);
+    }
+
+    static inline int _MPI_Type_create_struct(int count, const int array_of_blocklengths[],
+                                        const MPI_Aint array_of_displacements[],
+                                        const MPI_Datatype array_of_types[],
+                                        MPI_Datatype *newtype) {
+      return MPI_Type_create_struct(count, array_of_blocklengths,
+                                     array_of_displacements,
+                                     array_of_types, newtype);
+    }
+
+    static inline int _MPI_Type_indexed(int count, const int array_of_blocklengths[],
+                                  const int array_of_displacements[],
+                                  MPI_Datatype oldtype, MPI_Datatype *newtype) {
+      return MPI_Type_indexed(count, array_of_blocklengths,
+                               array_of_displacements, oldtype, newtype);
+    }
+
+    static inline int _MPI_Bcast(void *buffer, int count, MPI_Datatype datatype,
+                          int root, MPI_Comm comm) {
+      return MPI_Bcast(buffer, count, datatype, root, comm);
+    }
+
+    static inline int _MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
+                           MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm) {
+      return MPI_Reduce(sendbuf, recvbuf, count, datatype, op, root, comm);
+    }
+
+    static inline int _MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
+                              MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
+      return MPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm);
+    }
+
+  #endif /* MPI version check */
 
 
 /*

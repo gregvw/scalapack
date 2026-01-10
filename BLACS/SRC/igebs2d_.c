@@ -115,7 +115,7 @@ F_VOID_FUNC igebs2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
  */
    if (ttop == ' ')
    {
-      error=MPI_Bcast(A, BI_AuxBuff.N, MatTyp, ctxt->scp->Iam, ctxt->scp->comm);
+      error=_MPI_Bcast(A, BI_AuxBuff.N, MatTyp, ctxt->scp->Iam, ctxt->scp->comm);
       error=BI_MPI_TYPE_FREE(&MatTyp);
       if (BI_ActiveQ) BI_UpdateBuffs(NULL);
       return;

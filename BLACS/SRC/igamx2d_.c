@@ -271,7 +271,7 @@ F_VOID_FUNC igamx2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
 
       if (trdest != -1)
       {
-         ierr=MPI_Reduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, BlacComb, dest,
+         ierr=_MPI_Reduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, BlacComb, dest,
 	 	       ctxt->scp->comm);
          if (ctxt->scp->Iam == dest)
 	 {
@@ -284,7 +284,7 @@ F_VOID_FUNC igamx2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
       }
       else
       {
-         ierr=MPI_Allreduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, BlacComb,
+         ierr=_MPI_Allreduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, BlacComb,
 		          ctxt->scp->comm);
 	 BI_ivmcopy(Mpval(m), Mpval(n), A, tlda, (Int*)bp2->Buff);
          if (Mpval(ldia) != -1)

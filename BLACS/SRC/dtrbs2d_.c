@@ -130,7 +130,7 @@ F_VOID_FUNC dtrbs2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, F_CHAR uplo,
  */
    if (ttop == ' ')
    {
-      error=MPI_Bcast(A, BI_AuxBuff.N, MatTyp, ctxt->scp->Iam, ctxt->scp->comm);
+      error=_MPI_Bcast(A, BI_AuxBuff.N, MatTyp, ctxt->scp->Iam, ctxt->scp->comm);
       error=BI_MPI_TYPE_FREE(&MatTyp);
       if (BI_ActiveQ) BI_UpdateBuffs(NULL);
       return;

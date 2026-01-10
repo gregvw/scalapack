@@ -5,7 +5,7 @@ void BI_Srecv(BLACSCONTEXT *ctxt, Int src, Int msgid, BLACBUFF *bp)
    Int i, info;
    extern MPI_Status *BI_Stats;
 
-   info=MPI_Recv(bp->Buff, bp->N, bp->dtype, src, msgid, ctxt->scp->comm,BI_Stats);
+   info=_MPI_Recv(bp->Buff, bp->N, bp->dtype, src, msgid, ctxt->scp->comm,BI_Stats);
 /*
  * If we are doing our own buffering, need to determine the true length of
  * the message just received

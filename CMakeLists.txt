@@ -69,6 +69,16 @@ message(STATUS "--> C Compiler : ${CMAKE_C_COMPILER}")
 message(STATUS "--> MPI Fortran Compiler : ${MPI_Fortran_COMPILER}")
 message(STATUS "--> Fortran Compiler : ${CMAKE_Fortran_COMPILER}")
 
+# --------------------------------------------------
+# ILP64 Support via MPI 4.0+
+#
+# ScaLAPACK will automatically use MPI 4.0+ large count support if available.
+# MPI 4.0+ provides native support for counts > INT_MAX via _c variants.
+#
+# Note: BigMPI is NOT supported because it lacks MPI_Op_create_c functionality
+# which is required for ScaLAPACK's custom reduction operations.
+message(STATUS "ILP64 support: Will use MPI 4.0+ _c variants if MPI_VERSION >= 4")
+
 if (UNIX)
    if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
       set( CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fltconsistency -fp_port" )

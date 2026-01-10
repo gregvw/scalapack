@@ -161,14 +161,14 @@ F_VOID_FUNC cgsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
       ierr=_MPI_Op_create(BI_cMPI_sum, length, &BlacComb);
       if (dest != -1)
       {
-         ierr=MPI_Reduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, BlacComb,
+         ierr=_MPI_Reduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, BlacComb,
                        dest, ctxt->scp->comm);
          if (ctxt->scp->Iam == dest)
 	    BI_cvmcopy(Mpval(m), Mpval(n), A, tlda, bp2->Buff);
       }
       else
       {
-         ierr=MPI_Allreduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, BlacComb,
+         ierr=_MPI_Allreduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, BlacComb,
 		          ctxt->scp->comm);
 	 BI_cvmcopy(Mpval(m), Mpval(n), A, tlda, bp2->Buff);
       }

@@ -159,14 +159,14 @@ F_VOID_FUNC dgsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    case ' ':         /* use MPI's reduction by default */
       if (dest != -1)
       {
-         ierr=MPI_Reduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, MPI_SUM,
+         ierr=_MPI_Reduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, MPI_SUM,
                        dest, ctxt->scp->comm);
          if (ctxt->scp->Iam == dest)
 	    BI_dvmcopy(Mpval(m), Mpval(n), A, tlda, (double*)bp2->Buff);
       }
       else
       {
-         ierr=MPI_Allreduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, MPI_SUM,
+         ierr=_MPI_Allreduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, MPI_SUM,
 		          ctxt->scp->comm);
 	 BI_dvmcopy(Mpval(m), Mpval(n), A, tlda, (double*)bp2->Buff);
       }
