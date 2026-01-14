@@ -11,17 +11,13 @@ _Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
 
 Int SL_Cgridreshape(Int ctxt, Int pstart, Int row_major_in, Int row_major_out, Int P, Int Q)
 {
-   void Cblacs_gridinfo( Int context, Int* nprow, Int* npcol, Int* myrow, Int* mycol );
-   void Cblacs_abort( Int ConTxt, Int ErrNo );
-   void Cblacs_get( Int context, Int what, Int * val );
-   void Cblacs_gridmap( Int* context, Int* usermap, Int ldumap, Int nprow, Int npcol );
-   Int Cblacs_pnum( Int context, Int prow, Int pcol );
+   void Cblacs_gridinfo( Int context, Int *nprow, Int *npcol, Int *myrow, Int *mycol );
    void Cblacs_abort( Int context, Int errornum );
    void Cblacs_get( Int context, Int what, Int *val );
-   void Cblacs_gridinfo( Int context, Int *nprow, Int *npcol, Int *myrow, Int *mycol );
    void Cblacs_gridmap( Int *context, Int *usermap, Int ldumap, Int nprow, Int npcol );
+   Int Cblacs_pnum( Int context, Int prow, Int pcol );
    ScaLAPACK_ApiInt prow, pcol;
-    ScaLAPACK_Index64 Np, grid_index, limit, source_rank, user_rank;
+   ScaLAPACK_Index64 Np, grid_index, limit, source_rank, user_rank;
    size_t grid_elems, grid_slot;
    Int nctxt, P0, Q0, mycol, myrow, *g;
 
