@@ -44,7 +44,7 @@ BLACBUFF *BI_GetBuffS(ScaLAPACK_BufLen length)
    void BI_EmergencyBuffS(ScaLAPACK_BufLen length);
 
    char *cptr;
-   ScaLAPACK_BufLen i, j;
+   size_t active_ops, i, j;
    extern Int BI_Np;
    extern BLACBUFF *BI_ReadyB;
 
@@ -60,12 +60,18 @@ BLACBUFF *BI_GetBuffS(ScaLAPACK_BufLen length)
 /*
  * Make sure all buffers aligned correctly
  */
+   if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) BI_Np, &active_ops) ||
+       active_ops > (SIZE_MAX - sizeof(BLACBUFF)) / sizeof(MPI_Request))
+      BI_BlacsErr(-1, __LINE__, __FILE__, "BLACS buffer metadata overflow");
+
    j = sizeof(BLACBUFF);
    if (j % sizeof(MPI_Request))
       j += sizeof(MPI_Request) - j % sizeof(MPI_Request);
-   i = j + BI_Np*sizeof(MPI_Request);
+   i = j + active_ops * sizeof(MPI_Request);
    if (i % BUFFALIGN) i += BUFFALIGN - i % BUFFALIGN;
-   cptr = malloc(i + length);
+   if ((size_t) length > SIZE_MAX - i)
+      BI_BlacsErr(-1, __LINE__, __FILE__, "BLACS buffer allocation overflow");
+   cptr = malloc(i + (size_t) length);
    BI_ReadyB = (BLACBUFF *) cptr;
 
    if (BI_ReadyB != NULL)

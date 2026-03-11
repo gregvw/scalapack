@@ -18,20 +18,30 @@ column major (2) in the input and output grids */
    void proc_inc( Int* myrow, Int* mycol, Int nprow, Int npcol, Int major );
    void Cblacs_gridinfo( Int context, Int* nprow, Int* npcol, Int* myrow, Int* mycol );
    Int Cblacs_pnum( Int context, Int prow, Int pcol );
+   void Cblacs_abort( Int context, Int errornum );
    void Cblacs_get( Int context, Int what, Int* val );
    void Cblacs_gridmap( Int* context, Int* usermap, Int ldumap, Int nprow, Int npcol );
 
    /** variables **/
-   Int i, j;
+   ScaLAPACK_Index64 grid_offset, nprocs_new64, proc_index;
+   size_t grid_elems;
+   Int j;
    Int nprow_in, npcol_in, myrow_in, mycol_in;
-   Int nprocs_new;
    Int myrow_old, mycol_old, myrow_new, mycol_new;
    Int pnum;
    Int *grid_new;
 
 /********** executable statements ************/
 
-   nprocs_new = nprow_new * npcol_new;
+   if( !ScaLAPACK_Index64Mul( (ScaLAPACK_Index64) nprow_new,
+                              (ScaLAPACK_Index64) npcol_new,
+                              &nprocs_new64 ) ||
+       !ScaLAPACK_Index64ToSizeT( nprocs_new64, &grid_elems ) ||
+       grid_elems > SIZE_MAX / sizeof( Int ) )
+   {
+      Cblacs_abort( context_in, -24 );
+      return;
+   }
 
    Cblacs_gridinfo( context_in, &nprow_in, &npcol_in, &myrow_in, &mycol_in );
 
@@ -44,7 +54,12 @@ column major (2) in the input and output grids */
    }
 
    /* allocate space for new process mapping */
-   grid_new = (Int *) malloc( nprocs_new * sizeof( Int ) );
+   grid_new = (Int *) malloc( grid_elems * sizeof( Int ) );
+   if( grid_new == NULL )
+   {
+      Cblacs_abort( context_in, -25 );
+      return;
+   }
 
    /* set place in old grid to start grabbing processors for new grid */
    myrow_old = 0; mycol_old = 0;
@@ -62,10 +77,22 @@ column major (2) in the input and output grids */
    myrow_new = 0; mycol_new = 0;
 
    /* Set up array of process numbers for new grid */
-   for (i=0; i< nprocs_new; i++ )
+   for( proc_index = 0; proc_index < nprocs_new64; ++proc_index )
    {
+      if( !ScaLAPACK_Index64Mul( (ScaLAPACK_Index64) mycol_new,
+                                 (ScaLAPACK_Index64) nprow_new,
+                                 &grid_offset ) ||
+          !ScaLAPACK_Index64Add( grid_offset,
+                                 (ScaLAPACK_Index64) myrow_new,
+                                 &grid_offset ) ||
+          !ScaLAPACK_Index64ToSizeT( grid_offset, &grid_elems ) )
+      {
+         free( grid_new );
+         Cblacs_abort( context_in, -26 );
+         return;
+      }
       pnum = Cblacs_pnum( context_in, myrow_old, mycol_old );
-      grid_new[ (mycol_new * nprow_new) + myrow_new ] = pnum;
+      grid_new[grid_elems] = pnum;
       proc_inc( &myrow_old, &mycol_old, nprow_in, npcol_in, major_in );
       proc_inc( &myrow_new, &mycol_new, nprow_new, npcol_new, major_out );
    }

@@ -32,4 +32,47 @@ _Static_assert(sizeof(ScaLAPACK_UWord32) == 4,
 _Static_assert(sizeof(ScaLAPACK_BufLen) <= sizeof(size_t),
                "ScaLAPACK_BufLen must fit within size_t.");
 
+static inline int ScaLAPACK_Index64Mul(ScaLAPACK_Index64 left,
+                                       ScaLAPACK_Index64 right,
+                                       ScaLAPACK_Index64 *product)
+{
+    if (left < 0 || right < 0) return 0;
+    if (left != 0 && right > INT64_MAX / left) return 0;
+    *product = left * right;
+    return 1;
+}
+
+static inline int ScaLAPACK_Index64Add(ScaLAPACK_Index64 left,
+                                       ScaLAPACK_Index64 right,
+                                       ScaLAPACK_Index64 *sum)
+{
+    if ((right > 0 && left > INT64_MAX - right) ||
+        (right < 0 && left < INT64_MIN - right)) return 0;
+    *sum = left + right;
+    return 1;
+}
+
+static inline int ScaLAPACK_Index64ToSizeT(ScaLAPACK_Index64 value,
+                                           size_t *result)
+{
+    if (value < 0) return 0;
+    if ((uint64_t) value > (uint64_t) SIZE_MAX) return 0;
+    *result = (size_t) value;
+    return 1;
+}
+
+static inline int ScaLAPACK_Index64ToApiInt(ScaLAPACK_Index64 value,
+                                            ScaLAPACK_ApiInt *result)
+{
+#if SCALAPACK_FORTRAN_INT_BYTES == 4
+    if (value < INT32_MIN || value > INT32_MAX) return 0;
+#elif SCALAPACK_FORTRAN_INT_BYTES == 8
+    if (value < INT64_MIN || value > INT64_MAX) return 0;
+#else
+#error "Unsupported ScaLAPACK API integer width."
+#endif
+    *result = (ScaLAPACK_ApiInt) value;
+    return 1;
+}
+
 #endif
