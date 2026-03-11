@@ -153,10 +153,11 @@
      $                   IOFFA, IROFF, J, JJA, LDA, MYCOL, MYROW,
      $                   NPCOL, NPROW
       REAL               AJJ
+      COMPLEX            DOTC
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           BLACS_ABORT, BLACS_GRIDINFO, CHK1MAT, CGEMV,
-     $                   CLACGV, CSSCAL, IGEBR2D, IGEBS2D,
+      EXTERNAL           BLACS_ABORT, BLACS_GRIDINFO, CCDOTC, CHK1MAT,
+     $                   CGEMV, CLACGV, CSSCAL, IGEBR2D, IGEBS2D,
      $                   INFOG2L, PB_TOPGET, PXERBLA
 *     ..
 *     .. Intrinsic Functions ..
@@ -164,8 +165,7 @@
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
-      COMPLEX            CDOTC
-      EXTERNAL           LSAME, CDOTC
+      EXTERNAL           LSAME
 *     ..
 *     .. Executable Statements ..
 *
@@ -234,8 +234,9 @@
 *
 *                 Compute U(J,J) and test for non-positive-definiteness.
 *
-                  AJJ = REAL( A( IDIAG ) ) -
-     $                  CDOTC( J-JA, A( IOFFA ), 1, A( IOFFA ), 1 )
+                  CALL CCDOTC( J-JA, DOTC, A( IOFFA ), 1, A( IOFFA ),
+     $                         1 )
+                  AJJ = REAL( A( IDIAG ) - DOTC )
                   IF( AJJ.LE.ZERO ) THEN
                      A( IDIAG ) = AJJ
                      INFO = J - JA + 1
@@ -300,8 +301,9 @@
 *
 *                 Compute L(J,J) and test for non-positive-definiteness.
 *
-                  AJJ = REAL( A( IDIAG ) ) -
-     $                  CDOTC( J-JA, A( IOFFA ), LDA, A( IOFFA ), LDA )
+                  CALL CCDOTC( J-JA, DOTC, A( IOFFA ), LDA, A( IOFFA ),
+     $                         LDA )
+                  AJJ = REAL( A( IDIAG ) - DOTC )
                   IF ( AJJ.LE.ZERO ) THEN
                      A( IDIAG ) = AJJ
                      INFO = J - JA + 1

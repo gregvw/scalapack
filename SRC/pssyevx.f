@@ -482,7 +482,7 @@
      $                   INDD, INDD2, INDE, INDE2, INDIBL, INDISP,
      $                   INDTAU, INDWORK, IROFFA, IROFFZ, ISCALE,
      $                   ISIZESTEBZ, ISIZESTEIN, IZROW, LALLWORK,
-     $                   LIWMIN, LLWORK, LWMIN, LWOPT, MAXEIGS, MB_A,
+     $                   J, LIWMIN, LLWORK, LWMIN, LWOPT, MAXEIGS, MB_A,
      $                   MQ0, MYCOL, MYROW, NB, NB_A, NEIG, NN, NNP,
      $                   NP0, NPCOL, NPROCS, NPROW, NPS, NSPLIT,
      $                   NSYTRD_LWOPT, NZZ, OFFSET, RSRC_A, RSRC_Z,
@@ -492,6 +492,7 @@
 *     ..
 *     .. Local Arrays ..
       INTEGER            IDUM1( 4 ), IDUM2( 4 )
+      REAL               ALOC( 2, 2 ), WORKEV( 8 )
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
@@ -502,9 +503,9 @@
 *     ..
 *     .. External Subroutines ..
       EXTERNAL           BLACS_GRIDINFO, CHK1MAT, IGAMN2D, PCHK1MAT,
-     $                   PCHK2MAT, PSELGET, PSLARED1D, PSLASCL, PSORMTR,
-     $                   PSSTEBZ, PSSTEIN, PSSYNTRD, PXERBLA, SGEBR2D,
-     $                   SGEBS2D, SLASRT, SSCAL
+     $                   PCHK2MAT, PSELGET, PSELSET, PSLARED1D, PSLASCL,
+     $                   PSORMTR, PSSTEBZ, PSSTEIN, PSSYTRD, PXERBLA,
+     $                   SGEBR2D, SGEBS2D, SLASRT, SSCAL, SSYEV
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          ABS, DBLE, ICHAR, INT, MAX, MIN, MOD, REAL,
@@ -758,6 +759,41 @@
          IWORK( 1 ) = LIWMIN
          RETURN
       END IF
+
+*     Fall back to a local dense solve for tiny all-eigenvalue problems.
+
+      IF( ALLEIG .AND. N.LE.2 ) THEN
+         DO 105 J = 1, N
+            DO 104 I = 1, N
+               CALL PSELGET( 'A', ' ', ALOC( I, J ), A, IA+I-1,
+     $                       JA+J-1, DESCA )
+  104       CONTINUE
+  105    CONTINUE
+         CALL SSYEV( JOBZ, UPLO, N, ALOC, 2, W, WORKEV, 8, IINFO )
+         INFO = IINFO
+         IF( INFO.NE.0 ) RETURN
+         M = N
+         IF( WANTZ ) THEN
+            NZ = N
+            DO 106 I = 1, N
+               IFAIL( I ) = 0
+  106       CONTINUE
+            ICLUSTR( 1 ) = 0
+            DO 108 I = 1, NPROW*NPCOL
+               GAP( I ) = ZERO
+  108       CONTINUE
+            DO 110 J = 1, N
+               DO 109 I = 1, N
+                  CALL PSELSET( Z, IZ+I-1, JZ+J-1, DESCZ, ALOC( I, J ) )
+  109          CONTINUE
+  110       CONTINUE
+         ELSE
+            NZ = 0
+         END IF
+         WORK( 1 ) = REAL( LWOPT )
+         IWORK( 1 ) = LIWMIN
+         RETURN
+      END IF
 *
 *     Scale matrix to allowable range, if necessary.
 *
@@ -796,13 +832,13 @@
          END IF
       END IF
 *
-*     Call PSSYNTRD to reduce symmetric matrix to tridiagonal form.
+*     Call PSSYTRD to reduce symmetric matrix to tridiagonal form.
 *
       LALLWORK = LLWORK
 *
-      CALL PSSYNTRD( UPLO, N, A, IA, JA, DESCA, WORK( INDD ),
-     $               WORK( INDE ), WORK( INDTAU ), WORK( INDWORK ),
-     $               LLWORK, IINFO )
+      CALL PSSYTRD( UPLO, N, A, IA, JA, DESCA, WORK( INDD ),
+     $              WORK( INDE ), WORK( INDTAU ), WORK( INDWORK ),
+     $              LLWORK, IINFO )
 *
 *
 *     Copy the values of D, E to all processes

@@ -493,12 +493,14 @@
      $                   MYCOL, MYROW, NB, NB_A, NEIG, NHETRD_LWOPT, NN,
      $                   NNP, NP0, NPCOL, NPROCS, NPROW, NPS, NQ0,
      $                   NSPLIT, NZZ, OFFSET, RSRC_A, RSRC_Z, SIZEHEEVX,
-     $                   SIZESTEIN, SQNPC
+     $                   SIZESTEIN, SQNPC, J
       DOUBLE PRECISION   ABSTLL, ANRM, BIGNUM, EPS, RMAX, RMIN, SAFMIN,
      $                   SIGMA, SMLNUM, VLL, VUU
 *     ..
 *     .. Local Arrays ..
       INTEGER            IDUM1( 4 ), IDUM2( 4 )
+      COMPLEX*16         ALOC( 2, 2 ), WORKEV( 8 )
+      DOUBLE PRECISION   RWORKEV( 4 )
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
@@ -510,8 +512,8 @@
 *     .. External Subroutines ..
       EXTERNAL           BLACS_GRIDINFO, CHK1MAT, DGEBR2D, DGEBS2D,
      $                   DLASRT, DSCAL, IGAMN2D, PCHK1MAT, PCHK2MAT,
-     $                   PDLARED1D, PDSTEBZ, PXERBLA, PZELGET, PZHENTRD,
-     $                   PZLASCL, PZSTEIN, PZUNMTR
+     $                   PDLARED1D, PDSTEBZ, PXERBLA, PZELGET, PZELSET,
+     $                   PZHENTRD, PZLASCL, PZSTEIN, PZUNMTR, ZHEEV
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          ABS, DBLE, DCMPLX, ICHAR, INT, MAX, MIN, MOD,
@@ -777,6 +779,43 @@
          M = 0
          WORK( 1 ) = DCMPLX( LWOPT )
          RWORK( 1 ) = DBLE( LRWMIN )
+         IWORK( 1 ) = LIWMIN
+         RETURN
+      END IF
+*
+*     Fall back to a local dense solve for tiny all-eigenvalue problems.
+*
+      IF( ALLEIG .AND. N.LE.2 ) THEN
+         DO 115 J = 1, N
+            DO 114 I = 1, N
+               CALL PZELGET( 'A', ' ', ALOC( I, J ), A, IA+I-1,
+     $                       JA+J-1, DESCA )
+  114       CONTINUE
+  115    CONTINUE
+         CALL ZHEEV( JOBZ, UPLO, N, ALOC, 2, W, WORKEV, 8, RWORKEV,
+     $               IINFO )
+         INFO = IINFO
+         IF( INFO.NE.0 ) RETURN
+         M = N
+         IF( WANTZ ) THEN
+            NZ = N
+            DO 116 I = 1, N
+               IFAIL( I ) = 0
+  116       CONTINUE
+            ICLUSTR( 1 ) = 0
+            DO 118 I = 1, NPROW*NPCOL
+               GAP( I ) = ZERO
+  118       CONTINUE
+            DO 120 J = 1, N
+               DO 119 I = 1, N
+                  CALL PZELSET( Z, IZ+I-1, JZ+J-1, DESCZ, ALOC( I, J ) )
+  119          CONTINUE
+  120       CONTINUE
+         ELSE
+            NZ = 0
+         END IF
+         WORK( 1 ) = DCMPLX( LWOPT )
+         RWORK( 1 ) = DBLE( LRWOPT )
          IWORK( 1 ) = LIWMIN
          RETURN
       END IF

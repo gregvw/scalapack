@@ -1,9 +1,9 @@
 #include "Bdef.h"
 BLACBUFF *BI_Pack(BLACSCONTEXT *ctxt,BVOID *A,BLACBUFF *bp,MPI_Datatype Dtype)
 {
-   BLACBUFF *BI_GetBuff(Int);
-   int i, info, one=1;
-   MPI_Aint eltsiz;
+   ScaLAPACK_BufLen i = 0;
+   int info;
+   MpiInt one=1;
 #ifdef ZeroByteTypeBug
    char *cptr;
    extern BLACBUFF BI_AuxBuff;
@@ -26,9 +26,11 @@ BLACBUFF *BI_Pack(BLACSCONTEXT *ctxt,BVOID *A,BLACBUFF *bp,MPI_Datatype Dtype)
       if (cptr)
       {
          bp = (BLACBUFF *) cptr;
-         bp->Len = bp->N = bp->nAops = 0;
+         bp->BufLen = 0;
+         bp->Len = bp->nAops = 0;
+         bp->N = 0;
          bp->Aops = (MPI_Request *) &cptr[info];
-         bp->Buff = (char *) &bp->Len;
+         bp->Buff = (char *) &bp->BufLen;
          bp->dtype = MPI_BYTE;
          return(bp);
       }
@@ -38,19 +40,14 @@ BLACBUFF *BI_Pack(BLACSCONTEXT *ctxt,BVOID *A,BLACBUFF *bp,MPI_Datatype Dtype)
 #endif
    if (bp == NULL)
    {
-      /* NOTE: MPI_Pack_size_c exists but no need to invoke it for a count of one==1.
-       * The count parameter (one) refers to the number of MPI datatypes, not elements.
-       * Large arrays are handled via MPI derived types, keeping count=1.
-       */
-      info=MPI_Pack_size(one, Dtype, ctxt->scp->comm, &i);
-      bp = BI_GetBuff(i);
+      info = _MPI_Pack_size(one, Dtype, ctxt->scp->comm, &i);
+      bp = BI_GetBuffS(i);
    }
 
    i = 0;
-   /* bp->Len is defined as Int (always int), so it always fits in int parameter. */
-   info=MPI_Pack(A, one, Dtype, bp->Buff, bp->Len, &i, ctxt->scp->comm);
+   info = _MPI_Pack(A, one, Dtype, bp->Buff, bp->BufLen, &i, ctxt->scp->comm);
    bp->dtype = MPI_PACKED;
-   bp->N = i;
+   bp->N = (MpiInt) i;
 
    return(bp);
 }

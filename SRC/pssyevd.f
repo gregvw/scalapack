@@ -163,16 +163,17 @@
 *     ..
 *     .. Local Scalars ..
       LOGICAL            LQUERY, UPPER
-      INTEGER            IACOL, IAROW, ICOFFA, ICOFFZ, ICTXT, IINFO,
+      INTEGER            I, IACOL, IAROW, ICOFFA, ICOFFZ, ICTXT, IINFO,
      $                   INDD, INDE, INDE2, INDTAU, INDWORK, INDWORK2,
      $                   IROFFA, IROFFZ, ISCALE, LIWMIN, LLWORK,
      $                   LLWORK2, LWMIN, MYCOL, MYROW, NB, NP, NPCOL,
-     $                   NPROW, NQ, OFFSET, TRILWMIN
+     $                   NPROW, NQ, OFFSET, TRILWMIN, J
       REAL               ANRM, BIGNUM, EPS, RMAX, RMIN, SAFMIN, SIGMA,
      $                   SMLNUM
 *     ..
 *     .. Local Arrays ..
       INTEGER            IDUM1( 2 ), IDUM2( 2 )
+      REAL               ALOC( 2, 2 ), WORKEV( 8 )
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
@@ -181,9 +182,9 @@
       EXTERNAL           LSAME, INDXG2P, NUMROC, PSLAMCH, PSLANSY
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           BLACS_GRIDINFO, CHK1MAT, PCHK1MAT, PSLARED1D,
-     $                   PSLASCL, PSLASET, PSORMTR, PSSTEDC, PSSYTRD,
-     $                   PXERBLA, SSCAL
+      EXTERNAL           BLACS_GRIDINFO, CHK1MAT, PCHK1MAT, PSELGET,
+     $                   PSELSET, PSLARED1D, PSLASCL, PSLASET, PSORMTR,
+     $                   PSSTEDC, PSSYTRD, PXERBLA, SSCAL, SSYEV
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          ICHAR, MAX, MIN, MOD, REAL, SQRT
@@ -274,6 +275,28 @@
          CALL PXERBLA( ICTXT, 'PSSYEVD', -INFO )
          RETURN
       ELSE IF( LQUERY ) THEN
+         RETURN
+      END IF
+
+*     Fall back to a local dense solve for tiny matrices.
+
+      IF( N.LE.2 ) THEN
+         DO 205 J = 1, N
+            DO 204 I = 1, N
+               CALL PSELGET( 'A', ' ', ALOC( I, J ), A, IA+I-1,
+     $                       JA+J-1, DESCA )
+  204       CONTINUE
+  205    CONTINUE
+         CALL SSYEV( JOBZ, UPLO, N, ALOC, 2, W, WORKEV, 8, IINFO )
+         INFO = IINFO
+         IF( INFO.NE.0 ) RETURN
+         DO 210 J = 1, N
+            DO 209 I = 1, N
+               CALL PSELSET( Z, IZ+I-1, JZ+J-1, DESCZ, ALOC( I, J ) )
+  209       CONTINUE
+  210    CONTINUE
+         WORK( 1 ) = REAL( LWMIN )
+         IWORK( 1 ) = LIWMIN
          RETURN
       END IF
 *

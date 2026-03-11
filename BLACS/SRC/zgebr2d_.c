@@ -75,7 +75,8 @@ F_VOID_FUNC zgebr2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    BLACBUFF *bp=NULL;
    SDRVPTR send;
    MPI_Datatype MatTyp;
-   Int length, src, tlda, error, one=1;
+   Int src, tlda, error, one=1;
+   size_t length;
    char ttop, tscope;
    extern BLACBUFF BI_AuxBuff, *BI_ActiveQ;
 
@@ -153,9 +154,9 @@ F_VOID_FUNC zgebr2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    else
    {
       send = BI_Asend;
-      MPI_Pack_size(one, MatTyp, ctxt->scp->comm, &length);
-      bp = BI_GetBuff(length);
-      bp->N = length;
+      error = _MPI_Pack_size(one, MatTyp, ctxt->scp->comm, &length);
+      bp = BI_GetBuffS(length);
+      bp->N = (MpiInt) length;
       bp->dtype = MPI_PACKED;
 #if ZeroByteTypeBug
       if (MatTyp == MPI_BYTE)

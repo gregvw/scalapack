@@ -72,14 +72,17 @@
      $                   RSRC_ = 7, CSRC_ = 8, LLD_ = 9 )
 *     ..
 *     .. Local Scalars ..
-      INTEGER            CONTEXTC, CSRC_A, IACOL, IAROW, ICOFFA, IROFFA,
-     $                   LCM, LCMQ, LDA, LDC, MQ0, MYCOL, MYPCOLC,
-     $                   MYPROWC, MYROW, N, NB, NEIG, NN, NNP, NP,
-     $                   NPCOLC, NPROWC, NP0, NPCOL, NPROW, NQ, RSRC_A
+      INTEGER            ANB, CONTEXTC, CSRC_A, IACOL, IAROW, ICOFFA,
+     $                   IROFFA, LCM, LCMQ, LDA, LDC, MQ0, MYCOL,
+     $                   MYPCOLC, MYPROWC, MYROW, N, NB, NEIG, NN, NNP,
+     $                   NP, NPCOLC, NPROWC, NP0, NPCOL, NPROW, NPS,
+     $                   NQ, NSYTRD_LWOPT, RSRC_A, SQNPC
 *     ..
 *     .. External Functions ..
-      INTEGER            ICEIL, ILCM, INDXG2P, NUMROC, SL_GRIDRESHAPE
-      EXTERNAL           ICEIL, ILCM, INDXG2P, NUMROC, SL_GRIDRESHAPE
+      INTEGER            ICEIL, ILCM, INDXG2P, NUMROC, PJLAENV,
+     $                   SL_GRIDRESHAPE
+      EXTERNAL           ICEIL, ILCM, INDXG2P, NUMROC, PJLAENV,
+     $                   SL_GRIDRESHAPE
 *     ..
 *     .. Executable Statements ..
 *
@@ -128,6 +131,11 @@
       MQ0 = NUMROC( MAX( NEIG, NB, 2 ), NB, 0, 0, NPCOL )
       SIZESYEVX = 5*N + MAX( 5*NN, NP0*MQ0+2*NB*NB ) +
      $            ICEIL( NEIG, NPROW*NPCOL )*NN
+      ANB = PJLAENV( DESCA( CTXT_ ), 3, 'PSSYTTRD', 'L', 0, 0, 0, 0 )
+      SQNPC = MAX( 1, INT( SQRT( REAL( NPROW*NPCOL ) ) ) )
+      NPS = MAX( NUMROC( N, 1, 0, 0, SQNPC ), 2*ANB )
+      NSYTRD_LWOPT = 2*( ANB+1 )*( 4*NPS+2 ) + ( NPS+4 )*NPS
+      SIZESYEVX = MAX( SIZESYEVX, 5*N+NSYTRD_LWOPT )
       NNP = MAX( N, NPROW*NPCOL+1, 4 )
       ISIZESYEVX = 6*NNP
 *
@@ -149,7 +157,8 @@
       ISIZESYEVD = 2+7*N+8*NPCOL
 *
       SIZESUBTST = MAX( SIZETMS, SIZEQTQ, SIZECHK, SIZESYEVX,
-     $                  SIZEMQRLEFT, SIZEMQRRIGHT, SIZESYEV ) +
+     $                  SIZEMQRLEFT, SIZEMQRRIGHT, SIZESYEV,
+     $                  SIZESYEVD ) +
      $                  IPREPAD + IPOSTPAD
       ISIZESUBTST = ISIZESYEVX + IPREPAD + IPOSTPAD
 *

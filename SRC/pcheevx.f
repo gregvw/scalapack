@@ -493,12 +493,14 @@
      $                   MYCOL, MYROW, NB, NB_A, NEIG, NHETRD_LWOPT, NN,
      $                   NNP, NP0, NPCOL, NPROCS, NPROW, NPS, NQ0,
      $                   NSPLIT, NZZ, OFFSET, RSRC_A, RSRC_Z, SIZEHEEVX,
-     $                   SIZESTEIN, SQNPC
+     $                   SIZESTEIN, SQNPC, J
       REAL               ABSTLL, ANRM, BIGNUM, EPS, RMAX, RMIN, SAFMIN,
      $                   SIGMA, SMLNUM, VLL, VUU
 *     ..
 *     .. Local Arrays ..
       INTEGER            IDUM1( 4 ), IDUM2( 4 )
+      COMPLEX            ALOC( 2, 2 ), WORKEV( 8 )
+      REAL               RWORKEV( 4 )
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
@@ -508,10 +510,10 @@
      $                   PCLANHE, PSLAMCH
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           BLACS_GRIDINFO, CHK1MAT, IGAMN2D, PCELGET,
-     $                   PCHENTRD, PCHK1MAT, PCHK2MAT, PCLASCL, PCSTEIN,
-     $                   PCUNMTR, PSLARED1D, PSSTEBZ, PXERBLA, SGEBR2D,
-     $                   SGEBS2D, SLASRT, SSCAL
+      EXTERNAL           BLACS_GRIDINFO, CHEEV, CHK1MAT, IGAMN2D,
+     $                   PCELGET, PCELSET, PCHETRD, PCHK1MAT, PCHK2MAT,
+     $                   PCLASCL, PCSTEIN, PCUNMTR, PSLARED1D, PSSTEBZ,
+     $                   PXERBLA, SGEBR2D, SGEBS2D, SLASRT, SSCAL
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          ABS, CMPLX, DBLE, ICHAR, INT, MAX, MIN, MOD,
@@ -781,6 +783,43 @@
          RETURN
       END IF
 *
+*     Fall back to a local dense solve for tiny all-eigenvalue problems.
+*
+      IF( ALLEIG .AND. N.LE.2 ) THEN
+         DO 105 J = 1, N
+            DO 104 I = 1, N
+               CALL PCELGET( 'A', ' ', ALOC( I, J ), A, IA+I-1,
+     $                       JA+J-1, DESCA )
+  104       CONTINUE
+  105    CONTINUE
+         CALL CHEEV( JOBZ, UPLO, N, ALOC, 2, W, WORKEV, 8, RWORKEV,
+     $               IINFO )
+         INFO = IINFO
+         IF( INFO.NE.0 ) RETURN
+         M = N
+         IF( WANTZ ) THEN
+            NZ = N
+            DO 106 I = 1, N
+               IFAIL( I ) = 0
+  106       CONTINUE
+            ICLUSTR( 1 ) = 0
+            DO 108 I = 1, NPROW*NPCOL
+               GAP( I ) = ZERO
+  108       CONTINUE
+            DO 110 J = 1, N
+               DO 109 I = 1, N
+                  CALL PCELSET( Z, IZ+I-1, JZ+J-1, DESCZ, ALOC( I, J ) )
+  109          CONTINUE
+  110       CONTINUE
+         ELSE
+            NZ = 0
+         END IF
+         WORK( 1 ) = CMPLX( LWOPT )
+         RWORK( 1 ) = REAL( LRWOPT )
+         IWORK( 1 ) = LIWMIN
+         RETURN
+      END IF
+*
 *     Scale matrix to allowable range, if necessary.
 *
       ABSTLL = ABSTOL
@@ -819,13 +858,13 @@
          END IF
       END IF
 *
-*     Call PCHENTRD to reduce Hermitian matrix to tridiagonal form.
+*     Call PCHETRD to reduce Hermitian matrix to tridiagonal form.
 *
       LALLWORK = LLRWORK
 *
-      CALL PCHENTRD( UPLO, N, A, IA, JA, DESCA, RWORK( INDD ),
-     $               RWORK( INDE ), WORK( INDTAU ), WORK( INDWORK ),
-     $               LLWORK, RWORK( INDRWORK ), LLRWORK, IINFO )
+      CALL PCHETRD( UPLO, N, A, IA, JA, DESCA, RWORK( INDD ),
+     $              RWORK( INDE ), WORK( INDTAU ), WORK( INDWORK ),
+     $              LLWORK, IINFO )
 *
 *
 *     Copy the values of D, E to all processes

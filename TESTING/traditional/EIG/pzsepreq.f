@@ -112,7 +112,8 @@
       EXTERNAL           ICEIL, NUMROC
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           BLACS_ABORT, BLACS_GET, BLACS_GRIDEXIT,
+      EXTERNAL           BLACS_ABORT, BLACS_BARRIER, BLACS_GET,
+     $                   BLACS_GRIDEXIT,
      $                   BLACS_GRIDINFO, BLACS_GRIDINIT, BLACS_PINFO,
      $                   DESCINIT, PDSEPINFO, PZLASIZESEP, PZSEPTST
 *     ..
@@ -132,8 +133,6 @@
      $                MATSIZES, NUPLOS, UPLOS, NPCONFIGS, NPROWS,
      $                NPCOLS, NBS, NMATTYPES, MATTYPES, 22, SUBTESTS,
      $                THRESH, ORDER, ABSTOL, INFO )
-*
-      CALL BLACS_GRIDEXIT( INITCON )
 *
       IF( INFO.EQ.0 ) THEN
 *
@@ -228,12 +227,14 @@ C    $                       *ZPLXSZ / DBLESZ
                         END IF
                         CALL BLACS_GRIDEXIT( CONTEXT )
                      END IF
+                     CALL BLACS_BARRIER( INITCON, 'All' )
    10             CONTINUE
    20          CONTINUE
    30       CONTINUE
    40    CONTINUE
       END IF
 *
+      CALL BLACS_GRIDEXIT( INITCON )
 *
       RETURN
 *

@@ -42,7 +42,7 @@ void BI_UpdateBuffs(BLACBUFF *Newbp)
  *       If inactive buff bigger than present ready buff, release ready,
  *       and inactive buff becomes ready
  */
-	 else if (BI_ReadyB->Len < bp->Len)
+	 else if (BI_ReadyB->BufLen < bp->BufLen)
 	 {
 	    free(BI_ReadyB);
 	    BI_ReadyB = bp;

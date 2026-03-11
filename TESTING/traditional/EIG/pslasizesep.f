@@ -66,13 +66,14 @@
      $                   RSRC_ = 7, CSRC_ = 8, LLD_ = 9 )
 *     ..
 *     .. Local Scalars ..
-      INTEGER            CSRC_A, IACOL, IAROW, ICOFFA, IROFFA, LCM,
+      INTEGER            ANB, CSRC_A, IACOL, IAROW, ICOFFA, IROFFA, LCM,
      $                   LCMQ, LDA, MQ0, MYCOL, MYROW, N, NB, NEIG, NN,
-     $                   NNP, NP, NP0, NPCOL, NPROW, NQ, RSRC_A
+     $                   NNP, NP, NP0, NPCOL, NPROW, NPS, NQ, RSRC_A,
+     $                   NSYTRD_LWOPT, SQNPC
 *     ..
 *     .. External Functions ..
-      INTEGER            ICEIL, ILCM, INDXG2P, NUMROC
-      EXTERNAL           ICEIL, ILCM, INDXG2P, NUMROC
+      INTEGER            ICEIL, ILCM, INDXG2P, NUMROC, PJLAENV
+      EXTERNAL           ICEIL, ILCM, INDXG2P, NUMROC, PJLAENV
 *     ..
 **     .. Executable Statements ..
 *       This is just to keep ftnchek happy
@@ -121,6 +122,11 @@
       MQ0 = NUMROC( MAX( NEIG, NB, 2 ), NB, 0, 0, NPCOL )
       SIZESYEVX = 5*N + MAX( 5*NN, NP0*MQ0+2*NB*NB ) +
      $            ICEIL( NEIG, NPROW*NPCOL )*NN
+      ANB = PJLAENV( DESCA( CTXT_ ), 3, 'PSSYTTRD', 'L', 0, 0, 0, 0 )
+      SQNPC = MAX( 1, INT( SQRT( REAL( NPROW*NPCOL ) ) ) )
+      NPS = MAX( NUMROC( N, 1, 0, 0, SQNPC ), 2*ANB )
+      NSYTRD_LWOPT = 2*( ANB+1 )*( 4*NPS+2 ) + ( NPS+4 )*NPS
+      SIZESYEVX = MAX( SIZESYEVX, 5*N+NSYTRD_LWOPT )
       NNP = MAX( N, NPROW*NPCOL+1, 4 )
       ISIZESYEVX = 6*NNP
 *

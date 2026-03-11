@@ -112,24 +112,25 @@
 *     ..
 *     .. Local Scalars ..
 *
-      INTEGER            CLUSTERSIZE, I, ILMIN, IUMAX, MAXCLUSTERSIZE,
-     $                   MQ0, MYCOL, MYIL, MYIU, MYROW, NB, NEIG, NN,
-     $                   NP0, NPCOL, NPROW
+      INTEGER            ANB, CLUSTERSIZE, I, ILMIN, IUMAX,
+     $                   MAXCLUSTERSIZE, MQ0, MYCOL, MYIL, MYIU, MYROW,
+     $                   NB, NEIG, NN, NPS, NP0, NPCOL, NPROW, SQNPC,
+     $                   TRDSIZE
       REAL               ANORM, EPS, ORFAC, SAFMIN, VLMIN, VUMAX
 *     ..
 *     .. External Functions ..
 *
 *
       LOGICAL            LSAME
-      INTEGER            ICEIL, NUMROC
+      INTEGER            ICEIL, NUMROC, PJLAENV
       REAL               PSLAMCH, SLARAN
-      EXTERNAL           LSAME, ICEIL, NUMROC, PSLAMCH, SLARAN
+      EXTERNAL           LSAME, ICEIL, NUMROC, PJLAENV, PSLAMCH, SLARAN
 *     ..
 *     .. External Subroutines ..
       EXTERNAL           BLACS_GRIDINFO
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          ABS, INT, MAX, REAL
+      INTRINSIC          ABS, INT, MAX, REAL, SQRT
 *     ..
 *     .. Executable Statements ..
 *       This is just to keep ftnchek happy
@@ -145,8 +146,12 @@
       NB = DESCA( MB_ )
       NN = MAX( N, NB, 2 )
       NP0 = NUMROC( NN, NB, 0, 0, NPROW )
+      ANB = PJLAENV( DESCA( CTXT_ ), 3, 'PCHETTRD', 'L', 0, 0, 0, 0 )
+      SQNPC = INT( SQRT( REAL( NPROW*NPCOL ) ) )
+      NPS = MAX( NUMROC( N, 1, 0, 0, SQNPC ), 2*ANB )
+      TRDSIZE = N + 2*( ANB+1 )*( 4*NPS+2 ) + ( NPS+2 )*NPS
 *
-      VALSIZE = 5*NN + 4*N
+      VALSIZE = MAX( 5*NN + 4*N, TRDSIZE )
 *
       IF( WKNOWN ) THEN
          ANORM = SAFMIN / EPS
@@ -203,6 +208,7 @@
       MQ0 = NUMROC( MAX( NEIG, NB, 2 ), NB, 0, 0, NPCOL )
       VECSIZE = 4*N + MAX( 5*NN, NP0*MQ0 ) +
      $          ICEIL( NEIG, NPROW*NPCOL )*NN
+      VECSIZE = MAX( VECSIZE, TRDSIZE )
 *
       IF( WKNOWN ) THEN
          CLUSTERSIZE = 1
@@ -223,6 +229,7 @@
       END IF
 *
       MAXSIZE = VECSIZE + MAX( ( MAXCLUSTERSIZE-1 ), 0 )*N
+      MAXSIZE = MAX( MAXSIZE, TRDSIZE )
 *
 *
       RETURN

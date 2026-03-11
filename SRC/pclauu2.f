@@ -140,8 +140,7 @@
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
-      COMPLEX            CDOTC
-      EXTERNAL           LSAME, CDOTC
+      EXTERNAL           LSAME
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          CMPLX, REAL
@@ -192,8 +191,8 @@
             DO 20 NA = 1, N-1
                AII = A( IDIAG )
                ICURR = IDIAG + 1
-               A(IDIAG) = AII*AII + REAL( CDOTC( N-NA, A( ICURR ), 1,
-     $                                           A( ICURR ), 1 ) )
+               CALL CCDOTC( N-NA, DOTC, A( ICURR ), 1, A( ICURR ), 1 )
+               A(IDIAG) = AII*AII + REAL( DOTC )
                CALL CLACGV( NA-1, A( IOFFA ), LDA )
                CALL CGEMV( 'Conjugate transpose', N-NA, NA-1, ONE,
      $                     A( IOFFA+1 ), LDA, A( ICURR ), 1,

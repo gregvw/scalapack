@@ -37,6 +37,7 @@
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include "scalapack-types.h"
 
 #if( _MACH_ == _T3D_ )
 #include <fortran.h>
@@ -92,6 +93,9 @@
 #ifndef Int
 #define Int int
 #endif
+
+_Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
+               "Int must match the configured ScaLAPACK API integer width.");
 
 typedef struct { float  re, im; } complex;
 typedef struct { double re, im; } complex16;

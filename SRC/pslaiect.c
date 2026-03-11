@@ -17,7 +17,20 @@
 #include "pblas.h"
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #define  proto(x)	()
+
+static ScaLAPACK_UWord32 scalapack_float_word(float x)
+{
+   ScaLAPACK_UWord32 bits;
+   memcpy(&bits, &x, sizeof(bits));
+   return bits;
+}
+
+static Int scalapack_float_signbit(float x)
+{
+   return (Int) ((scalapack_float_word(x) >> 31) & 1U);
+}
 
 
 void pslasnbt_( Int *ieflag )
@@ -53,8 +66,6 @@ void pslasnbt_( Int *ieflag )
 *  .. Local Scalars ..
 */
    float x;
-   Int         negone=-1, errornum;
-   unsigned Int *ix; 
 /* ..
 *  .. Executable Statements ..
 */
@@ -62,13 +73,8 @@ void pslasnbt_( Int *ieflag )
 #ifdef NO_IEEE
    *ieflag = 0;
 #else
-   if(sizeof(Int) != 4){
-      *ieflag = 0;
-      return;
-   }
    x = (float) -1.0;
-   ix = (unsigned Int *) &x;
-   if( *ix == 0xbff00000 )
+   if( scalapack_float_word(x) == 0xbf800000U )
    {
       *ieflag = 1;
    } else {
@@ -134,11 +140,11 @@ void pslaiect_( float *sigma, Int *n, float *d, Int *count )
    lsigma = *sigma;
    pd = d; pe2 = d+1;
    tmp = *pd - lsigma; pd += 2;
-   *count = (*((Int *)&tmp) >> 31) & 1;
+   *count = scalapack_float_signbit(tmp);
    for(i = 1;i < *n;i++){
       tmp = *pd - *pe2/tmp - lsigma;
       pd += 2; pe2 += 2;
-      *count += ((*((Int *)&tmp)) >> 31) & 1;
+      *count += scalapack_float_signbit(tmp);
    }
 }
 
@@ -178,13 +184,18 @@ void pslachkieee_( Int *isieee, float *rmax, float *rmin )
 *
 *  .. Local Scalars ..
 */
-   float x, pinf, pzero, ninf, nzero;
-   Int         ieflag, *ix, sbit1, sbit2, negone=-1, errornum;
+   float pinf, pzero, ninf, nzero;
+   Int         ieflag, sbit1, sbit2;
 /* ..
 *  .. Executable Statements ..
 */
 
+   *isieee = 1;
    pslasnbt_( &ieflag );
+   if( ieflag != 1 ){
+      *isieee = 0;
+      return;
+   }
 
    pinf = *rmax / *rmin;
    pzero = 1.0 / pinf;
@@ -195,10 +206,8 @@ void pslachkieee_( Int *isieee, float *rmax, float *rmin )
       *isieee = 0; 
       return ;
    }
-   if( ieflag == 1 ){
-      sbit1 = (*((Int *)&pzero) >> 31) & 1;
-      sbit2 = (*((Int *)&pinf) >> 31) & 1;
-   }
+   sbit1 = scalapack_float_signbit(pzero);
+   sbit2 = scalapack_float_signbit(pinf);
    if( sbit1 == 1 ){
       printf("Sign of positive infinity is incorrect\n");
       *isieee = 0;
@@ -216,10 +225,8 @@ void pslachkieee_( Int *isieee, float *rmax, float *rmin )
       printf("nzero = %g should be zero\n",nzero);
       *isieee = 0;
    }
-   if( ieflag == 1 ){
-      sbit1 = (*((Int *)&nzero) >> 31) & 1;
-      sbit2 = (*((Int *)&ninf) >> 31) & 1;
-   }
+   sbit1 = scalapack_float_signbit(nzero);
+   sbit2 = scalapack_float_signbit(ninf);
    if( sbit1 == 0 ){
       printf("Sign of negative infinity is incorrect\n");
       *isieee = 0;

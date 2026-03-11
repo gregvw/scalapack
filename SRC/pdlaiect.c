@@ -17,7 +17,21 @@
 #include "pblas.h"
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #define  proto(x)	()
+
+static void scalapack_double_words(double x, ScaLAPACK_UWord32 words[2])
+{
+   memcpy(words, &x, sizeof(ScaLAPACK_UWord32) * 2);
+}
+
+static Int scalapack_double_signbit(double x, Int ieflag)
+{
+   ScaLAPACK_UWord32 words[2];
+   scalapack_double_words(x, words);
+   if( ieflag == 1 ) return (Int) ((words[0] >> 31) & 1U);
+   return (Int) ((words[1] >> 31) & 1U);
+}
 
 
 void pdlasnbt_( Int *ieflag )
@@ -56,8 +70,7 @@ void pdlasnbt_( Int *ieflag )
 *  .. Local Scalars ..
 */
    double x;
-   Int         negone=-1, errornum;
-   unsigned Int *ix; 
+   ScaLAPACK_UWord32 words[2];
 /* ..
 *  .. Executable Statements ..
 */
@@ -65,16 +78,12 @@ void pdlasnbt_( Int *ieflag )
 #ifdef NO_IEEE
    *ieflag = 0;
 #else
-   if(sizeof(Int) != 4){
-      *ieflag = 0;
-      return;
-   }
    x = (double) -1.0;
-   ix = (unsigned Int *) &x;
-   if(( *ix == 0xbff00000) && ( *(ix+1) == 0x0) ) 
+   scalapack_double_words(x, words);
+   if(( words[0] == 0xbff00000U ) && ( words[1] == 0x0U ) )
    {
       *ieflag = 1;
-   } else if(( *(ix+1) == 0xbff00000) && ( *ix == 0x0) ) {
+   } else if(( words[1] == 0xbff00000U ) && ( words[0] == 0x0U ) ) {
       *ieflag = 2;
    } else {
       *ieflag = 0; 
@@ -140,11 +149,11 @@ void pdlaiectb_( double *sigma, Int *n, double *d, Int *count )
    lsigma = *sigma;
    pd = d; pe2 = d+1;
    tmp = *pd - lsigma; pd += 2;
-   *count = (*((Int *)&tmp) >> 31) & 1;
+   *count = scalapack_double_signbit(tmp, 1);
    for(i = 1;i < *n;i++){
       tmp = *pd - *pe2/tmp - lsigma;
       pd += 2; pe2 += 2;
-      *count += ((*((Int *)&tmp)) >> 31) & 1;
+      *count += scalapack_double_signbit(tmp, 1);
    }
 }
 
@@ -206,11 +215,11 @@ void pdlaiectl_( double *sigma, Int *n, double *d, Int *count )
    lsigma = *sigma;
    pd = d; pe2 = d+1;
    tmp = *pd - lsigma; pd += 2;
-   *count = (*(((Int *)&tmp)+1) >> 31) & 1;
+   *count = scalapack_double_signbit(tmp, 2);
    for(i = 1;i < *n;i++){
       tmp = *pd - *pe2/tmp - lsigma;
       pd += 2; pe2 += 2;
-      *count += (*(((Int *)&tmp)+1) >> 31) & 1;
+      *count += scalapack_double_signbit(tmp, 2);
    }
 }
 
@@ -250,13 +259,18 @@ void pdlachkieee_( Int *isieee, double *rmax, double *rmin )
 *
 *  .. Local Scalars ..
 */
-   double x, pinf, pzero, ninf, nzero;
-   Int         ieflag, *ix, sbit1, sbit2, negone=-1, errornum;
+   double pinf, pzero, ninf, nzero;
+   Int         ieflag, sbit1, sbit2;
 /* ..
 *  .. Executable Statements ..
 */
 
+   *isieee = 1;
    pdlasnbt_( &ieflag );
+   if( ( ieflag != 1 ) && ( ieflag != 2 ) ){
+      *isieee = 0;
+      return;
+   }
 
    pinf = *rmax / *rmin;
    pzero = 1.0 / pinf;
@@ -267,13 +281,8 @@ void pdlachkieee_( Int *isieee, double *rmax, double *rmin )
       *isieee = 0; 
       return ;
    }
-   if( ieflag == 1 ){
-      sbit1 = (*((Int *)&pzero) >> 31) & 1;
-      sbit2 = (*((Int *)&pinf) >> 31) & 1;
-   }else if(ieflag == 2){
-      sbit1 = (*(((Int *)&pzero)+1) >> 31) & 1;
-      sbit2 = (*(((Int *)&pinf)+1) >> 31) & 1;
-   }
+   sbit1 = scalapack_double_signbit(pzero, ieflag);
+   sbit2 = scalapack_double_signbit(pinf, ieflag);
    if( sbit1 == 1 ){
       printf("Sign of positive infinity is incorrect\n");
       *isieee = 0;
@@ -291,13 +300,8 @@ void pdlachkieee_( Int *isieee, double *rmax, double *rmin )
       printf("nzero = %g should be zero\n",nzero);
       *isieee = 0;
    }
-   if( ieflag == 1 ){
-      sbit1 = (*((Int *)&nzero) >> 31) & 1;
-      sbit2 = (*((Int *)&ninf) >> 31) & 1;
-   }else if(ieflag == 2){
-      sbit1 = (*(((Int *)&nzero)+1) >> 31) & 1;
-      sbit2 = (*(((Int *)&ninf)+1) >> 31) & 1;
-   }
+   sbit1 = scalapack_double_signbit(nzero, ieflag);
+   sbit2 = scalapack_double_signbit(ninf, ieflag);
    if( sbit1 == 0 ){
       printf("Sign of negative infinity is incorrect\n");
       *isieee = 0;

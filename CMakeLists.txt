@@ -3,9 +3,11 @@ cmake_minimum_required(VERSION 3.26...4.0)
 project(SCALAPACK VERSION 2.2.2 LANGUAGES C Fortran)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_EXTENSIONS OFF)
+include(CheckCSourceCompiles)
 
 # Add the CMake directory for custon CMake modules
 set(CMAKE_MODULE_PATH "${SCALAPACK_SOURCE_DIR}/CMAKE" ${CMAKE_MODULE_PATH})
+include(CheckFortranIntegerABI)
 
 if (UNIX)
    if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
@@ -146,8 +148,88 @@ ADD_DEFINITIONS( "-D${CDEFS}")
 # ScaLAPACK needs BLAS and LAPACK
 
 option(USE_OPTIMIZED_LAPACK_BLAS "Whether or not to search for optimized LAPACK and BLAS libraries on your machine (if not found, Reference LAPACK and BLAS will be downloaded and installed)" ON)
+option(SCALAPACK_PREFER_OPENBLAS_ON_APPLE_SILICON
+       "Prefer OpenBLAS over Accelerate on macOS arm64 unless the user explicitly selects another BLAS/LAPACK backend"
+       ON)
+set(SCALAPACK_FORTRAN_INT_BYTES "" CACHE STRING
+    "Default Fortran INTEGER width in bytes (auto-detected when empty; supported values: 4 or 8)")
+set(SCALAPACK_EXPECT_BLAS_INT_BYTES 4 CACHE STRING
+    "Expected BLAS integer width in bytes when an OpenBLAS library is detected (supported values: 4 or 8)")
+set(SCALAPACK_BLACS_BUFFER_SIZE_TYPE "size_t" CACHE STRING
+    "C type used for BLACS internal packed-buffer byte lengths")
+
+CheckFortranIntegerABI(_scalapack_fortran_int_bytes)
+set(SCALAPACK_FORTRAN_INT_BYTES "${_scalapack_fortran_int_bytes}" CACHE STRING
+    "Default Fortran INTEGER width in bytes (auto-detected when empty; supported values: 4 or 8)" FORCE)
+message(STATUS "Default Fortran INTEGER width: ${SCALAPACK_FORTRAN_INT_BYTES} bytes")
+
+if(SCALAPACK_FORTRAN_INT_BYTES STREQUAL "4")
+   set(SCALAPACK_API_INT_C_TYPE "int32_t")
+elseif(SCALAPACK_FORTRAN_INT_BYTES STREQUAL "8")
+   set(SCALAPACK_API_INT_C_TYPE "int64_t")
+else()
+   message(FATAL_ERROR "SCALAPACK_FORTRAN_INT_BYTES must be 4 or 8.")
+endif()
+
+if(SCALAPACK_EXPECT_BLAS_INT_BYTES STREQUAL "4")
+   set(SCALAPACK_BLAS_INT_C_TYPE "int32_t")
+elseif(SCALAPACK_EXPECT_BLAS_INT_BYTES STREQUAL "8")
+   set(SCALAPACK_BLAS_INT_C_TYPE "int64_t")
+else()
+   message(FATAL_ERROR "SCALAPACK_EXPECT_BLAS_INT_BYTES must be 4 or 8.")
+endif()
+
+if(NOT SCALAPACK_FORTRAN_INT_BYTES STREQUAL SCALAPACK_EXPECT_BLAS_INT_BYTES)
+   message(FATAL_ERROR
+           "Mixed-width ScaLAPACK/BLAS builds are not supported yet: "
+           "Fortran INTEGER is ${SCALAPACK_FORTRAN_INT_BYTES} bytes, "
+           "but SCALAPACK_EXPECT_BLAS_INT_BYTES is ${SCALAPACK_EXPECT_BLAS_INT_BYTES}.")
+endif()
+
+check_c_source_compiles(
+"#include <stddef.h>
+typedef ${SCALAPACK_BLACS_BUFFER_SIZE_TYPE} scalapack_buflen_t;
+typedef char scalapack_buflen_must_fit_size_t[(sizeof(scalapack_buflen_t) <= sizeof(size_t)) ? 1 : -1];
+int main(void) {
+  scalapack_buflen_t x = 0;
+  return (int) x;
+}
+" SCALAPACK_BLACS_BUFFER_SIZE_TYPE_VALID)
+
+if(NOT SCALAPACK_BLACS_BUFFER_SIZE_TYPE_VALID)
+   message(FATAL_ERROR
+           "SCALAPACK_BLACS_BUFFER_SIZE_TYPE='${SCALAPACK_BLACS_BUFFER_SIZE_TYPE}' is not a valid C type or is wider than size_t.")
+endif()
+
+configure_file(${SCALAPACK_SOURCE_DIR}/CMAKE/scalapack-types.h.in
+               ${SCALAPACK_BINARY_DIR}/scalapack-types.h
+               @ONLY)
+include_directories(${SCALAPACK_BINARY_DIR})
 
 message(STATUS "CHECKING BLAS AND LAPACK LIBRARIES")
+
+set(_scalapack_force_openblas FALSE)
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin"
+   AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$"
+   AND SCALAPACK_PREFER_OPENBLAS_ON_APPLE_SILICON
+   AND NOT LAPACK_LIBRARIES
+   AND NOT DEFINED BLA_VENDOR)
+   set(_scalapack_force_openblas TRUE)
+   set(BLA_VENDOR OpenBLAS)
+   foreach(_scalapack_openblas_hint
+           /opt/homebrew/opt/openblas
+           /opt/homebrew/opt/openblas/lib
+           /opt/local/lib/openblas
+           /opt/local/lib)
+      if(EXISTS "${_scalapack_openblas_hint}")
+         list(PREPEND CMAKE_PREFIX_PATH "${_scalapack_openblas_hint}")
+      endif()
+   endforeach()
+   message(STATUS
+           "macOS arm64 detected: preferring OpenBLAS over Accelerate. "
+           "Install OpenBLAS or set "
+           "-DSCALAPACK_PREFER_OPENBLAS_ON_APPLE_SILICON=OFF to allow Accelerate.")
+endif()
 
 IF(LAPACK_LIBRARIES)
   include(CheckFortranFunctionExists)
@@ -164,6 +246,14 @@ else(LAPACK_FOUND)
    if(USE_OPTIMIZED_LAPACK_BLAS)
       message(STATUS "--> Searching for optimized LAPACK and BLAS libraries on your machine.")
       find_package(LAPACK)
+      if(_scalapack_force_openblas AND NOT LAPACK_FOUND)
+         message(FATAL_ERROR
+                 "macOS arm64 builds default to OpenBLAS because Accelerate can cause "
+                 "pathological eigensolver test behavior on Apple Silicon. "
+                 "Install OpenBLAS (for example: brew install openblas) or configure "
+                 "with -DSCALAPACK_PREFER_OPENBLAS_ON_APPLE_SILICON=OFF to allow "
+                 "CMake to fall back to Accelerate.")
+      endif()
    ENDIF(USE_OPTIMIZED_LAPACK_BLAS)
    if(NOT LAPACK_FOUND)
       message(STATUS "--> LAPACK and BLAS were not found. Reference LAPACK and BLAS will be downloaded and installed")
@@ -186,6 +276,11 @@ ENDIF()
 
 message(STATUS "BLAS library: ${BLAS_LIBRARIES}")
 message(STATUS "LAPACK library: ${LAPACK_LIBRARIES}")
+
+if(LAPACK_FOUND)
+   include(CheckBlasIntegerABI)
+   CheckBlasIntegerABI(${SCALAPACK_EXPECT_BLAS_INT_BYTES})
+endif()
 
 MESSAGE(STATUS "=========")
 

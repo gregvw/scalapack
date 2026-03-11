@@ -1,9 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include "scalapack-types.h"
 
 #ifndef Int
 #define Int int
 #endif
+
+_Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
+               "Int must match the configured ScaLAPACK API integer width.");
 
 Int SL_Cgridreshape(Int ctxt, Int pstart, Int row_major_in, Int row_major_out, Int P, Int Q)
 {

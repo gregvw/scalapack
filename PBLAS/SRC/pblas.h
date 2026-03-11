@@ -42,6 +42,7 @@
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include "scalapack-types.h"
 
 #ifdef __STDC__
 #include <stdarg.h>
@@ -104,6 +105,9 @@
 #ifndef Int
 #define Int int
 #endif
+
+_Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
+               "Int must match the configured ScaLAPACK API integer width.");
 
 #if( ( _MACH_ == _T3D_ ) || ( _MACH_ == _T3E_ ) )
 

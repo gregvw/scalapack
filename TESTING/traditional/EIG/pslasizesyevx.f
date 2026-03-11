@@ -112,18 +112,20 @@
 *     ..
 *     .. Local Scalars ..
 *
-      INTEGER            CLUSTERSIZE, I, ILMIN, IUMAX, MAXCLUSTERSIZE,
-     $                   MQ0, MYCOL, MYIL, MYIU, MYROW, NB, NEIG, NN,
-     $                   NP0, NPCOL, NPROW
+      INTEGER            ANB, CLUSTERSIZE, I, ILMIN, IUMAX,
+     $                   MAXCLUSTERSIZE, MQ0, MYCOL, MYIL, MYIU, MYROW,
+     $                   NB, NEIG, NN, NP0, NPCOL, NPROW, NPS,
+     $                   NSYTRD_LWOPT, SQNPC
       REAL               ANORM, EPS, ORFAC, SAFMIN, VLMIN, VUMAX
 *     ..
 *     .. External Functions ..
 *
 *
       LOGICAL            LSAME
-      INTEGER            ICEIL, NUMROC
+      INTEGER            ICEIL, NUMROC, PJLAENV
       REAL               PSLAMCH, SLARAN
-      EXTERNAL           LSAME, ICEIL, NUMROC, PSLAMCH, SLARAN
+      EXTERNAL           LSAME, ICEIL, NUMROC, PJLAENV, PSLAMCH,
+     $                   SLARAN
 *     ..
 *     .. External Subroutines ..
       EXTERNAL           BLACS_GRIDINFO
@@ -203,6 +205,11 @@
       MQ0 = NUMROC( MAX( NEIG, NB, 2 ), NB, 0, 0, NPCOL )
       VECSIZE = 5*N + MAX( 5*NN, NP0*MQ0+2*NB*NB ) +
      $          ICEIL( NEIG, NPROW*NPCOL )*NN
+      ANB = PJLAENV( DESCA( CTXT_ ), 3, 'PSSYTTRD', 'L', 0, 0, 0, 0 )
+      SQNPC = MAX( 1, INT( SQRT( REAL( NPROW*NPCOL ) ) ) )
+      NPS = MAX( NUMROC( N, 1, 0, 0, SQNPC ), 2*ANB )
+      NSYTRD_LWOPT = 2*( ANB+1 )*( 4*NPS+2 ) + ( NPS+4 )*NPS
+      VECSIZE = MAX( VECSIZE, 5*N+NSYTRD_LWOPT )
 *
       IF( WKNOWN ) THEN
          CLUSTERSIZE = 1

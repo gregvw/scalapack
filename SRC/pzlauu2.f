@@ -140,8 +140,7 @@
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
-      COMPLEX*16         ZDOTC
-      EXTERNAL           LSAME, ZDOTC
+      EXTERNAL           LSAME
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          DCMPLX, DBLE
@@ -192,8 +191,8 @@
             DO 20 NA = 1, N-1
                AII = A( IDIAG )
                ICURR = IDIAG + 1
-               A( IDIAG ) = AII*AII + DBLE( ZDOTC( N-NA, A( ICURR ), 1,
-     $                                             A( ICURR ), 1 ) )
+               CALL ZZDOTC( N-NA, DOTC, A( ICURR ), 1, A( ICURR ), 1 )
+               A( IDIAG ) = AII*AII + DBLE( DOTC )
                CALL ZLACGV( NA-1, A( IOFFA ), LDA )
                CALL ZGEMV( 'Conjugate transpose', N-NA, NA-1, ONE,
      $                     A( IOFFA+1 ), LDA, A( ICURR ), 1,

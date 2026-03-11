@@ -69,9 +69,12 @@ F_VOID_FUNC dtrrv2d_(Int *ConTxt, F_CHAR uplo, F_CHAR diag, Int *m, Int *n,
    void BI_Srecv(BLACSCONTEXT *, Int, Int, BLACBUFF *);
    void BI_UpdateBuffs(BLACBUFF *);
    BLACBUFF *BI_GetBuff(Int);
+   BLACBUFF *BI_GetBuffS(ScaLAPACK_BufLen);
    Int BI_BuffIsFree(BLACBUFF *, Int);
    Int tuplo, tdiag, tlda;
-   Int ierr, length;
+   Int ierr;
+   ScaLAPACK_BufLen length;
+   MpiInt one=1;
    BLACBUFF *bp;
    MPI_Datatype MatTyp;
    BLACSCONTEXT *ctxt;
@@ -93,9 +96,39 @@ F_VOID_FUNC dtrrv2d_(Int *ConTxt, F_CHAR uplo, F_CHAR diag, Int *m, Int *n,
 
    MatTyp = BI_GetMpiTrType(ctxt, tuplo, tdiag, Mpval(m), Mpval(n), tlda,
                             MPI_DOUBLE, &BI_AuxBuff.N);
+#ifdef SndIsLocBlk
    BI_AuxBuff.Buff = (char *) A;
    BI_AuxBuff.dtype = MatTyp;
-   BI_Srecv(ctxt, Mkpnum(ctxt, Mpval(rsrc), Mpval(csrc)), PT2PTID, &BI_AuxBuff);
+   bp = &BI_AuxBuff;
+#else
+   ierr = _MPI_Pack_size(one, MatTyp, ctxt->scp->comm, &length);
+   bp = BI_GetBuffS(length);
+   bp->N = (MpiInt) length;
+   bp->dtype = MPI_PACKED;
+#if ZeroByteTypeBug
+   if (MatTyp == MPI_BYTE)
+   {
+      BI_AuxBuff.Buff = (char *) A;
+      BI_AuxBuff.dtype = MPI_BYTE;
+      BI_AuxBuff.N = 0;
+      bp = &BI_AuxBuff;
+   }
+#endif
+#endif
+   BI_Srecv(ctxt, Mkpnum(ctxt, Mpval(rsrc), Mpval(csrc)), PT2PTID, bp);
+#ifdef SndIsLocBlk
    ierr=BI_MPI_TYPE_FREE(&MatTyp);
    if (BI_ActiveQ) BI_UpdateBuffs(NULL);
+#else
+   if (bp != &BI_AuxBuff)
+   {
+      BI_Unpack(ctxt, (BVOID *) A, bp, MatTyp);
+      BI_UpdateBuffs(bp);
+   }
+   else
+   {
+      ierr=BI_MPI_TYPE_FREE(&MatTyp);
+      if (BI_ActiveQ) BI_UpdateBuffs(NULL);
+   }
+#endif
 }

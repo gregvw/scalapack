@@ -36,10 +36,15 @@
 
 BLACBUFF *BI_GetBuff(Int length)
 {
-   void BI_EmergencyBuff(Int length);
+   return BI_GetBuffS((ScaLAPACK_BufLen) length);
+}
+
+BLACBUFF *BI_GetBuffS(ScaLAPACK_BufLen length)
+{
+   void BI_EmergencyBuffS(ScaLAPACK_BufLen length);
 
    char *cptr;
-   Int i, j;
+   ScaLAPACK_BufLen i, j;
    extern Int BI_Np;
    extern BLACBUFF *BI_ReadyB;
 
@@ -49,7 +54,7 @@ BLACBUFF *BI_GetBuff(Int length)
  */
    if (BI_ReadyB)
    {
-      if (BI_ReadyB->Len >= length) return(BI_ReadyB);
+      if (BI_ReadyB->BufLen >= length) return(BI_ReadyB);
       else free(BI_ReadyB);
    }
 /*
@@ -65,12 +70,13 @@ BLACBUFF *BI_GetBuff(Int length)
 
    if (BI_ReadyB != NULL)
    {
+      BI_ReadyB->BufLen = length;
+      BI_ReadyB->Len = 0;
       BI_ReadyB->nAops = 0;
       BI_ReadyB->Aops = (MPI_Request *) &cptr[j];
       BI_ReadyB->Buff = &cptr[i];
-      BI_ReadyB->Len = length;
    }
-   else BI_EmergencyBuff(length);
+   else BI_EmergencyBuffS(length);
 
    return(BI_ReadyB);
 }

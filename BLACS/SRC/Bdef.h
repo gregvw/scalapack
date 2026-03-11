@@ -54,7 +54,8 @@ typedef struct bLaCbUfF BLACBUFF;
 struct bLaCbUfF
 {
    char *Buff;             /* send/recv buffer */
-   Int Len;                /* length of buffer in bytes */
+   ScaLAPACK_BufLen BufLen; /* allocated buffer length in bytes */
+   Int Len;                /* auxiliary vector length used by reductions */
    Int nAops;              /* number of asynchronous operations out of buff */
    MPI_Request *Aops;   /* list of async. operations out of buff */
    MPI_Datatype dtype;  /* data type of buffer */
@@ -129,6 +130,9 @@ typedef void (*SDRVPTR)(BLACSCONTEXT *, Int, Int, BLACBUFF *);
 void BI_BlacsWarn(Int ConTxt, Int line, char *file, char *form, ...);
 void BI_BlacsErr(Int ConTxt, Int line, char *file, char *form, ...);
 Int BI_ContxtNum(BLACSCONTEXT *ctxt);
+BLACBUFF *BI_GetBuff(Int length);
+BLACBUFF *BI_GetBuffS(ScaLAPACK_BufLen length);
+void BI_EmergencyBuffS(ScaLAPACK_BufLen length);
 void BI_TransDist(BLACSCONTEXT *ctxt, char scope, Int m, Int n, Int *rA,
                   Int *cA, Int ldrc, BI_DistType *dist, Int rdest, Int cdest);
 void BI_dmvcopy(Int m, Int n, double *A, Int lda, double *buff);

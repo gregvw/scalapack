@@ -1,8 +1,12 @@
 #include <stdlib.h>
+#include "scalapack-types.h"
 
 #ifndef Int
 #define Int int
 #endif
+
+_Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
+               "Int must match the configured ScaLAPACK API integer width.");
 
 void Creshape( Int context_in, Int major_in, Int* context_out, Int major_out,
                     Int first_proc, Int nprow_new, Int npcol_new )
@@ -139,4 +143,3 @@ void proc_inc( Int* myrow, Int* mycol, Int nprow, Int npcol, Int major )
       }
    }
 }
-

@@ -8,10 +8,15 @@
  ***************************************************************************/
 void BI_EmergencyBuff(Int length)
 {
+   BI_EmergencyBuffS((ScaLAPACK_BufLen) length);
+}
+
+void BI_EmergencyBuffS(ScaLAPACK_BufLen length)
+{
    void BI_UpdateBuffs(BLACBUFF *);
 
    char *cptr;
-   Int i, j;
+   ScaLAPACK_BufLen i, j;
    double Mwalltime(void);
    double t1;
    extern Int BI_Np;
@@ -28,17 +33,18 @@ void BI_EmergencyBuff(Int length)
       BI_UpdateBuffs(NULL);
       if (BI_ReadyB)
       {
-         if (BI_ReadyB->Len < length)
+         if (BI_ReadyB->BufLen < length)
          {
 	    free(BI_ReadyB);
             cptr = malloc(length + i);
             BI_ReadyB = (BLACBUFF *) cptr;
             if (BI_ReadyB)
             {
+               BI_ReadyB->BufLen = length;
+               BI_ReadyB->Len = 0;
                BI_ReadyB->nAops = 0;
                BI_ReadyB->Aops = (MPI_Request *) &cptr[j];
                BI_ReadyB->Buff = &cptr[i];
-               BI_ReadyB->Len = length;
             }
          }
       }

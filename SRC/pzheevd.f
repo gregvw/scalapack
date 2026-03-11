@@ -187,6 +187,8 @@
 *     ..
 *     .. Local Arrays ..
       INTEGER            DESCRZ( 9 ), IDUM1( 2 ), IDUM2( 2 )
+      COMPLEX*16         ALOC( 2, 2 ), WORKEV( 8 )
+      DOUBLE PRECISION   RWORKEV( 4 )
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
@@ -197,9 +199,9 @@
 *     ..
 *     .. External Subroutines ..
       EXTERNAL           BLACS_GRIDINFO, CHK1MAT, DESCINIT, INFOG2L,
-     $                   PZELGET, PZHETRD, PCHK2MAT, PZLASCL, PZLASET,
-     $                   PZUNMTR, PDLARED1D, PDLASET, PDSTEDC, PXERBLA,
-     $                   DSCAL
+     $                   PZELGET, PZELSET, PZHETRD, PCHK2MAT, PZLASCL,
+     $                   PZLASET, PZUNMTR, PDLARED1D, PDLASET, PDSTEDC,
+     $                   PXERBLA, DSCAL, ZHEEV
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          DCMPLX, ICHAR, MAX, MIN, MOD, DBLE, SQRT
@@ -304,6 +306,30 @@
          CALL PXERBLA( DESCA( CTXT_ ), 'PZHEEVD', -INFO )
          RETURN
       ELSE IF( LQUERY ) THEN
+         RETURN
+      END IF
+*
+*     Fall back to a local dense solve for tiny matrices.
+*
+      IF( N.LE.2 ) THEN
+         DO 215 J = 1, N
+            DO 214 I = 1, N
+               CALL PZELGET( 'A', ' ', ALOC( I, J ), A, IA+I-1,
+     $                       JA+J-1, DESCA )
+  214       CONTINUE
+  215    CONTINUE
+         CALL ZHEEV( JOBZ, UPLO, N, ALOC, 2, W, WORKEV, 8, RWORKEV,
+     $               IINFO )
+         INFO = IINFO
+         IF( INFO.NE.0 ) RETURN
+         DO 220 J = 1, N
+            DO 219 I = 1, N
+               CALL PZELSET( Z, IZ+I-1, JZ+J-1, DESCZ, ALOC( I, J ) )
+  219       CONTINUE
+  220    CONTINUE
+         WORK( 1 ) = DCMPLX( LWMIN )
+         RWORK( 1 ) = DBLE( LRWMIN )
+         IWORK( 1 ) = LIWMIN
          RETURN
       END IF
 *

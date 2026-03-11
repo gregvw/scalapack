@@ -1,0 +1,35 @@
+#ifndef SCALAPACK_TYPES_H
+#define SCALAPACK_TYPES_H 1
+
+#include <stddef.h>
+#include <stdint.h>
+
+/*
+ * Semantic integer types used internally by the C sources:
+ * - ScaLAPACK_ApiInt matches the default Fortran INTEGER ABI.
+ * - ScaLAPACK_BlasInt matches the configured BLAS integer ABI.
+ * - ScaLAPACK_ByteCount is for byte sizes and allocation lengths.
+ * - ScaLAPACK_Index32 / ScaLAPACK_Index64 are explicit fixed-width indices.
+ * - ScaLAPACK_UWord32 is for IEEE bit-pattern inspection.
+ */
+#define SCALAPACK_FORTRAN_INT_BYTES @SCALAPACK_FORTRAN_INT_BYTES@
+#define SCALAPACK_BLAS_INT_BYTES @SCALAPACK_EXPECT_BLAS_INT_BYTES@
+
+typedef @SCALAPACK_API_INT_C_TYPE@ ScaLAPACK_ApiInt;
+typedef @SCALAPACK_BLAS_INT_C_TYPE@ ScaLAPACK_BlasInt;
+typedef @SCALAPACK_BLACS_BUFFER_SIZE_TYPE@ ScaLAPACK_BufLen;
+typedef ScaLAPACK_BufLen ScaLAPACK_ByteCount;
+typedef int32_t ScaLAPACK_Index32;
+typedef int64_t ScaLAPACK_Index64;
+typedef uint32_t ScaLAPACK_UWord32;
+
+_Static_assert(sizeof(ScaLAPACK_ApiInt) == SCALAPACK_FORTRAN_INT_BYTES,
+               "ScaLAPACK_ApiInt must match the configured Fortran INTEGER width.");
+_Static_assert(sizeof(ScaLAPACK_BlasInt) == SCALAPACK_BLAS_INT_BYTES,
+               "ScaLAPACK_BlasInt must match the configured BLAS integer width.");
+_Static_assert(sizeof(ScaLAPACK_UWord32) == 4,
+               "IEEE helpers need a 32-bit unsigned word type.");
+_Static_assert(sizeof(ScaLAPACK_BufLen) <= sizeof(size_t),
+               "ScaLAPACK_BufLen must fit within size_t.");
+
+#endif

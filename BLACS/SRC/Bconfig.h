@@ -16,6 +16,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+#include "scalapack-types.h"
 #include <mpi.h>
 
 /*
@@ -24,6 +25,9 @@
 #ifndef Int
 #define Int int
 #endif
+
+_Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
+               "Int must match the configured ScaLAPACK API integer width.");
 
 /*
  * MPI wrapper definitions for ILP64 support
@@ -38,6 +42,11 @@
 #if MPI_VERSION >= 4
     /* MPI 4.0+ with _c variants supporting MPI_Count */
     #define MpiInt MPI_Count
+
+    static inline int _MPI_Get_count(const MPI_Status *status, MPI_Datatype datatype,
+                               MPI_Count *count) {
+      return MPI_Get_count_c(status, datatype, count);
+    }
 
     static inline int _MPI_Isend(const void *buf, MPI_Count count, MPI_Datatype datatype,
                           int dest, int tag, MPI_Comm comm, MPI_Request *request) {
@@ -68,9 +77,20 @@
                                         const MPI_Aint array_of_displacements[],
                                         const MPI_Datatype array_of_types[],
                                         MPI_Datatype *newtype) {
-      return MPI_Type_create_struct_c(count, array_of_blocklengths,
-                                       array_of_displacements,
+      int ierr;
+      MPI_Count *count_displacements;
+      size_t i, nitems;
+
+      if (count < 0) return MPI_ERR_COUNT;
+      nitems = (size_t) count;
+      count_displacements = (MPI_Count *) malloc(nitems * sizeof(MPI_Count));
+      if ((nitems > 0) && (count_displacements == NULL)) return MPI_ERR_OTHER;
+      for (i = 0; i < nitems; ++i) count_displacements[i] = (MPI_Count) array_of_displacements[i];
+      ierr = MPI_Type_create_struct_c(count, array_of_blocklengths,
+                                       count_displacements,
                                        array_of_types, newtype);
+      free(count_displacements);
+      return ierr;
     }
 
     static inline int _MPI_Type_indexed(MPI_Count count,
@@ -96,9 +116,42 @@
       return MPI_Allreduce_c(sendbuf, recvbuf, count, datatype, op, comm);
     }
 
+    static inline int _MPI_Pack_size(MPI_Count incount, MPI_Datatype datatype,
+                               MPI_Comm comm, ScaLAPACK_BufLen *size) {
+      MPI_Count mpi_size;
+      int ierr = MPI_Pack_size_c(incount, datatype, comm, &mpi_size);
+      if (ierr == MPI_SUCCESS) *size = (ScaLAPACK_BufLen) mpi_size;
+      return ierr;
+    }
+
+    static inline int _MPI_Pack(const void *inbuf, MPI_Count incount, MPI_Datatype datatype,
+                          void *outbuf, ScaLAPACK_BufLen outsize,
+                          ScaLAPACK_BufLen *position, MPI_Comm comm) {
+      MPI_Count mpi_outsize = (MPI_Count) outsize;
+      MPI_Count mpi_position = (MPI_Count) (*position);
+      int ierr = MPI_Pack_c(inbuf, incount, datatype, outbuf, mpi_outsize, &mpi_position, comm);
+      if (ierr == MPI_SUCCESS) *position = (ScaLAPACK_BufLen) mpi_position;
+      return ierr;
+    }
+
+    static inline int _MPI_Unpack(const void *inbuf, MPI_Count insize,
+                            ScaLAPACK_BufLen *position,
+                            void *outbuf, MPI_Count outcount, MPI_Datatype datatype,
+                            MPI_Comm comm) {
+      MPI_Count mpi_position = (MPI_Count) (*position);
+      int ierr = MPI_Unpack_c(inbuf, insize, &mpi_position, outbuf, outcount, datatype, comm);
+      if (ierr == MPI_SUCCESS) *position = (ScaLAPACK_BufLen) mpi_position;
+      return ierr;
+    }
+
   #else /* MPI version < 4 */
     /* Standard MPI with int counts */
     #define MpiInt int
+
+    static inline int _MPI_Get_count(const MPI_Status *status, MPI_Datatype datatype,
+                               int *count) {
+      return MPI_Get_count(status, datatype, count);
+    }
 
     static inline int _MPI_Isend(const void *buf, int count, MPI_Datatype datatype,
                           int dest, int tag, MPI_Comm comm, MPI_Request *request) {
@@ -155,7 +208,50 @@
       return MPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm);
     }
 
+    static inline int _MPI_Pack_size(int incount, MPI_Datatype datatype,
+                               MPI_Comm comm, ScaLAPACK_BufLen *size) {
+      int pack_size;
+      int ierr = MPI_Pack_size(incount, datatype, comm, &pack_size);
+      if (ierr == MPI_SUCCESS) *size = (ScaLAPACK_BufLen) pack_size;
+      return ierr;
+    }
+
+    static inline int _MPI_Pack(const void *inbuf, int incount, MPI_Datatype datatype,
+                          void *outbuf, ScaLAPACK_BufLen outsize,
+                          ScaLAPACK_BufLen *position, MPI_Comm comm) {
+      int ierr;
+      int pack_outsize, pack_position;
+
+      if (outsize > (ScaLAPACK_BufLen) INT_MAX || *position > (ScaLAPACK_BufLen) INT_MAX)
+         return MPI_ERR_COUNT;
+      pack_outsize = (int) outsize;
+      pack_position = (int) (*position);
+
+      ierr = MPI_Pack(inbuf, incount, datatype, outbuf, pack_outsize, &pack_position, comm);
+      if (ierr != MPI_SUCCESS) return ierr;
+      *position = (ScaLAPACK_BufLen) pack_position;
+      return MPI_SUCCESS;
+    }
+
+    static inline int _MPI_Unpack(const void *inbuf, int insize,
+                            ScaLAPACK_BufLen *position,
+                            void *outbuf, int outcount, MPI_Datatype datatype,
+                            MPI_Comm comm) {
+      int ierr;
+      int unpack_position;
+
+      if (*position > (ScaLAPACK_BufLen) INT_MAX) return MPI_ERR_COUNT;
+      unpack_position = (int) (*position);
+
+      ierr = MPI_Unpack(inbuf, insize, &unpack_position, outbuf, outcount, datatype, comm);
+      if (ierr != MPI_SUCCESS) return ierr;
+      *position = (ScaLAPACK_BufLen) unpack_position;
+      return MPI_SUCCESS;
+    }
+
   #endif /* MPI version check */
+
+typedef MpiInt ScaLAPACK_MpiCount;
 
 
 /*

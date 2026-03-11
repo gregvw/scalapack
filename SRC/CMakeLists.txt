@@ -3,7 +3,7 @@ set (ALLAUX-C  pbchkvect.c getpbbuf.c pcrot.c pslaiect.c pdlaiect.c pzrot.c slam
 
 set (SCLAUX  
    pslabad.f pslaed0.f pslaed1.f pslaed2.f pslaed3.f pslaedz.f 
-   pslamch.f pslared1d.f pslasrt.f psstebz.f psstedc.f slapst.f slasrt2.f 
+   slamch.f pslamch.f pslared1d.f pslasrt.f psstebz.f psstedc.f slapst.f slasrt2.f 
    sstein2.f
    slar1va.f slarrb2.f slarrd2.f slarre2.f slarre2a.f slarrf2.f
    slarrv2.f sstegr2.f sstegr2a.f sstegr2b.f)
