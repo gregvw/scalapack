@@ -109,11 +109,12 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
 /*
 *  .. Local Scalars ..
 */
-   Int            GoEast, GoSouth, Xinc, Yinc, ilow, imbloc, inbloc, iupp, kb,
+   Int            GoEast, GoSouth, ilow, imbloc, inbloc, iupp, kb,
                   lcmt, lcmt00, lmbloc, lnbloc, low, mb, mblkd, mblks, mbloc,
                   nb, nblkd, nblks, nbloc, notran, npcol, npq=0, nprow, pmb,
                   qnb, rows, size, tmp1, tmp2, upp;
-   char           * Xptrd, * Yptrd;
+   char           * Xptrd, * Yptrd, * xoff, * yoff;
+   size_t         elem_bytes, offset_bytes, Xinc, Yinc;
 /* ..
 *  .. Executable Statements ..
 *
@@ -135,6 +136,8 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
    notran = ( Mupcase( TRANS[0] ) == CNOTRAN );
 
    size   = TYPE->size;
+   if( !PB_CSizeFromInt( size, &elem_bytes ) )
+      PB_Cabort( 0, "PB_CVMswp", -1 );
    rows   = ( Mupcase( ROCS[0] ) == CROW );
 
    if( Mupcase( VROCS[0] ) == CROW )
@@ -147,16 +150,24 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
 /*
 *  (un)packing rows of mn by k array A.
 */
-         Xinc = size;
-         Yinc = ( notran ? size : INCY * size );
+         Xinc = elem_bytes;
+         if( notran ) Yinc = elem_bytes;
+         else if( !PB_CSizeMul2( INCY, size, &Yinc ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
       }
       else
       {
 /*
 *  (un)packing columns of k by mn array A
 */
-         Xinc = INCX * size;
-         Yinc = ( notran ? INCY * size : size );
+         if( !PB_CSizeMul2( INCX, size, &Xinc ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         if( notran )
+         {
+            if( !PB_CSizeMul2( INCY, size, &Yinc ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+         }
+         else Yinc = elem_bytes;
       }
       kb  = MN;
 /*
@@ -196,13 +207,17 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
          {
             tmp1 = imbloc - lcmt00; tmp1 = MAX( 0, tmp1 );
             tmp2 = MIN( tmp1, inbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-            TYPE->Fswap( &tmp2, X+lcmt00*Xinc, &INCX, Y, &INCY );
+            if( !PB_CPtrShift( X, lcmt00, Xinc, &xoff ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            TYPE->Fswap( &tmp2, xoff, &INCX, Y, &INCY );
          }
          else
          {
             tmp1 = inbloc + lcmt00; tmp1 = MAX( 0, tmp1 );
             tmp2 = MIN( tmp1, imbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-            TYPE->Fswap( &tmp2, X, &INCX, Y-lcmt00*Yinc, &INCY );
+            if( !PB_CPtrShift( Y, -lcmt00, Yinc, &yoff ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            TYPE->Fswap( &tmp2, X, &INCX, yoff, &INCY );
          }
          if( ( kb -= tmp2 ) == 0 ) return( npq );
 /*
@@ -219,13 +234,19 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
 *  Go one step south in the LCM table. Adjust the current LCM value as well as
 *  the pointer to X. The pointer to Y remains unchanged.
 */
-         lcmt00 -= iupp - upp + pmb; mblks--; X += imbloc * Xinc;
+         if( !PB_CSizeScale( imbloc, Xinc, &offset_bytes ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         lcmt00 -= iupp - upp + pmb; mblks--; X += offset_bytes;
 /*
 *  While there are blocks remaining that own upper entries, keep going south.
 *  Adjust the current LCM value as well as the pointer to X accordingly.
 */
          while( mblks && ( lcmt00 > upp ) )
-         { lcmt00 -= pmb; mblks--; X += mb * Xinc; }
+         {
+            if( !PB_CSizeScale( mb, Xinc, &offset_bytes ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            lcmt00 -= pmb; mblks--; X += offset_bytes;
+         }
 /*
 *  Return if no more row in the LCM table.
 */
@@ -248,24 +269,32 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
             {
                tmp1 = mbloc - lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, inbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, Xptrd+lcmt*Xinc, &INCX, Y, &INCY );
+               if( !PB_CPtrShift( Xptrd, lcmt, Xinc, &xoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, xoff, &INCX, Y, &INCY );
             }
             else
             {
                tmp1 = inbloc + lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, mbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, Xptrd, &INCX, Y-lcmt*Yinc, &INCY );
+               if( !PB_CPtrShift( Y, -lcmt, Yinc, &yoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, Xptrd, &INCX, yoff, &INCY );
             }
             if( ( kb -= tmp2 ) == 0 ) return( npq );
 /*
 *  Keep going south until there are no more blocks owning diagonals
 */
-            lcmt -= pmb; mblkd--; Xptrd += mbloc * Xinc;
+            if( !PB_CSizeScale( mbloc, Xinc, &offset_bytes ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            lcmt -= pmb; mblkd--; Xptrd += offset_bytes;
          }
 /*
 *  I am done with the first column of the LCM table. Go to the next column.
 */
-         lcmt00 += low - ilow + qnb; nblks--; Y += inbloc * Yinc;
+         if( !PB_CSizeScale( inbloc, Yinc, &offset_bytes ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         lcmt00 += low - ilow + qnb; nblks--; Y += offset_bytes;
       }
       else if( GoEast )
       {
@@ -273,14 +302,20 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
 *  Go one step east in the LCM table. Adjust the current LCM value as
 *  well as the pointer to Y. The pointer to X remains unchanged.
 */
-         lcmt00 += low - ilow + qnb; nblks--; Y += inbloc * Yinc;
+         if( !PB_CSizeScale( inbloc, Yinc, &offset_bytes ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         lcmt00 += low - ilow + qnb; nblks--; Y += offset_bytes;
 /*
 *  While there are blocks remaining that own lower entries, keep going east
 *  in the LCM table. Adjust the current LCM value as well as the pointer to
 *  Y accordingly.
 */
          while( nblks && ( lcmt00 < low ) )
-         { lcmt00 += qnb; nblks--; Y += nb * Yinc; }
+         {
+            if( !PB_CSizeScale( nb, Yinc, &offset_bytes ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            lcmt00 += qnb; nblks--; Y += offset_bytes;
+         }
 /*
 *  Return if no more column in the LCM table.
 */
@@ -302,24 +337,32 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
             {
                tmp1 = imbloc - lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, nbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, X+lcmt*Xinc, &INCX, Yptrd, &INCY );
+               if( !PB_CPtrShift( X, lcmt, Xinc, &xoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, xoff, &INCX, Yptrd, &INCY );
             }
             else
             {
                tmp1 = nbloc + lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, imbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, X, &INCX, Yptrd-lcmt*Yinc, &INCY );
+               if( !PB_CPtrShift( Yptrd, -lcmt, Yinc, &yoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, X, &INCX, yoff, &INCY );
             }
             if( ( kb -= tmp2 ) == 0 ) return( npq );
 /*
 *  Keep going east until there are no more blocks owning diagonals.
 */
-            lcmt += qnb; nblkd--; Yptrd += nbloc * Yinc;
+            if( !PB_CSizeScale( nbloc, Yinc, &offset_bytes ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            lcmt += qnb; nblkd--; Yptrd += offset_bytes;
          }
 /*
 *  I am done with the first row of the LCM table. Go to the next row.
 */
-         lcmt00 -= iupp - upp + pmb; mblks--; X += imbloc * Xinc;
+         if( !PB_CSizeScale( imbloc, Xinc, &offset_bytes ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         lcmt00 -= iupp - upp + pmb; mblks--; X += offset_bytes;
       }
 /*
 *  Loop over the remaining columns of the LCM table.
@@ -335,10 +378,18 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
             while( mblks && nblks )
             {
                while( mblks && ( lcmt00 > upp ) )
-               { lcmt00 -= pmb; mblks--; X += mb * Xinc; }
+               {
+                  if( !PB_CSizeScale( mb, Xinc, &offset_bytes ) )
+                     PB_Cabort( 0, "PB_CVMswp", -1 );
+                  lcmt00 -= pmb; mblks--; X += offset_bytes;
+               }
                if( lcmt00 >= low ) break;
                while( nblks && ( lcmt00 < low ) )
-               { lcmt00 += qnb; nblks--; Y += nb * Yinc; }
+               {
+                  if( !PB_CSizeScale( nb, Yinc, &offset_bytes ) )
+                     PB_Cabort( 0, "PB_CVMswp", -1 );
+                  lcmt00 += qnb; nblks--; Y += offset_bytes;
+               }
                if( lcmt00 <= upp ) break;
             }
          }
@@ -361,24 +412,32 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
             {
                tmp1 = mbloc - lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, nbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, Xptrd+lcmt*Xinc, &INCX, Y, &INCY );
+               if( !PB_CPtrShift( Xptrd, lcmt, Xinc, &xoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, xoff, &INCX, Y, &INCY );
             }
             else
             {
                tmp1 = nbloc + lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, mbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, Xptrd, &INCX, Y-lcmt*Yinc, &INCY );
+               if( !PB_CPtrShift( Y, -lcmt, Yinc, &yoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, Xptrd, &INCX, yoff, &INCY );
             }
             if( ( kb -= tmp2 ) == 0 ) return( npq );
 /*
 *  Keep going south until there are no more blocks owning diagonals
 */
-            lcmt -= pmb; mblkd--; Xptrd += mbloc * Xinc;
+            if( !PB_CSizeScale( mbloc, Xinc, &offset_bytes ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            lcmt -= pmb; mblkd--; Xptrd += offset_bytes;
          }
 /*
 *  I am done with this column of the LCM table. Go to the next column ...
 */
-         lcmt00 += qnb; nblks--; Y += nbloc * Yinc;
+         if( !PB_CSizeScale( nbloc, Yinc, &offset_bytes ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         lcmt00 += qnb; nblks--; Y += offset_bytes;
 /*
 *  ... until there are no more columns.
 */
@@ -398,16 +457,24 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
 /*
 *  (un)packing rows of mn by k array A
 */
-         Xinc = size;
-         Yinc = ( notran ? size : INCY * size );
+         Xinc = elem_bytes;
+         if( notran ) Yinc = elem_bytes;
+         else if( !PB_CSizeMul2( INCY, size, &Yinc ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
       }
       else
       {
 /*
 *  (un)packing columns of k by mn array A
 */
-         Xinc = INCX * size;
-         Yinc = ( notran ? INCY * size : size );
+         if( !PB_CSizeMul2( INCX, size, &Xinc ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         if( notran )
+         {
+            if( !PB_CSizeMul2( INCY, size, &Yinc ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+         }
+         else Yinc = elem_bytes;
       }
       kb = MN;
 /*
@@ -447,13 +514,17 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
          {
             tmp1 = imbloc - lcmt00; tmp1 = MAX( 0, tmp1 );
             tmp2 = MIN( tmp1, inbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-            TYPE->Fswap( &tmp2, X, &INCX, Y+lcmt00*Yinc, &INCY );
+            if( !PB_CPtrShift( Y, lcmt00, Yinc, &yoff ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            TYPE->Fswap( &tmp2, X, &INCX, yoff, &INCY );
          }
          else
          {
             tmp1 = inbloc + lcmt00; tmp1 = MAX( 0, tmp1 );
             tmp2 = MIN( tmp1, imbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-            TYPE->Fswap( &tmp2, X-lcmt00*Xinc, &INCX, Y, &INCY );
+            if( !PB_CPtrShift( X, -lcmt00, Xinc, &xoff ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            TYPE->Fswap( &tmp2, xoff, &INCX, Y, &INCY );
          }
          if( ( kb -= tmp2 ) == 0 ) return( npq );
 /*
@@ -470,13 +541,19 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
 *  Go one step south in the LCM table. Adjust the current LCM value as well as
 *  the pointer to Y. The pointer to X remains unchanged.
 */
-         lcmt00 -= iupp - upp + pmb; mblks--; Y += imbloc * Yinc;
+         if( !PB_CSizeScale( imbloc, Yinc, &offset_bytes ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         lcmt00 -= iupp - upp + pmb; mblks--; Y += offset_bytes;
 /*
 *  While there are blocks remaining that own upper entries, keep going south.
 *  Adjust the current LCM value as well as the pointer to Y accordingly.
 */
          while( mblks && ( lcmt00 > upp ) )
-         { lcmt00 -= pmb; mblks--; Y += mb * Yinc; }
+         {
+            if( !PB_CSizeScale( mb, Yinc, &offset_bytes ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            lcmt00 -= pmb; mblks--; Y += offset_bytes;
+         }
 /*
 *  Return if no more row in the LCM table.
 */
@@ -499,24 +576,32 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
             {
                tmp1 = mbloc - lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, inbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, X, &INCX, Yptrd+lcmt*Yinc, &INCY );
+               if( !PB_CPtrShift( Yptrd, lcmt, Yinc, &yoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, X, &INCX, yoff, &INCY );
             }
             else
             {
                tmp1 = inbloc + lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, mbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, X-lcmt*Xinc, &INCX, Yptrd, &INCY );
+               if( !PB_CPtrShift( X, -lcmt, Xinc, &xoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, xoff, &INCX, Yptrd, &INCY );
             }
             if( ( kb -= tmp2 ) == 0 ) return( npq );
 /*
 *  Keep going south until there are no more blocks owning diagonals
 */
-            lcmt -= pmb; mblkd--; Yptrd += mbloc * Yinc;
+            if( !PB_CSizeScale( mbloc, Yinc, &offset_bytes ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            lcmt -= pmb; mblkd--; Yptrd += offset_bytes;
          }
 /*
 *  I am done with the first column of the LCM table. Go to the next column.
 */
-         lcmt00 += low - ilow + qnb; nblks--; X += inbloc * Xinc;
+         if( !PB_CSizeScale( inbloc, Xinc, &offset_bytes ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         lcmt00 += low - ilow + qnb; nblks--; X += offset_bytes;
       }
       else if( GoEast )
       {
@@ -524,14 +609,20 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
 *  Go one step east in the LCM table. Adjust the current LCM value as
 *  well as the pointer to X. The pointer to Y remains unchanged.
 */
-         lcmt00 += low - ilow + qnb; nblks--; X += inbloc * Xinc;
+         if( !PB_CSizeScale( inbloc, Xinc, &offset_bytes ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         lcmt00 += low - ilow + qnb; nblks--; X += offset_bytes;
 /*
 *  While there are blocks remaining that own lower entries, keep going east
 *  in the LCM table. Adjust the current LCM value as well as the pointer to
 *  X accordingly.
 */
          while( nblks && ( lcmt00 < low ) )
-         { lcmt00 += qnb; nblks--; X += nb * Xinc; }
+         {
+            if( !PB_CSizeScale( nb, Xinc, &offset_bytes ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            lcmt00 += qnb; nblks--; X += offset_bytes;
+         }
 /*
 *  Return if no more column in the LCM table.
 */
@@ -553,24 +644,32 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
             {
                tmp1 = imbloc - lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, nbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, Xptrd, &INCX, Y+lcmt*Yinc, &INCY );
+               if( !PB_CPtrShift( Y, lcmt, Yinc, &yoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, Xptrd, &INCX, yoff, &INCY );
             }
             else
             {
                tmp1 = nbloc + lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, imbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, Xptrd-lcmt*Xinc, &INCX, Y, &INCY );
+               if( !PB_CPtrShift( Xptrd, -lcmt, Xinc, &xoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, xoff, &INCX, Y, &INCY );
             }
             if( ( kb -= tmp2 ) == 0 ) return( npq );
 /*
 *  Keep going east until there are no more blocks owning diagonals.
 */
-            lcmt += qnb; nblkd--; Xptrd += nbloc * Xinc;
+            if( !PB_CSizeScale( nbloc, Xinc, &offset_bytes ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            lcmt += qnb; nblkd--; Xptrd += offset_bytes;
          }
 /*
 *  I am done with the first row of the LCM table. Go to the next row.
 */
-         lcmt00 -= iupp - upp + pmb; mblks--; Y += imbloc * Yinc;
+         if( !PB_CSizeScale( imbloc, Yinc, &offset_bytes ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         lcmt00 -= iupp - upp + pmb; mblks--; Y += offset_bytes;
       }
 /*
 *  Loop over the remaining columns of the LCM table.
@@ -586,10 +685,18 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
             while( mblks && nblks )
             {
                while( mblks && ( lcmt00 > upp ) )
-               { lcmt00 -= pmb; mblks--; Y += mb * Yinc; }
+               {
+                  if( !PB_CSizeScale( mb, Yinc, &offset_bytes ) )
+                     PB_Cabort( 0, "PB_CVMswp", -1 );
+                  lcmt00 -= pmb; mblks--; Y += offset_bytes;
+               }
                if( lcmt00 >= low ) break;
                while( nblks && ( lcmt00 < low ) )
-               { lcmt00 += qnb; nblks--; X += nb * Xinc; }
+               {
+                  if( !PB_CSizeScale( nb, Xinc, &offset_bytes ) )
+                     PB_Cabort( 0, "PB_CVMswp", -1 );
+                  lcmt00 += qnb; nblks--; X += offset_bytes;
+               }
                if( lcmt00 <= upp ) break;
             }
          }
@@ -611,24 +718,32 @@ Int PB_CVMswp( TYPE, VM, VROCS, ROCS, TRANS, MN, X, INCX, Y, INCY )
             {
                tmp1 = mbloc - lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, nbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, X, &INCX, Yptrd+lcmt*Yinc, &INCY );
+               if( !PB_CPtrShift( Yptrd, lcmt, Yinc, &yoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, X, &INCX, yoff, &INCY );
             }
             else
             {
                tmp1 = nbloc + lcmt; tmp1 = MAX( 0, tmp1 );
                tmp2 = MIN( tmp1, mbloc ); npq += ( tmp2 = MIN( tmp2, kb ) );
-               TYPE->Fswap( &tmp2, X-lcmt*Xinc, &INCX, Yptrd, &INCY );
+               if( !PB_CPtrShift( X, -lcmt, Xinc, &xoff ) )
+                  PB_Cabort( 0, "PB_CVMswp", -1 );
+               TYPE->Fswap( &tmp2, xoff, &INCX, Yptrd, &INCY );
             }
             if( ( kb -= tmp2 ) == 0 ) return( npq );
 /*
 *  Keep going south until there are no more blocks owning diagonals
 */
-            lcmt -= pmb; mblkd--; Yptrd += mbloc * Yinc;
+            if( !PB_CSizeScale( mbloc, Yinc, &offset_bytes ) )
+               PB_Cabort( 0, "PB_CVMswp", -1 );
+            lcmt -= pmb; mblkd--; Yptrd += offset_bytes;
          }
 /*
 *  I am done with this column of the LCM table. Go to the next column ...
 */
-         lcmt00 += qnb; nblks--; X += nbloc * Xinc;
+         if( !PB_CSizeScale( nbloc, Xinc, &offset_bytes ) )
+            PB_Cabort( 0, "PB_CVMswp", -1 );
+         lcmt00 += qnb; nblks--; X += offset_bytes;
 /*
 *  ... until there are no more columns.
 */

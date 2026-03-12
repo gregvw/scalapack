@@ -261,6 +261,7 @@ void PB_Cplaprn2( TYPE, M, N, A, IA, JA, DESCA, IRPRNT, ICPRNT, CMATNM,
 *  .. Local Scalars ..
 */
    char           type;
+   ScaLAPACK_ByteCount alloc_bytes;
    Int            Acol, Aii, AisColRep, AisRowRep, Ajj, Ald, Arow, ctxt, h, i,
                   ib, icurcol, icurrow, ii, in, j, jb, jj, jn, ldw, mycol,
                   myrow, npcol, nprow, size, usiz;
@@ -307,7 +308,11 @@ void PB_Cplaprn2( TYPE, M, N, A, IA, JA, DESCA, IRPRNT, ICPRNT, CMATNM,
 */
    ldw  = MAX( DESCA[ IMB_ ], DESCA[ MB_ ] );
    if( ( myrow == IRPRNT ) && ( mycol == ICPRNT ) )
-      buf = PB_Cmalloc( ldw * size );
+   {
+      if( !PB_CSizeMul2( ldw, size, &alloc_bytes ) )
+         PB_Cabort( ctxt, "PB_Cplaprn2", -1 );
+      buf = PB_Cmalloc64( alloc_bytes );
+   }
 /*
 *  Handle the first block of column separately
 */

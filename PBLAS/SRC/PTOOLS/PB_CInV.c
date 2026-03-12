@@ -206,6 +206,7 @@ void PB_CInV( TYPE, CONJUG, ROWCOL, M, N, DESCA, K, X, IX, JX, DESCX,
                   Anq, Arow, Xcol, Xii, Ximb, Ximb1, Xinb, Xinb1, XisD, XisR,
                   XisRow, Xjj, Xld=1, Xmb, Xmp, Xnb, Xnq, Xrow, ctxt, mycol,
                   myrow, npcol, nprow;
+   ScaLAPACK_ByteCount alloc_bytes;
 /* ..
 *  .. Executable Statements ..
 *
@@ -339,7 +340,9 @@ void PB_CInV( TYPE, CONJUG, ROWCOL, M, N, DESCA, K, X, IX, JX, DESCX,
                   Xld = MAX( 1, K );
                   if( Anq > 0 )
                   {
-                     *XAPTR  = PB_Cmalloc( K * Anq * TYPE->size );
+                     if( !PB_CSizeMul3( K, Anq, TYPE->size, &alloc_bytes ) )
+                        PB_Cabort( ctxt, "PB_CInV", -1 );
+                     *XAPTR  = PB_Cmalloc64( alloc_bytes );
                      *XAFREE = 1;
                      top = PB_Ctop( &ctxt, BCAST, COLUMN, TOP_GET );
                      TYPE->Cgebr2d( ctxt, COLUMN, top, K, Anq, *XAPTR, Xld,
@@ -368,7 +371,9 @@ void PB_CInV( TYPE, CONJUG, ROWCOL, M, N, DESCA, K, X, IX, JX, DESCX,
                   Xld = MAX( 1, K );
                   if( Anq > 0 )
                   {
-                     *XAPTR = PB_Cmalloc( K * Anq * TYPE->size );
+                     if( !PB_CSizeMul3( K, Anq, TYPE->size, &alloc_bytes ) )
+                        PB_Cabort( ctxt, "PB_CInV", -1 );
+                     *XAPTR = PB_Cmalloc64( alloc_bytes );
                      *XAFREE = 1;
                      TYPE->Cgerv2d( ctxt, K, Anq, *XAPTR, Xld, Xrow, mycol );
                   }
@@ -387,7 +392,9 @@ void PB_CInV( TYPE, CONJUG, ROWCOL, M, N, DESCA, K, X, IX, JX, DESCX,
       Xmp = ( ARowSpan ? K : ( ( myrow == Arow ) ? K : 0 ) );
       if( Xmp > 0 &&  Anq > 0 )
       {
-         *XAPTR  = PB_Cmalloc( Anq * Xmp * TYPE->size );
+         if( !PB_CSizeMul3( Anq, Xmp, TYPE->size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_CInV", -1 );
+         *XAPTR  = PB_Cmalloc64( alloc_bytes );
          *XAFREE = 1;
       }
       if( XisRow )
@@ -484,7 +491,9 @@ void PB_CInV( TYPE, CONJUG, ROWCOL, M, N, DESCA, K, X, IX, JX, DESCX,
                   Xld = MAX( 1, Amp );
                   if( Amp > 0 )
                   {
-                     *XAPTR = PB_Cmalloc( Amp * K * TYPE->size );
+                     if( !PB_CSizeMul3( Amp, K, TYPE->size, &alloc_bytes ) )
+                        PB_Cabort( ctxt, "PB_CInV", -1 );
+                     *XAPTR = PB_Cmalloc64( alloc_bytes );
                      *XAFREE = 1;
                      top = PB_Ctop( &ctxt, BCAST, ROW, TOP_GET );
                      TYPE->Cgebr2d( ctxt, ROW, top, Amp, K, *XAPTR, Xld, myrow,
@@ -513,7 +522,9 @@ void PB_CInV( TYPE, CONJUG, ROWCOL, M, N, DESCA, K, X, IX, JX, DESCX,
                   Xld = MAX( 1, Amp );
                   if( Amp > 0 )
                   {
-                     *XAPTR = PB_Cmalloc( Amp * K * TYPE->size );
+                     if( !PB_CSizeMul3( Amp, K, TYPE->size, &alloc_bytes ) )
+                        PB_Cabort( ctxt, "PB_CInV", -1 );
+                     *XAPTR = PB_Cmalloc64( alloc_bytes );
                      *XAFREE = 1;
                      TYPE->Cgerv2d( ctxt, Amp, K, *XAPTR, Xld, myrow, Xcol );
                   }
@@ -532,7 +543,9 @@ void PB_CInV( TYPE, CONJUG, ROWCOL, M, N, DESCA, K, X, IX, JX, DESCX,
       Xnq = ( AColSpan ? K : ( ( mycol == Acol ) ? K : 0 ) );
       if( Xnq > 0 &&  Amp > 0 )
       {
-         *XAPTR  = PB_Cmalloc( Amp * Xnq * TYPE->size );
+         if( !PB_CSizeMul3( Amp, Xnq, TYPE->size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_CInV", -1 );
+         *XAPTR  = PB_Cmalloc64( alloc_bytes );
          *XAFREE = 1;
       }
       if( XisRow )

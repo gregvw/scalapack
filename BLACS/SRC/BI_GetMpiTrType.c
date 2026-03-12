@@ -9,6 +9,7 @@ MPI_Datatype BI_GetMpiTrType(BLACSCONTEXT *ctxt, char uplo, char diag,
    Int info, start, i, k;
    MpiInt *len, *disp;
    BLACBUFF *bp;
+   size_t ncount, len_bytes, alloc_bytes;
 
    if (diag == 'u') start = 1;
    else start = 0;
@@ -31,9 +32,14 @@ MPI_Datatype BI_GetMpiTrType(BLACSCONTEXT *ctxt, char uplo, char diag,
 /*
  * Get space to hold the length and displacement values
  */
-   bp = BI_GetBuff( 2 * n * sizeof(MpiInt) );
+   if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) n, &ncount) ||
+       !ScaLAPACK_SizeTMul(ncount, sizeof(MpiInt), &len_bytes) ||
+       !ScaLAPACK_SizeTMul(len_bytes, 2, &alloc_bytes))
+      BI_BlacsErr(BI_ContxtNum(ctxt), __LINE__, __FILE__,
+                  "MPI indexed type workspace overflow");
+   bp = BI_GetBuffS((ScaLAPACK_BufLen) alloc_bytes);
    len = (MpiInt *) bp->Buff;
-   disp = (MpiInt *) &bp->Buff[n*sizeof(MpiInt)];
+   disp = (MpiInt *) (bp->Buff + len_bytes);
 
    if (m > n)
    {

@@ -126,12 +126,13 @@
 *  Change made by Julien Langou on Sat. September 12, 2009. 
 *  Fix provided by John Moyard from CNES.
 *
-*  JL :April 2011: Change off_t by long long
+*  JL :April 2011: Change off_t by an explicit 64-bit offset type.
 *  off_t is not supported under Windows
 */
 #define    Mptr( a_, i_, j_, lda_, siz_ ) \
-              ( (a_) + ( (long long) ( (long long)(i_)+ \
-              (long long)(j_)*(long long)(lda_))*(long long)(siz_) ) )
+              ( (a_) + ScaLAPACK_Index64MatrixOffset( \
+              (ScaLAPACK_Index64)(i_), (ScaLAPACK_Index64)(j_), \
+              (ScaLAPACK_Index64)(lda_), (ScaLAPACK_Index64)(siz_) ) )
 /*
 *  Mfirstnb and Mlastnb compute the global size of the first and last
 *  block corresponding to the interval i_:i_+n_-1 of global indexes.
@@ -1738,6 +1739,8 @@ void           PB_Cchkvec      ( Int,       char *,    char *,
 
 char *         PB_Cmalloc      ( Int );
 char *         PB_Cgetbuf      ( char *,    Int );
+char *         PB_Cmalloc64    ( ScaLAPACK_ByteCount );
+char *         PB_Cgetbuf64    ( char *,    ScaLAPACK_ByteCount );
 
 PBTYP_T *      PB_Citypeset    ( void );
 PBTYP_T *      PB_Cstypeset    ( void );
@@ -1879,6 +1882,8 @@ void           PB_Cchkvec      ();
 
 char *         PB_Cmalloc      ();
 char *         PB_Cgetbuf      ();
+char *         PB_Cmalloc64    ();
+char *         PB_Cgetbuf64    ();
 
 PBTYP_T *      PB_Citypeset    ();
 PBTYP_T *      PB_Cstypeset    ();
@@ -1918,3 +1923,76 @@ void           PB_CGatherV     ();
 void           PB_CScatterV    ();
 
 #endif
+
+static inline int PB_CSizeFromInt( Int count, size_t *bytes )
+{
+   return ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) count, bytes );
+}
+
+static inline int PB_CSizeMul2( Int left, Int right, size_t *bytes )
+{
+   ScaLAPACK_Index64 product;
+
+   if( !ScaLAPACK_Index64Mul( (ScaLAPACK_Index64) left,
+                              (ScaLAPACK_Index64) right, &product ) )
+      return 0;
+   return ScaLAPACK_Index64ToSizeT( product, bytes );
+}
+
+static inline int PB_CSizeMul3( Int left, Int middle, Int right, size_t *bytes )
+{
+   size_t tmp, factor;
+
+   if( !PB_CSizeMul2( left, middle, &tmp ) ||
+       !PB_CSizeFromInt( right, &factor ) )
+      return 0;
+   return ScaLAPACK_SizeTMul( tmp, factor, bytes );
+}
+
+static inline int PB_CSizeAddMul3( Int left, Int right, Int middle, Int factor,
+                                   size_t *bytes )
+{
+   ScaLAPACK_Index64 sum;
+   size_t total, count, elem_size, tmp;
+
+   if( !ScaLAPACK_Index64Add( (ScaLAPACK_Index64) left,
+                              (ScaLAPACK_Index64) right, &sum ) ||
+       !ScaLAPACK_Index64ToSizeT( sum, &total ) ||
+       !PB_CSizeFromInt( middle, &count ) ||
+       !PB_CSizeFromInt( factor, &elem_size ) ||
+       !ScaLAPACK_SizeTMul( total, count, &tmp ) )
+      return 0;
+   return ScaLAPACK_SizeTMul( tmp, elem_size, bytes );
+}
+
+static inline int PB_CSizeScale( Int count, size_t stride, size_t *bytes )
+{
+   size_t factor;
+
+   if( !PB_CSizeFromInt( count, &factor ) )
+      return 0;
+   return ScaLAPACK_SizeTMul( factor, stride, bytes );
+}
+
+static inline int PB_CPtrShift( char *base, Int count, size_t stride,
+                                char **shifted )
+{
+   size_t bytes;
+   ScaLAPACK_Index64 scaled_count;
+
+   if( count >= 0 )
+   {
+      if( !PB_CSizeScale( count, stride, &bytes ) )
+         return 0;
+      *shifted = base + bytes;
+      return 1;
+   }
+
+   scaled_count = -(ScaLAPACK_Index64) count;
+   if( !ScaLAPACK_Index64ToSizeT( scaled_count, &bytes ) ||
+       !ScaLAPACK_SizeTMul( bytes, stride, &bytes ) )
+      return 0;
+
+   *shifted = base - bytes;
+   return 1;
+}

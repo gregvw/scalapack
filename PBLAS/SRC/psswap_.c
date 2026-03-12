@@ -184,6 +184,7 @@ void psswap_( N, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
                   YnprocsD, YnprocsR, YprocD, YprocR, Yroc, Yrow, cdst, csrc,
                   ctxt, dst, gcdPQ, info, ione=1, k, l, lcmPQ, lcmb, mycol,
                   myrow, npcol, npq, nprow, p, q, rdst, rsrc, src, size;
+   ScaLAPACK_ByteCount alloc_bytes;
    PBTYP_T        * type;
    PB_VM_T        VM;
 /*
@@ -586,7 +587,9 @@ void psswap_( N, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
 
                   if( ( myrow != rsrc ) || ( mycol != csrc ) )
                   {
-                     buf = PB_Cmalloc( YnpD * size );
+                     if( !PB_CSizeMul2( YnpD, size, &alloc_bytes ) )
+                        PB_Cabort( ctxt, "PSSWAP", -1 );
+                     buf = PB_Cmalloc64( alloc_bytes );
                      if( XisRow )
                         Csgerv2d( ctxt, 1, YnpD, buf,    1, rsrc, csrc );
                      else
@@ -613,7 +616,9 @@ void psswap_( N, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
                {
                   if( ( myrow != rdst ) || ( mycol != cdst ) )
                   {
-                     buf = PB_Cmalloc( XnpD * size );
+                     if( !PB_CSizeMul2( XnpD, size, &alloc_bytes ) )
+                        PB_Cabort( ctxt, "PSSWAP", -1 );
+                     buf = PB_Cmalloc64( alloc_bytes );
                      if( YisRow )
                         Csgerv2d( ctxt, 1, XnpD, buf,    1, rdst, cdst );
                      else
@@ -689,7 +694,9 @@ void psswap_( N, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
                            else         { Xm = npq; }
                            if( YisRow ) { Yn = npq; cdst = Yroc; }
                            else         { Ym = npq; rdst = Yroc; }
-                           buf = PB_Cmalloc( npq * size );
+                           if( !PB_CSizeMul2( npq, size, &alloc_bytes ) )
+                              PB_Cabort( ctxt, "PSSWAP", -1 );
+                           buf = PB_Cmalloc64( alloc_bytes );
                            PB_CVMpack( type, &VM, ROW, &Xscope, PACKING, NOTRAN,
                                        npq, 1, one, Mptr( ((char *) X), Xii,
                                        Xjj, Xld, size ), Xld, zero, buf, Xm );
@@ -707,7 +714,9 @@ void psswap_( N, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
                            else         { Xm = npq; rsrc = Xroc; }
                            if( YisRow ) { Yn = npq; }
                            else         { Ym = npq; }
-                           buf = PB_Cmalloc( npq * size );
+                           if( !PB_CSizeMul2( npq, size, &alloc_bytes ) )
+                              PB_Cabort( ctxt, "PSSWAP", -1 );
+                           buf = PB_Cmalloc64( alloc_bytes );
                            PB_CVMpack( type, &VM, COLUMN, &Yscope, PACKING,
                                        NOTRAN, npq, 1, one, Mptr( ((char *) Y),
                                        Yii, Yjj, Yld, size ), Yld, zero, buf,

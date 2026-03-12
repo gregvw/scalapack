@@ -77,7 +77,9 @@ F_VOID_FUNC sgsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    BLACBUFF *bp, *bp2;
    BLACSCONTEXT *ctxt;
    char ttop, tscope;
-   Int N, length, dest, tlda, trdest, ierr;
+   Int N, dest, tlda, trdest, ierr, request_bytes;
+   ScaLAPACK_Index64 nprod;
+   size_t count, pair_bytes, total_bytes;
    extern BLACBUFF *BI_ActiveQ;
    extern BLACBUFF BI_AuxBuff;
 
@@ -130,8 +132,14 @@ F_VOID_FUNC sgsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
  */
    if (ttop == ' ')
       if ( (Mpval(m) < 1) || (Mpval(n) < 1) || (ctxt->TopsRepeat) ) ttop = '1';
-   N = Mpval(m) * Mpval(n);
-   length = N * sizeof(float);
+   if (!ScaLAPACK_Index64Mul((ScaLAPACK_Index64) Mpval(m),
+                             (ScaLAPACK_Index64) Mpval(n), &nprod) ||
+       !ScaLAPACK_Index64ToSizeT(nprod, &count) ||
+       !ScaLAPACK_Index64ToApiInt(nprod, &N) ||
+       !ScaLAPACK_SizeTMul(count, sizeof(float), &pair_bytes))
+      BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                  "Real sum span overflow (m=%d, n=%d)",
+                  Mpval(m), Mpval(n));
 /*
  * If A is contiguous, we can use it as one of the buffers
  */
@@ -139,16 +147,23 @@ F_VOID_FUNC sgsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    {
       bp = &BI_AuxBuff;
       bp->Buff = (char *) A;
-      bp2 = BI_GetBuff(length);
+      if (!ScaLAPACK_SizeTToApiInt(pair_bytes, &request_bytes))
+         BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                     "Real sum buffer span overflow");
+      bp2 = BI_GetBuff(request_bytes);
    }
 /*
  * Otherwise, we must allocate both buffers
  */
    else
    {
-      bp = BI_GetBuff(length*2);
+      if (!ScaLAPACK_SizeTMul((size_t) 2, pair_bytes, &total_bytes) ||
+          !ScaLAPACK_SizeTToApiInt(total_bytes, &request_bytes))
+         BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                     "Real sum temporary buffer overflow");
+      bp = BI_GetBuff(request_bytes);
       bp2 = &BI_AuxBuff;
-      bp2->Buff = &bp->Buff[length];
+      bp2->Buff = &bp->Buff[pair_bytes];
       BI_smvcopy(Mpval(m), Mpval(n), A, tlda, (float*)bp->Buff);
    }
    bp->dtype = bp2->dtype = MPI_FLOAT;

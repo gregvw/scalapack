@@ -12,6 +12,8 @@ F_VOID_FUNC blacs_gridinit_(Int *ConTxt, F_CHAR order, Int *nprow, Int *npcol)
    F_VOID_FUNC blacs_gridmap_(Int *ConTxt, Int *usermap, Int *ldup, Int *nprow0,
                               Int *npcol0);
 #endif
+   ScaLAPACK_Index64 grid_elems64;
+   size_t grid_bytes;
    Int *tmpgrid, *iptr;
    Int i, j;
 
@@ -20,7 +22,18 @@ F_VOID_FUNC blacs_gridinit_(Int *ConTxt, F_CHAR order, Int *nprow, Int *npcol)
  * called.  Define a tmpgrid to reflect this, and call blacs_gridmap to
  * set it up
  */
-   iptr = tmpgrid = (Int*) malloc( Mpval(nprow)*Mpval(npcol)*sizeof(*tmpgrid) );
+   if (!ScaLAPACK_Index64Mul((ScaLAPACK_Index64) Mpval(nprow),
+                             (ScaLAPACK_Index64) Mpval(npcol),
+                             &grid_elems64) ||
+       !ScaLAPACK_Index64ToSizeT(grid_elems64, &grid_bytes) ||
+       !ScaLAPACK_SizeTMul(grid_bytes, sizeof(*tmpgrid), &grid_bytes))
+      BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDINIT",
+                  "Temporary grid allocation overflow");
+
+   iptr = tmpgrid = (Int*) malloc(grid_bytes);
+   if (tmpgrid == NULL)
+      BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDINIT",
+                  "Cannot allocate temporary grid");
    if (Mlowcase(F2C_CharTrans(order)) == 'c')
    {
       i = Mpval(npcol) * Mpval(nprow);

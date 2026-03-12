@@ -230,7 +230,7 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
    Int            Acol, Aii, Aimb1, Ainb1, Ais1Col, Ais1Row, AisColRep,
                   AisRowRep, Ajj, Alcol, Ald, Alrow, Amb, Anpprev, Anb, Anp,
                   Anq, Arow, Asrc, ChangeRoc=0, bcst, ctxt, ione=1, k=0, kb,
-                  kbprev=0, kbsize, mb1, mycol, myrow, n1, n1last, n1p,
+                  kbprev=0, mb1, mycol, myrow, n1, n1last, n1p,
                   n1pprev=0, nb1, nlast, npcol, nprow, rocprev, size, tmp1,
                   tmp2;
    AXPY_T         axpy;
@@ -247,6 +247,9 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
 */
    char           * Aprev = NULL, * Xd    = NULL, * Xdprev = NULL,
                   * Xprev = NULL, * work  = NULL;
+   size_t         alloc_bytes, factor_bytes, kb_bytes, lda_kb_bytes,
+                  incxr_kb_bytes, lda_offset_bytes, incxr_offset_bytes,
+                  offset_bytes;
 /* ..
 *  .. Executable Statements ..
 *
@@ -352,7 +355,9 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
          n1      = MAX( nlast, Anb );
          nlast  += Ainb1;
          n1last  = n1 - Anb + MAX( Ainb1, Anb );
-         work    = PB_Cmalloc( MIN( n1last, Anp ) * size );
+         if( !PB_CSizeMul2( MIN( n1last, Anp ), size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_Cptrsv", -1 );
+         work    = PB_Cmalloc64( alloc_bytes );
          tmp1    = N-1;
          Alrow   = PB_Cindxg2p( tmp1, Aimb1, Amb, Arow, Arow, nprow );
          Alcol   = PB_Cindxg2p( tmp1, Ainb1, Anb, Acol, Acol, npcol );
@@ -368,11 +373,13 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
                                nprow );
          while( N > 0 )
          {
-            kbsize = kb * size;
+            if( !PB_CSizeMul2( kb, size, &kb_bytes ) ||
+                !PB_CSizeMul3( Ald, kb, size, &lda_kb_bytes ) )
+               PB_Cabort( ctxt, "PB_Cptrsv", -1 );
 
             if( Ais1Col || ( mycol == Alcol ) )
             {
-               A   -= Ald * kbsize;
+               A   -= lda_kb_bytes;
                Anq -= kb;
                Xd   = Mptr( XR, 0, Anq, INCXR, size );
             }
@@ -384,10 +391,11 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
             {
                if( ( Ais1Col || ( mycol == rocprev ) ) && ( kbprev > 0 ) )
                {
-                  tmp1 = ( Anpprev - n1pprev ) * size;
+                  if( !PB_CSizeMul2( Anpprev - n1pprev, size, &offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsv", -1 );
                   gemv( C2F_CHAR( TRANS ), &n1pprev, &kbprev, negone,
-                        Aprev+tmp1, &Ald, Xdprev, &INCXR, one, Xprev+tmp1,
-                        &INCXC );
+                        Aprev+offset_bytes, &Ald, Xdprev, &INCXR, one,
+                        Xprev+offset_bytes, &INCXC );
                }
 /*
 *  Send partial updated result to current column
@@ -396,8 +404,11 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
                {
                   if( mycol == rocprev )
                   {
-                     send( ctxt, n1pprev, 1, Xprev+(Anpprev-n1pprev)*size,
-                           n1pprev, myrow, Alcol );
+                     if( !PB_CSizeMul2( Anpprev - n1pprev, size,
+                                        &offset_bytes ) )
+                        PB_Cabort( ctxt, "PB_Cptrsv", -1 );
+                     send( ctxt, n1pprev, 1, Xprev+offset_bytes, n1pprev,
+                           myrow, Alcol );
                   }
                   else if( mycol == Alcol )
                   {
@@ -484,7 +495,9 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
 *  Initiate lookahead
 */
          n1    = ( MAX( npcol, 2 ) - 1 ) * Anb;
-         work  = PB_Cmalloc( MIN( n1, Anp ) * size );
+         if( !PB_CSizeMul2( MIN( n1, Anp ), size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_Cptrsv", -1 );
+         work  = PB_Cmalloc64( alloc_bytes );
          Aprev = A; Xprev = XC; Xdprev = XR; Anpprev = Anp;
          mb1   = Aimb1; nb1 = Ainb1; rocprev = Acol;
          tmp1  = N - ( kb = MIN( mb1, nb1 ) ); tmp2 = n1 + nb1 - kb;
@@ -493,7 +506,10 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
                            nprow );
          while( kb > 0 )
          {
-            kbsize = kb * size;
+            if( !PB_CSizeMul2( kb, size, &kb_bytes ) ||
+                !PB_CSizeMul3( Ald, kb, size, &lda_kb_bytes ) ||
+                !PB_CSizeMul3( INCXR, kb, size, &incxr_kb_bytes ) )
+               PB_Cabort( ctxt, "PB_Cptrsv", -1 );
 /*
 *  Partial update of previous block
 */
@@ -550,22 +566,26 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
             {
                if( ( tmp1 = Anpprev - n1pprev ) > 0 )
                {
-                  tmp2 = n1pprev * size;
-                  gemv( C2F_CHAR( TRANS ), &tmp1, &kbprev, negone, Aprev+tmp2,
-                        &Ald, Xdprev, &INCXR, one, Xprev+tmp2, &INCXC );
+                  if( !PB_CSizeMul2( n1pprev, size, &offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsv", -1 );
+                  gemv( C2F_CHAR( TRANS ), &tmp1, &kbprev, negone,
+                        Aprev+offset_bytes, &Ald, Xdprev, &INCXR, one,
+                        Xprev+offset_bytes, &INCXC );
                }
-               Aprev += Ald * kbprev * size;
+               if( !PB_CSizeMul3( Ald, kbprev, size, &offset_bytes ) )
+                  PB_Cabort( ctxt, "PB_Cptrsv", -1 );
+               Aprev += offset_bytes;
             }
 /*
 *  Save info of current step and update info for the next step
 */
             if( Ais1Col || ( mycol == Acol ) )
-            { A += Ald*kbsize; Xdprev = Xd = XR; XR += INCXR*kbsize; }
+            { A += lda_kb_bytes; Xdprev = Xd = XR; XR += incxr_kb_bytes; }
             if( AisRowRep || ( myrow == Arow ) )
             {
-               Xprev   = ( XC += kbsize );
-               A      += kbsize;
-               Aprev  += kbsize;
+               Xprev   = ( XC += kb_bytes );
+               A      += kb_bytes;
+               Aprev  += kb_bytes;
                Anpprev = ( Anp -= kb );
             }
             n1pprev = n1p;
@@ -611,7 +631,9 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
 *  Initiate lookahead
 */
          n1    = ( MAX( nprow, 2 ) - 1 ) * Amb;
-         work  = PB_Cmalloc( MIN( n1, Anq ) * size );
+         if( !PB_CSizeMul2( MIN( n1, Anq ), size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_Cptrsv", -1 );
+         work  = PB_Cmalloc64( alloc_bytes );
          Aprev = A; Xprev = XR; Xdprev = XC; Anpprev = Anq;
          mb1   = Aimb1; nb1 = Ainb1; rocprev = Arow;
          tmp1  = N - ( kb = MIN( mb1, nb1 ) ); tmp2 = n1 + mb1 - kb;
@@ -620,7 +642,10 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
                              npcol );
          while( kb > 0 )
          {
-            kbsize = kb * size;
+            if( !PB_CSizeMul2( kb, size, &kb_bytes ) ||
+                !PB_CSizeMul3( Ald, kb, size, &lda_kb_bytes ) ||
+                !PB_CSizeMul3( INCXR, kb, size, &incxr_kb_bytes ) )
+               PB_Cabort( ctxt, "PB_Cptrsv", -1 );
 /*
 *  Partial update of previous block
 */
@@ -676,24 +701,34 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
             {
                if( ( tmp1 = Anpprev - n1pprev ) > 0  )
                {
-                  tmp2 = n1pprev * size;
+                  if( !PB_CSizeMul2( n1pprev, size, &offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsv", -1 );
+                  if( !PB_CSizeFromInt( Ald, &factor_bytes ) ||
+                      !ScaLAPACK_SizeTMul( factor_bytes, offset_bytes,
+                                           &lda_offset_bytes ) ||
+                      !PB_CSizeFromInt( INCXR, &factor_bytes ) ||
+                      !ScaLAPACK_SizeTMul( factor_bytes, offset_bytes,
+                                           &incxr_offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsv", -1 );
                   gemv( C2F_CHAR( TRANS ), &kbprev, &tmp1, negone,
-                        Aprev+Ald*tmp2, &Ald, Xdprev, &INCXC, one,
-                        Xprev+INCXR*tmp2, &INCXR );
+                        Aprev+lda_offset_bytes, &Ald, Xdprev, &INCXC, one,
+                        Xprev+incxr_offset_bytes, &INCXR );
                }
-               Aprev += kbprev * size;
+               if( !PB_CSizeMul2( kbprev, size, &offset_bytes ) )
+                  PB_Cabort( ctxt, "PB_Cptrsv", -1 );
+               Aprev += offset_bytes;
             }
 /*
 *  Save info of current step and update info for the next step
 */
             if( Ais1Row || ( myrow == Arow ) )
-            { A += kbsize; Xdprev = Xd = XC; XC += kbsize; }
+            { A += kb_bytes; Xdprev = Xd = XC; XC += kb_bytes; }
             if( AisColRep || ( mycol == Acol ) )
             {
-               Xprev   = ( XR += INCXR * kbsize );
-               A      += Ald * kbsize;
+               Xprev   = ( XR += incxr_kb_bytes );
+               A      += lda_kb_bytes;
                Anpprev = ( Anq -= kb );
-               Aprev  += Ald * kbsize;
+               Aprev  += lda_kb_bytes;
             }
             n1pprev = n1p;
             rocprev = Arow;
@@ -732,7 +767,9 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
          n1      = MAX( nlast, Amb );
          nlast  += Aimb1;
          n1last  = n1 - Amb + MAX( Aimb1, Amb );
-         work    = PB_Cmalloc( MIN( n1last, Anq ) * size );
+         if( !PB_CSizeMul2( MIN( n1last, Anq ), size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_Cptrsv", -1 );
+         work    = PB_Cmalloc64( alloc_bytes );
          tmp1    = N-1;
          Alrow   = PB_Cindxg2p( tmp1, Aimb1, Amb, Arow, Arow, nprow );
          Alcol   = PB_Cindxg2p( tmp1, Ainb1, Anb, Acol, Acol, npcol );
@@ -748,11 +785,12 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
                                npcol );
          while( N > 0 )
          {
-            kbsize = kb * size;
+            if( !PB_CSizeMul2( kb, size, &kb_bytes ) )
+               PB_Cabort( ctxt, "PB_Cptrsv", -1 );
 
             if( Ais1Row || ( myrow == Alrow ) )
             {
-               A   -= kbsize;
+               A   -= kb_bytes;
                Anp -= kb;
                Xd   = Mptr( XC, Anp, 0, INCXC, size );
             }
@@ -764,10 +802,18 @@ void PB_Cptrsv( TYPE, FBCAST, UPLO, TRANS, DIAG, N, A, IA, JA, DESCA,
             {
                if( ( Ais1Row || ( myrow == rocprev ) ) && ( kbprev > 0 ) )
                {
-                  tmp1 = ( Anpprev - n1pprev ) * size;
+                  if( !PB_CSizeMul2( Anpprev - n1pprev, size, &offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsv", -1 );
+                  if( !PB_CSizeFromInt( Ald, &factor_bytes ) ||
+                      !ScaLAPACK_SizeTMul( factor_bytes, offset_bytes,
+                                           &lda_offset_bytes ) ||
+                      !PB_CSizeFromInt( INCXR, &factor_bytes ) ||
+                      !ScaLAPACK_SizeTMul( factor_bytes, offset_bytes,
+                                           &incxr_offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsv", -1 );
                   gemv( C2F_CHAR( TRANS ), &kbprev, &n1pprev, negone,
-                        Aprev+Ald*tmp1, &Ald, Xdprev, &INCXC, one,
-                        Xprev+INCXR*tmp1, &INCXR );
+                        Aprev+lda_offset_bytes, &Ald, Xdprev, &INCXC, one,
+                        Xprev+incxr_offset_bytes, &INCXR );
                }
 /*
 *  Send partial updated result to current row

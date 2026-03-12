@@ -375,7 +375,7 @@ void PB_Cpsyr2kAC( TYPE, DIRECAB, CONJUG, UPLO, TRANS, N, K, ALPHA, A, IA,
 */
    if( conjg )
    {
-      tran = CCOTRAN; talpha = PB_Cmalloc( size );
+      tran = CCOTRAN; talpha = PB_Cmalloc64( (size_t) size );
       PB_Cconjg( TYPE, ALPHA, talpha );
    }
    else { tran = CTRAN; talpha = ALPHA; }

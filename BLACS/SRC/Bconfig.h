@@ -23,7 +23,7 @@
  * Integer types used by BLACS
  */
 #ifndef Int
-#define Int int
+#define Int ScaLAPACK_ApiInt
 #endif
 
 _Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
@@ -79,13 +79,14 @@ _Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
                                         MPI_Datatype *newtype) {
       int ierr;
       MPI_Count *count_displacements;
-      size_t i, nitems;
+      size_t i, nitems, alloc_bytes;
 
       if (count < 0) return MPI_ERR_COUNT;
       nitems = (size_t) count;
-      count_displacements = (MPI_Count *) malloc(nitems * sizeof(MPI_Count));
-      if ((nitems > 0) && (count_displacements == NULL)) return MPI_ERR_OTHER;
-      for (i = 0; i < nitems; ++i) count_displacements[i] = (MPI_Count) array_of_displacements[i];
+      if (!ScaLAPACK_SizeTMul(nitems, sizeof(MPI_Count), &alloc_bytes)) return MPI_ERR_OTHER;
+      count_displacements = (MPI_Count *) malloc(alloc_bytes);
+      if ((alloc_bytes > 0) && (count_displacements == NULL)) return MPI_ERR_OTHER;
+      for (i = 0; i < (size_t) count; ++i) count_displacements[i] = (MPI_Count) array_of_displacements[i];
       ierr = MPI_Type_create_struct_c(count, array_of_blocklengths,
                                        count_displacements,
                                        array_of_types, newtype);
@@ -99,6 +100,12 @@ _Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
                                   MPI_Datatype oldtype, MPI_Datatype *newtype) {
       return MPI_Type_indexed_c(count, array_of_blocklengths,
                                  array_of_displacements, oldtype, newtype);
+    }
+
+    static inline int _MPI_Type_vector(MPI_Count count, MPI_Count blocklength,
+                                 MPI_Count stride, MPI_Datatype oldtype,
+                                 MPI_Datatype *newtype) {
+      return MPI_Type_vector_c(count, blocklength, stride, oldtype, newtype);
     }
 
     static inline int _MPI_Bcast(void *buffer, MPI_Count count, MPI_Datatype datatype,
@@ -191,6 +198,12 @@ _Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
                                   MPI_Datatype oldtype, MPI_Datatype *newtype) {
       return MPI_Type_indexed(count, array_of_blocklengths,
                                array_of_displacements, oldtype, newtype);
+    }
+
+    static inline int _MPI_Type_vector(int count, int blocklength,
+                                 int stride, MPI_Datatype oldtype,
+                                 MPI_Datatype *newtype) {
+      return MPI_Type_vector(count, blocklength, stride, oldtype, newtype);
     }
 
     static inline int _MPI_Bcast(void *buffer, int count, MPI_Datatype datatype,

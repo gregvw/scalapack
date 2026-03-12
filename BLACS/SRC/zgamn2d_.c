@@ -105,7 +105,9 @@ F_VOID_FUNC zgamn2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    BLACBUFF *bp, *bp2;
    BLACSCONTEXT *ctxt;
    char ttop, tscope;
-   Int i, j, N, dest, idist, length, tlda, tldia, trdest, ierr;
+   Int i, N, dest, tlda, tldia, trdest, ierr;
+   ScaLAPACK_Index64 nprod;
+   size_t count, dist_offset, dist_bytes, pair_bytes, total_bytes, align_bytes;
    MpiInt len[2];
    MPI_Aint disp[2];
    MPI_Datatype dtypes[2];
@@ -174,7 +176,13 @@ F_VOID_FUNC zgamn2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
  */
    if (ttop == ' ')
       if ( (Mpval(m) < 1) || (Mpval(n) < 1) || (ctxt->TopsRepeat) ) ttop = '1';
-   N = Mpval(m) * Mpval(n);
+   if (!ScaLAPACK_Index64Mul((ScaLAPACK_Index64) Mpval(m),
+                             (ScaLAPACK_Index64) Mpval(n), &nprod) ||
+       !ScaLAPACK_Index64ToSizeT(nprod, &count) ||
+       !ScaLAPACK_Index64ToApiInt(nprod, &N))
+      BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                  "Double complex min span overflow (m=%d, n=%d)",
+                  Mpval(m), Mpval(n));
 /*
  * If process who has amn is to be communicated, must set up distance
  * vector after value vector
@@ -182,30 +190,32 @@ F_VOID_FUNC zgamn2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    if (Mpval(ldia) != -1)
    {
       vvop = BI_zvvamn;
-      length = N * sizeof(DCOMPLEX);
-      i = length % sizeof(BI_DistType);  /* ensure dist vec aligned correctly */
-      if (i) length += sizeof(BI_DistType) - i;
-      idist = length;
-      length += N * sizeof(BI_DistType);
+      if (!ScaLAPACK_SizeTMul(count, sizeof(DCOMPLEX), &pair_bytes) ||
+          !ScaLAPACK_SizeTAlignUp(pair_bytes, sizeof(BI_DistType), &dist_offset) ||
+          !ScaLAPACK_SizeTMul(count, sizeof(BI_DistType), &dist_bytes) ||
+          !ScaLAPACK_SizeTAdd(dist_offset, dist_bytes, &pair_bytes))
+         BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                     "Double complex min buffer span overflow");
 /*
  *    For performance, insist second buffer is at least 8-byte aligned
  */
-      j = 8;
-      if (sizeof(DCOMPLEX) > j) j = sizeof(DCOMPLEX);
-      i = length % j;
-      if (i) length += j - i;
-      i = 2 * length;
+      align_bytes = (sizeof(DCOMPLEX) > 8) ? sizeof(DCOMPLEX) : (size_t) 8;
+      if (!ScaLAPACK_SizeTAlignUp(pair_bytes, align_bytes, &pair_bytes) ||
+          !ScaLAPACK_SizeTMul((size_t) 2, pair_bytes, &total_bytes) ||
+          !ScaLAPACK_SizeTToApiInt(total_bytes, &i))
+         BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                     "Double complex min temporary buffer overflow");
 
       bp = BI_GetBuff(i);
       bp2 = &BI_AuxBuff;
-      bp2->Buff = &bp->Buff[length];
+      bp2->Buff = &bp->Buff[pair_bytes];
       BI_zmvcopy(Mpval(m), Mpval(n), A, tlda, bp->Buff);
 /*
  *    Fill in distance vector
  */
       if (dest == -1) mydist = ctxt->scp->Iam;
       else mydist = (ctxt->scp->Np + ctxt->scp->Iam - dest) % ctxt->scp->Np;
-      dist = (BI_DistType *) &bp->Buff[idist];
+      dist = (BI_DistType *) &bp->Buff[dist_offset];
       for (i=0; i < N; i++) dist[i] = mydist;
 
 /*
@@ -213,7 +223,7 @@ F_VOID_FUNC zgamn2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
  */
       len[0] = len[1] = N;
       disp[0] = 0;
-      disp[1] = idist;
+      disp[1] = (MPI_Aint) dist_offset;
       dtypes[0] = MPI_DOUBLE_COMPLEX;
       dtypes[1] = BI_MpiDistType;
 #ifdef ZeroByteTypeBug
@@ -237,7 +247,10 @@ F_VOID_FUNC zgamn2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    else
    {
       vvop = BI_zvvamn2;
-      length = N * sizeof(DCOMPLEX);
+      if (!ScaLAPACK_SizeTMul(count, sizeof(DCOMPLEX), &pair_bytes) ||
+          !ScaLAPACK_SizeTToApiInt(pair_bytes, &i))
+         BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                     "Double complex min buffer span overflow");
 /*
  *    If A is contiguous, we can use it as one of our buffers
  */
@@ -245,13 +258,17 @@ F_VOID_FUNC zgamn2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
       {
          bp = &BI_AuxBuff;
          bp->Buff = (char *) A;
-         bp2 = BI_GetBuff(length);
+         bp2 = BI_GetBuff(i);
       }
       else
       {
-         bp = BI_GetBuff(length*2);
+         if (!ScaLAPACK_SizeTMul((size_t) 2, pair_bytes, &total_bytes) ||
+             !ScaLAPACK_SizeTToApiInt(total_bytes, &i))
+            BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                        "Double complex min temporary buffer overflow");
+         bp = BI_GetBuff(i);
          bp2 = &BI_AuxBuff;
-         bp2->Buff = &bp->Buff[length];
+         bp2->Buff = &bp->Buff[pair_bytes];
          BI_zmvcopy(Mpval(m), Mpval(n), A, tlda, bp->Buff);
       }
       bp->N = bp2->N = N;
@@ -281,7 +298,7 @@ F_VOID_FUNC zgamn2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
 	    BI_zvmcopy(Mpval(m), Mpval(n), A, tlda, bp2->Buff);
 	    if (Mpval(ldia) != -1)
                BI_TransDist(ctxt, tscope, Mpval(m), Mpval(n), rA, cA, tldia,
-                            (BI_DistType *) &bp2->Buff[idist],
+                            (BI_DistType *) &bp2->Buff[dist_offset],
 			    trdest, Mpval(cdest));
 	 }
       }
@@ -292,7 +309,7 @@ F_VOID_FUNC zgamn2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
 	 BI_zvmcopy(Mpval(m), Mpval(n), A, tlda, bp2->Buff);
          if (Mpval(ldia) != -1)
             BI_TransDist(ctxt, tscope, Mpval(m), Mpval(n), rA, cA, tldia,
-                         (BI_DistType *) &bp2->Buff[idist],
+                         (BI_DistType *) &bp2->Buff[dist_offset],
                          trdest, Mpval(cdest));
       }
       ierr=MPI_Op_free(&BlacComb);

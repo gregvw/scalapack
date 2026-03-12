@@ -178,6 +178,7 @@ void pzrot_( Int *n, complex16 X[], Int *ix, Int *jx, Int desc_X[], Int *incx, c
 *  .. PBLAS Buffer ..
 */
    complex16   * buff;
+   ScaLAPACK_ByteCount alloc_bytes, alloc_count;
 /* ..
 *  .. External Functions ..
 */
@@ -186,7 +187,7 @@ void pzrot_( Int *n, complex16 X[], Int *ix, Int *jx, Int desc_X[], Int *incx, c
    void        zgesd2d_( Int *ictxt, Int *m, Int *n, complex16 *A, Int *lda, Int *rdest, Int *cdest );
    void        pbchkvect( Int n, Int npos0, Int ix, Int jx, Int desc_X[], Int incx, Int dpos0, Int *iix, Int *jjx, Int *ixrow, Int *ixcol, Int nprow, Int npcol, Int myrow, Int mycol, Int *info );
    void        PB_Cabort( Int ictxt, char *srname, Int info );
-   char        * getpbbuf( char *mess, Int length );
+   char        * getpbbuf64( char *mess, ScaLAPACK_ByteCount length );
    F_INTG_FCT  pbztrnv_( Int *ictxt, char *scope, char *trans, Int *n, Int *nb, Int *nz, complex16 *A, Int *lda, complex16 *beta, complex16 *work, Int *ldwork, Int *prow, Int *pcol, Int *qrow, Int *qcol, complex16 *buf );
    F_INTG_FCT  zrot_( Int *n, complex16 *cx, Int *incx, complex16 *cy, Int *incy, double *c, complex16 *s );
    F_INTG_FCT  ilcm_( Int *m, Int *n );
@@ -271,6 +272,14 @@ void pzrot_( Int *n, complex16 X[], Int *ix, Int *jx, Int desc_X[], Int *incx, c
       }
    }
    if( info ) { PB_Cabort( ictxt, "PZROT", info ); return; }
+#define XPTR(ii_, jj_) \
+   (&X[ScaLAPACK_Index64MatrixOffset((ScaLAPACK_Index64) (ii_) - 1, \
+                                     (ScaLAPACK_Index64) (jj_) - 1, \
+                                     (ScaLAPACK_Index64) desc_X[LLD_], 1)])
+#define YPTR(ii_, jj_) \
+   (&Y[ScaLAPACK_Index64MatrixOffset((ScaLAPACK_Index64) (ii_) - 1, \
+                                     (ScaLAPACK_Index64) (jj_) - 1, \
+                                     (ScaLAPACK_Index64) desc_Y[LLD_], 1)])
 /*
    if( info )
    {
@@ -292,25 +301,25 @@ void pzrot_( Int *n, complex16 X[], Int *ix, Int *jx, Int desc_X[], Int *incx, c
    {
       if( ( myrow == ixrow ) && ( mycol == ixcol ) )
       {
-         buff = &X[iix-1+(jjx-1)*desc_X[LLD_]];
+         buff = XPTR( iix, jjx );
          if( ( myrow != iyrow ) || ( mycol != iycol ) )
          {
             zgesd2d_( &ictxt, n, n, buff, n, &iyrow, &iycol );
             zgerv2d_( &ictxt, n, n, ywork, n, &iyrow, &iycol );
          }
          else
-            *ywork = Y[iiy-1+(jjy-1)*desc_Y[LLD_]];
+            *ywork = *YPTR( iiy, jjy );
          zrot_( n, buff, n, ywork, n, c, s );
-         X[iix-1+(jjx-1)*desc_X[LLD_]] = *buff;
+         *XPTR( iix, jjx ) = *buff;
          if( ( myrow == iyrow ) && ( mycol == iycol ) )
-            Y[iiy-1+(jjy-1)*desc_Y[LLD_]] = *ywork;
+            *YPTR( iiy, jjy ) = *ywork;
       }
       else if( ( myrow == iyrow ) && ( mycol == iycol ) )
       {
-         zgesd2d_( &ictxt, n, n, &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], n,
+         zgesd2d_( &ictxt, n, n, YPTR( iiy, jjy ), n,
                    &ixrow, &ixcol );
          zgerv2d_( &ictxt, n, n, xwork, n, &ixrow, &ixcol );
-         zrot_( n, xwork, n, &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], n, c, s );
+         zrot_( n, xwork, n, YPTR( iiy, jjy ), n, c, s );
       }
       return;
    }
@@ -326,8 +335,8 @@ void pzrot_( Int *n, complex16 X[], Int *ix, Int *jx, Int desc_X[], Int *incx, c
       {
          if( myrow == ixrow )
          {
-            zrot_( &nq, &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
-                        &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_], c, s );
+            zrot_( &nq, XPTR( iix, jjx ), &desc_X[LLD_],
+                        YPTR( iiy, jjy ), &desc_Y[LLD_], c, s );
          }
       }
       else
@@ -335,22 +344,28 @@ void pzrot_( Int *n, complex16 X[], Int *ix, Int *jx, Int desc_X[], Int *incx, c
          if( myrow == ixrow )
          {
             zgesd2d_( &ictxt, &ione, &nq,
-                      &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
+                      XPTR( iix, jjx ), &desc_X[LLD_],
                       &iyrow, &mycol );
-            buff = (complex16 *)getpbbuf( "PZROT", nq*sizeof(complex16) );
+            if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) nq, &alloc_count ) ||
+                !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+               PB_Cabort( ictxt, "PZROT", -1 );
+            buff = (complex16 *)getpbbuf64( "PZROT", alloc_bytes );
             zgerv2d_( &ictxt, &nq, &ione, buff, &nq, &iyrow, &mycol );
-            zrot_( &nq, &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
+            zrot_( &nq, XPTR( iix, jjx ), &desc_X[LLD_],
                         buff, &ione, c, s );
          }
          else if( myrow == iyrow )
          {
             zgesd2d_( &ictxt, &ione, &nq,
-                      &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_],
+                      YPTR( iiy, jjy ), &desc_Y[LLD_],
                       &ixrow, &mycol );
-            buff = (complex16 *)getpbbuf( "PZROT", nq*sizeof(complex16) );
+            if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) nq, &alloc_count ) ||
+                !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+               PB_Cabort( ictxt, "PZROT", -1 );
+            buff = (complex16 *)getpbbuf64( "PZROT", alloc_bytes );
             zgerv2d_( &ictxt, &nq, &ione, buff, &nq, &ixrow, &mycol );
             zrot_( &nq, buff, &ione,
-                        &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_], c, s );
+                        YPTR( iiy, jjy ), &desc_Y[LLD_], c, s );
          }
       }
    }
@@ -366,8 +381,8 @@ void pzrot_( Int *n, complex16 X[], Int *ix, Int *jx, Int desc_X[], Int *incx, c
       {
          if( mycol == ixcol )
          {
-            zrot_( &np, &X[iix-1+(jjx-1)*desc_X[LLD_]], incx,
-                        &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], incy, c, s );
+            zrot_( &np, XPTR( iix, jjx ), incx,
+                        YPTR( iiy, jjy ), incy, c, s );
          }
       }
       else
@@ -375,22 +390,28 @@ void pzrot_( Int *n, complex16 X[], Int *ix, Int *jx, Int desc_X[], Int *incx, c
          if( mycol == ixcol )
          {
             zgesd2d_( &ictxt, &np, &ione,
-                      &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
+                      XPTR( iix, jjx ), &desc_X[LLD_],
                       &myrow, &iycol );
-            buff = (complex16 *)getpbbuf( "PZROT", np*sizeof(complex16) );
+            if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) np, &alloc_count ) ||
+                !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+               PB_Cabort( ictxt, "PZROT", -1 );
+            buff = (complex16 *)getpbbuf64( "PZROT", alloc_bytes );
             zgerv2d_( &ictxt, &np, &ione, buff, &np, &myrow, &iycol );
-            zrot_( &np, &X[iix-1+(jjx-1)*desc_X[LLD_]], incx,
+            zrot_( &np, XPTR( iix, jjx ), incx,
                         buff, &ione, c, s );
          }
          else if( mycol == iycol )
          {
             zgesd2d_( &ictxt, &np, &ione,
-                      &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_],
+                      YPTR( iiy, jjy ), &desc_Y[LLD_],
                       &myrow, &ixcol );
-            buff = (complex16 *)getpbbuf( "PZROT", np*sizeof(complex16) );
+            if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) np, &alloc_count ) ||
+                !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+               PB_Cabort( ictxt, "PZROT", -1 );
+            buff = (complex16 *)getpbbuf64( "PZROT", alloc_bytes );
             zgerv2d_( &ictxt, &np, &ione, buff, &np, &myrow, &ixcol );
             zrot_( &np, buff, &ione,
-                        &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], incy, c, s );
+                        YPTR( iiy, jjy ), incy, c, s );
          }
       }
    }
@@ -409,24 +430,27 @@ void pzrot_( Int *n, complex16 X[], Int *ix, Int *jx, Int desc_X[], Int *incx, c
          wksz = MYROC0( tmp1, np0, desc_X[MB_], lcmp );
          wksz = np + wksz;
 
-         buff = (complex16 *)getpbbuf( "PZROT", wksz*sizeof(complex16) );
+         if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) wksz, &alloc_count ) ||
+             !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+            PB_Cabort( ictxt, "PZROT", -1 );
+         buff = (complex16 *)getpbbuf64( "PZROT", alloc_bytes );
 
          if( mycol == iycol )
             jjy -= nz;
          if( myrow == ixrow )
             np -= nz;
          pbztrnv_( &ictxt, C2F_CHAR( "R" ), C2F_CHAR( "T" ), n,
-                   &desc_Y[NB_], &nz, &Y[iiy-1+(jjy-1)*desc_Y[LLD_]],
+                   &desc_Y[NB_], &nz, YPTR( iiy, jjy ),
                    &desc_Y[LLD_], &zero, buff, &ione, &iyrow, &iycol,
                    &ixrow, &ixcol, buff+np );
          if( mycol == ixcol )
          {
-            zrot_( &np, &X[iix-1+(jjx-1)*desc_X[LLD_]],
+            zrot_( &np, XPTR( iix, jjx ),
                      incx, buff, &ione, c, s );
          }
          pbztrnv_( &ictxt, C2F_CHAR( "R" ), C2F_CHAR( "T" ), n,
                    &desc_Y[NB_], &nz, buff, &ione, &zero,
-                   &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_],
+                   YPTR( iiy, jjy ), &desc_Y[LLD_],
                    &ixrow, &ixcol,  &iyrow, &iycol, buff+np );
       }
       else                  /* Y is distributed over a process column */
@@ -441,23 +465,28 @@ void pzrot_( Int *n, complex16 X[], Int *ix, Int *jx, Int desc_X[], Int *incx, c
          wksz = MYROC0( tmp1, np0, desc_Y[MB_], lcmp );
          wksz = np + wksz;
 
-         buff = (complex16 *)getpbbuf( "PZROT", wksz*sizeof(complex16) );
+         if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) wksz, &alloc_count ) ||
+             !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+            PB_Cabort( ictxt, "PZROT", -1 );
+         buff = (complex16 *)getpbbuf64( "PZROT", alloc_bytes );
 
          if( myrow == iyrow )
             np -= nz;
          pbztrnv_( &ictxt, C2F_CHAR( "R" ), C2F_CHAR( "T" ), n,
-                   &desc_X[NB_], &nz, &X[iix-1+(jjx-1)*desc_X[LLD_]],
+                   &desc_X[NB_], &nz, XPTR( iix, jjx ),
                    &desc_X[LLD_], &zero, buff, &ione, &ixrow, &ixcol,
                    &iyrow, &iycol, buff+np );
          if( mycol == iycol )
          {
             zrot_( &np, buff, &ione,
-                     &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], incy, c, s );
+                     YPTR( iiy, jjy ), incy, c, s );
          }
          pbztrnv_( &ictxt, C2F_CHAR( "R" ), C2F_CHAR( "T" ), n,
                    &desc_X[NB_], &nz, buff, &ione, &zero,
-                   &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
+                   XPTR( iix, jjx ), &desc_X[LLD_],
                    &iyrow, &iycol, &ixrow, &ixcol, buff+np );
       }
    }
+#undef YPTR
+#undef XPTR
 }

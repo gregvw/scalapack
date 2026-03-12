@@ -116,13 +116,18 @@ extern void Cpcgemr2d();
 void
 setmemory(complex **adpointer, Int blocksize)
 {
+  size_t alloc_count, alloc_bytes;
   assert(blocksize >= 0);
   if (blocksize == 0) {
     *adpointer = NULL;
     return;
   }
-  *adpointer = (complex *) mr2d_malloc(
-				       (size_t)blocksize * sizeof(complex));
+  if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64)blocksize, &alloc_count) ||
+      !ScaLAPACK_SizeTMul(alloc_count, sizeof(complex), &alloc_bytes)) {
+    fprintf(stderr, "xxGEMR2D:buffer workspace overflow\n");
+    exit(1);
+  }
+  *adpointer = (complex *) mr2d_malloc(alloc_bytes);
 }
 /******************************************************************/
 /* Free the memory space after the malloc */

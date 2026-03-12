@@ -7,6 +7,7 @@ F_VOID_FUNC blacs_pinfo_(Int *mypnum, Int *nprocs)
 #endif
 {
    int ierr;
+   size_t alloc_bytes;
    extern Int BI_Iam, BI_Np;
    int flag, Iam = BI_Iam, Np = BI_Np;
    int argc=0;
@@ -18,7 +19,11 @@ F_VOID_FUNC blacs_pinfo_(Int *mypnum, Int *nprocs)
       if (!flag) 
          ierr = MPI_Init(&argc,&argv);  // call Init and ignore argc and argv
 
-      BI_COMM_WORLD = (Int *) malloc(sizeof(Int));
+      if (!ScaLAPACK_SizeTMul((size_t)1, sizeof(Int), &alloc_bytes))
+         BI_BlacsErr(-1, __LINE__, __FILE__, "Cannot size BI_COMM_WORLD");
+      BI_COMM_WORLD = (Int *) malloc(alloc_bytes);
+      if (!BI_COMM_WORLD)
+         BI_BlacsErr(-1, __LINE__, __FILE__, "Cannot allocate BI_COMM_WORLD");
       *BI_COMM_WORLD = MPI_Comm_c2f(MPI_COMM_WORLD);
    }
    MPI_Comm_size(MPI_COMM_WORLD, &Np);

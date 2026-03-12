@@ -111,13 +111,18 @@ extern void Cpitrmr2d();
 void
 setmemory(Int **adpointer, Int blocksize)
 {
+  size_t alloc_count, alloc_bytes;
   assert(blocksize >= 0);
   if (blocksize == 0) {
     *adpointer = NULL;
     return;
   }
-  *adpointer = (Int *) mr2d_malloc(
-				   (size_t)blocksize * sizeof(Int));
+  if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64)blocksize, &alloc_count) ||
+      !ScaLAPACK_SizeTMul(alloc_count, sizeof(Int), &alloc_bytes)) {
+    fprintf(stderr, "xxGEMR2D:buffer workspace overflow\n");
+    exit(1);
+  }
+  *adpointer = (Int *) mr2d_malloc(alloc_bytes);
 }
 /******************************************************************/
 /* Free the memory space after the malloc */
@@ -185,6 +190,7 @@ intersect(char *uplo, char *diag,
   Int  *ptrstart;
   Int   offset, nbline;
   Int   intervalsize;
+  size_t copy_count, copy_bytes;
   assert(start < end);
   assert(j >= 0 && j < n);
   nbline =
@@ -200,8 +206,13 @@ intersect(char *uplo, char *diag,
   case SENDBUFF:	/* fill buff with local elements to be sent */
     ptrstart = ptrblock + localindice(start + ia, j + ja,
 				      templateheight0, templatewidth0, ma);
+    if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) intervalsize, &copy_count) ||
+        !ScaLAPACK_SizeTMul(copy_count, sizeof(Int), &copy_bytes)) {
+      fprintf(stderr, "pitrmr2: interval byte count overflow\n");
+      exit(1);
+    }
     memcpy((char *) (*pptrbuff), (char *) ptrstart,
-	   intervalsize * sizeof(Int));
+	   copy_bytes);
     /* icopy_(&intervalsize, (char *) (ptrstart), &un, (char *) (*pptrbuff),
      * &un); */
     (*pptrbuff) += intervalsize;
@@ -209,8 +220,13 @@ intersect(char *uplo, char *diag,
   case RECVBUFF:	/* fill local memory with the values received */
     ptrstart = ptrblock + localindice(start + ib, j + jb,
 				      templateheight1, templatewidth1, mb);
+    if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) intervalsize, &copy_count) ||
+        !ScaLAPACK_SizeTMul(copy_count, sizeof(Int), &copy_bytes)) {
+      fprintf(stderr, "pitrmr2: interval byte count overflow\n");
+      exit(1);
+    }
     memcpy((char *) ptrstart, (char *) (*pptrbuff),
-	   intervalsize * sizeof(Int));
+	   copy_bytes);
     /* icopy_(&intervalsize, (char *) (*pptrbuff), &un, (char *) (ptrstart),
      * &un); */
     (*pptrbuff) += intervalsize;

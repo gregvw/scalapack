@@ -223,6 +223,7 @@ void PB_CpdotNN( TYPE, N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY,
                   XmyprocR, XnprocsR, XprocR, Xrow, Ycol, Yii, YisR, YisRow,
                   Yjj, Yld, Ylinc, YmyprocD, YmyprocR, YnprocsR, YprocR, Yrow,
                   csrc, ctxt, ione=1, mycol, myrow, npcol, nprow, rsrc, size;
+   ScaLAPACK_ByteCount alloc_bytes;
 /*
 *  .. Local Arrays ..
 */
@@ -314,7 +315,9 @@ void PB_CpdotNN( TYPE, N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY,
 */
                if( XmyprocR == XprocR )
                {
-                  buf = PB_Cmalloc( N * size );
+                  if( !PB_CSizeMul2( N, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpdotNN", -1 );
+                  buf = PB_Cmalloc64( alloc_bytes );
 /*
 *  Send sub( X ) to where sub( Y ) resides, and receive sub( Y ) from the same
 *  location.
@@ -338,7 +341,9 @@ void PB_CpdotNN( TYPE, N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY,
 
                if( YmyprocR == YprocR )
                {
-                  buf = PB_Cmalloc( N * size );
+                  if( !PB_CSizeMul2( N, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpdotNN", -1 );
+                  buf = PB_Cmalloc64( alloc_bytes );
 /*
 *  Send sub( Y ) to where sub( X ) resides, and receive sub( X ) from the same
 *  location.

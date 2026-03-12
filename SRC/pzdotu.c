@@ -180,6 +180,7 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
 *  .. PBLAS Buffer ..
 */
    complex16   * buff;
+   ScaLAPACK_ByteCount alloc_bytes, alloc_count;
 /* ..
 *  .. External Functions ..
 */
@@ -191,7 +192,7 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
    void        zgsum2d_();
    void        pbchkvect();
    void        pberror_();
-   char        * getpbbuf();
+   char        * getpbbuf64( char *mess, ScaLAPACK_ByteCount length );
    char        * ptop();
    F_VOID_FCT  pbztrnv_();
    F_VOID_FCT  zzdotu_();
@@ -280,6 +281,14 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
       pberror_( &ictxt, "PZDOTU", &info );
       return;
    }
+#define XPTR(ii_, jj_) \
+   (&X[ScaLAPACK_Index64MatrixOffset((ScaLAPACK_Index64) (ii_) - 1, \
+                                     (ScaLAPACK_Index64) (jj_) - 1, \
+                                     (ScaLAPACK_Index64) desc_X[LLD_], 1)])
+#define YPTR(ii_, jj_) \
+   (&Y[ScaLAPACK_Index64MatrixOffset((ScaLAPACK_Index64) (ii_) - 1, \
+                                     (ScaLAPACK_Index64) (jj_) - 1, \
+                                     (ScaLAPACK_Index64) desc_Y[LLD_], 1)])
 /*
 *  Quick return if possible.
 */
@@ -295,23 +304,23 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
    {
       if( ( myrow == ixrow ) && ( mycol == ixcol ) )
       {
-         buff = &X[iix-1+(jjx-1)*desc_X[LLD_]];
+         buff = XPTR( iix, jjx );
          if( ( myrow != iyrow ) || ( mycol != iycol ) )
          {
             zgesd2d_( &ictxt, n, n, buff, n, &iyrow, &iycol );
             zgerv2d_( &ictxt, n, n, ywork, n, &iyrow, &iycol );
          }
          else
-            *ywork = Y[iiy-1+(jjy-1)*desc_Y[LLD_]];
+            *ywork = *YPTR( iiy, jjy );
          zzdotu_( n, dotu, buff, n, ywork, n );
       }
       else if( ( myrow == iyrow ) && ( mycol == iycol ) )
       {
-         zgesd2d_( &ictxt, n, n, &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], n,
+         zgesd2d_( &ictxt, n, n, YPTR( iiy, jjy ), n,
                    &ixrow, &ixcol );
          zgerv2d_( &ictxt, n, n, xwork, n, &ixrow, &ixcol );
          zzdotu_( n, dotu, xwork, n,
-                  &Y[iiy-1+(jjx-1)*desc_X[LLD_]], n );
+                  YPTR( iiy, jjy ), n );
       }
 
       if( ( *incx == desc_X[M_] ) && ( desc_X[M_] != 1 ) )
@@ -399,8 +408,8 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          {
             rctop = ptop( COMBINE, ROW, TOPGET );
             zzdotu_( &nq, dotu,
-                     &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
-                     &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_] );
+                     XPTR( iix, jjx ), &desc_X[LLD_],
+                     YPTR( iiy, jjy ), &desc_Y[LLD_] );
             zgsum2d_( &ictxt, C2F_CHAR( ROW ), C2F_CHAR( rctop ), &ione,
                       &ione, dotu, &ione, &mone, &mycol );
          }
@@ -411,13 +420,19 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          {
             rctop = ptop( COMBINE, ROW, TOPGET );
             zgesd2d_( &ictxt, &ione, &nq,
-                      &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
+                      XPTR( iix, jjx ), &desc_X[LLD_],
                       &iyrow, &mycol );
-            buff = (complex16 *)getpbbuf( "PZDOTU", nq*sizeof(complex16) );
+            if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) nq, &alloc_count ) ||
+                !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+            {
+               pberror_( &ictxt, "PZDOTU", &mone );
+               return;
+            }
+            buff = (complex16 *)getpbbuf64( "PZDOTU", alloc_bytes );
             zgerv2d_( &ictxt, &nq, &ione, buff, &ione, &ixrow,
                       &mycol );
             zzdotu_( &nq, dotu,
-                     &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
+                     XPTR( iix, jjx ), &desc_X[LLD_],
                      buff, &ione );
             zgsum2d_( &ictxt, C2F_CHAR( ROW ), C2F_CHAR( rctop ), &ione,
                       &ione, dotu, &ione, &mone, &mycol );
@@ -426,14 +441,20 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          {
             rctop = ptop( COMBINE, ROW, TOPGET );
             zgesd2d_( &ictxt, &ione, &nq,
-                      &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_],
+                      YPTR( iiy, jjy ), &desc_Y[LLD_],
                       &ixrow, &mycol );
-            buff = (complex16 *)getpbbuf( "PZDOTU", nq*sizeof(complex16) );
+            if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) nq, &alloc_count ) ||
+                !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+            {
+               pberror_( &ictxt, "PZDOTU", &mone );
+               return;
+            }
+            buff = (complex16 *)getpbbuf64( "PZDOTU", alloc_bytes );
             zgerv2d_( &ictxt, &nq, &ione, buff, &ione, &ixrow,
                       &mycol );
             zzdotu_( &nq, dotu,
                      buff, &ione,
-                     &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_] );
+                     YPTR( iiy, jjy ), &desc_Y[LLD_] );
             zgsum2d_( &ictxt, C2F_CHAR( ROW ), C2F_CHAR( rctop ), &ione,
                       &ione, dotu, &ione, &mone, &mycol );
          }
@@ -453,8 +474,8 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          {
             cctop = ptop( COMBINE, COLUMN, TOPGET );
             zzdotu_( &np, dotu,
-                     &X[iix-1+(jjx-1)*desc_X[LLD_]], incx,
-                     &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], incy );
+                     XPTR( iix, jjx ), incx,
+                     YPTR( iiy, jjy ), incy );
             zgsum2d_( &ictxt, C2F_CHAR( COLUMN ), C2F_CHAR( cctop ),
                       &ione, &ione, dotu, &ione, &mone, &mycol );
          }
@@ -465,13 +486,19 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          {
             cctop = ptop( COMBINE, COLUMN, TOPGET );
             zgesd2d_( &ictxt, &np, &ione,
-                      &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
+                      XPTR( iix, jjx ), &desc_X[LLD_],
                       &myrow, &iycol );
-            buff = (complex16 *)getpbbuf( "PZDOTU", np*sizeof(complex16) );
+            if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) np, &alloc_count ) ||
+                !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+            {
+               pberror_( &ictxt, "PZDOTU", &mone );
+               return;
+            }
+            buff = (complex16 *)getpbbuf64( "PZDOTU", alloc_bytes );
             zgerv2d_( &ictxt, &np, &ione, buff, &ione,
                       &myrow, &iycol );
             zzdotu_( &np, dotu,
-                     &X[iix-1+(jjx-1)*desc_X[LLD_]], incx,
+                     XPTR( iix, jjx ), incx,
                      buff, &ione );
             zgsum2d_( &ictxt, C2F_CHAR( COLUMN ), C2F_CHAR( cctop ),
                       &ione, &ione, dotu, &ione, &mone, &mycol );
@@ -480,14 +507,20 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          {
             cctop = ptop( COMBINE, COLUMN, TOPGET );
             zgesd2d_( &ictxt, &np, &ione,
-                      &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_],
+                      YPTR( iiy, jjy ), &desc_Y[LLD_],
                       &myrow, &ixcol );
-            buff = (complex16 *)getpbbuf( "PZDOTU", np*sizeof(complex16) );
+            if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) np, &alloc_count ) ||
+                !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+            {
+               pberror_( &ictxt, "PZDOTU", &mone );
+               return;
+            }
+            buff = (complex16 *)getpbbuf64( "PZDOTU", alloc_bytes );
             zgerv2d_( &ictxt, &np, &ione, buff, &ione,
                       &myrow, &ixcol );
             zzdotu_( &np, dotu,
                      buff, &ione,
-                     &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], incy );
+                     YPTR( iiy, jjy ), incy );
             zgsum2d_( &ictxt, C2F_CHAR( COLUMN ), C2F_CHAR( cctop ),
                       &ione, &ione, dotu, &ione, &mone, &mycol );
          }
@@ -508,20 +541,26 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          wksz = MYROC0( tmp1, np0, desc_X[MB_], lcmp );
          wksz = np + wksz;
 
-         buff = (complex16 *)getpbbuf( "PZDOTU", wksz*sizeof(complex16) );
+         if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) wksz, &alloc_count ) ||
+             !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+         {
+            pberror_( &ictxt, "PZDOTU", &mone );
+            return;
+         }
+         buff = (complex16 *)getpbbuf64( "PZDOTU", alloc_bytes );
 
          if( mycol == iycol )
             jjy -= nz;
          if( myrow == ixrow )
             np -= nz;
          pbztrnv_( &ictxt, C2F_CHAR( "R" ), C2F_CHAR( "T" ), n,
-                   &desc_Y[NB_], &nz, &Y[iiy-1+(jjy-1)*desc_Y[LLD_]],
+                   &desc_Y[NB_], &nz, YPTR( iiy, jjy ),
                    &desc_Y[LLD_], &zero, buff, &ione, &iyrow, &iycol,
                    &ixrow, &ixcol, buff+np );
          if( mycol == ixcol )
          {
             cctop = ptop( COMBINE, COLUMN, TOPGET );
-            zzdotu_( &np, dotu, &X[iix-1+(jjx-1)*desc_X[LLD_]],
+            zzdotu_( &np, dotu, XPTR( iix, jjx ),
                      incx, buff, &ione );
             zgsum2d_( &ictxt, C2F_CHAR( COLUMN ), C2F_CHAR( cctop ),
                       &ione, &ione, dotu, &ione, &mone, &mycol );
@@ -549,19 +588,25 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          wksz = MYROC0( tmp1, np0, desc_Y[MB_], lcmp );
          wksz = np + wksz;
 
-         buff = (complex16 *)getpbbuf( "PZDOTU", wksz*sizeof(complex16) );
+         if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) wksz, &alloc_count ) ||
+             !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+         {
+            pberror_( &ictxt, "PZDOTU", &mone );
+            return;
+         }
+         buff = (complex16 *)getpbbuf64( "PZDOTU", alloc_bytes );
 
          if( myrow == iyrow )
             np -= nz;
          pbztrnv_( &ictxt, C2F_CHAR( "R" ), C2F_CHAR( "T" ), n,
-                   &desc_X[NB_], &nz, &X[iix-1+(jjx-1)*desc_X[LLD_]],
+                   &desc_X[NB_], &nz, XPTR( iix, jjx ),
                    &desc_X[LLD_], &zero, buff, &ione, &ixrow, &ixcol,
                    &iyrow, &iycol, buff+np );
          if( mycol == iycol )
          {
             cctop = ptop( COMBINE, COLUMN, TOPGET );
             zzdotu_( &np, dotu, buff, &ione,
-                     &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], incy );
+                     YPTR( iiy, jjy ), incy );
             zgsum2d_( &ictxt, C2F_CHAR( COLUMN ), C2F_CHAR( cctop ),
                       &ione, &ione, dotu, &ione, &mone, &mycol );
          }
@@ -577,4 +622,6 @@ void pzdotu_( n, dotu, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          }
       }
    }
+#undef YPTR
+#undef XPTR
 }

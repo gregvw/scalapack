@@ -236,11 +236,13 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
 */
    Int            Acol, Arow, Aii, Aimb1, Ainb1, Ajj, Ald, Amp, Amb, Anb, Anq,
                   Aoffi, Aoffj, Arcol, Arrow, GoEast, GoSouth, IsColRepl,
-                  IsRowRepl, XCinc, XRinc, Xii=0, Xjj=0, Xoffi=-1, Xoffj=-1,
-                  YCinc, YRinc, iimax, ilow, imbloc, inbloc, ioffd, ioffx, iupp,
+                  IsRowRepl, Xii=0, Xjj=0, Xoffi=-1, Xoffj=-1, iimax, ilow,
+                  imbloc, inbloc, ioffd, ioffx, iupp,
                   jjmax, joffd, joffx, lcmt, lcmt00, lmbloc, lnbloc, low, lower,
                   m1, mbloc, mblkd, mblks, mycol, myrow, n1, nbloc, nblkd,
                   nblks, npcol, nprow, pmb, qnb, size, tmp1, upp, upper;
+   size_t         XCinc, XRinc, YCinc, YRinc;
+   char           *xcptr, *xrptr, *ycptr, *yrptr;
 /* ..
 *  .. Executable Statements ..
 *
@@ -276,8 +278,23 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
       return;
    }
 
-   XCinc = size;         XRinc = LDXR * size;
-   YCinc = UTYP->size;   YRinc = LDYR * UTYP->size;
+   if( !PB_CSizeFromInt( size, &XCinc )              ||
+       !PB_CSizeMul2( LDXR, size, &XRinc )           ||
+       !PB_CSizeFromInt( UTYP->size, &YCinc )        ||
+       !PB_CSizeMul2( LDYR, UTYP->size, &YRinc ) )
+      PB_Cabort( DESCA[CTXT_], "PB_Cpsym", -1 );
+#define XCSHIFT(base_, count_) \
+   ( PB_CPtrShift( (base_), (count_), XCinc, &xcptr ) ? \
+     xcptr : ( PB_Cabort( DESCA[CTXT_], "PB_Cpsym", -1 ), (char *)0 ) )
+#define XRSHIFT(base_, count_) \
+   ( PB_CPtrShift( (base_), (count_), XRinc, &xrptr ) ? \
+     xrptr : ( PB_Cabort( DESCA[CTXT_], "PB_Cpsym", -1 ), (char *)0 ) )
+#define YCSHIFT(base_, count_) \
+   ( PB_CPtrShift( (base_), (count_), YCinc, &ycptr ) ? \
+     ycptr : ( PB_Cabort( DESCA[CTXT_], "PB_Cpsym", -1 ), (char *)0 ) )
+#define YRSHIFT(base_, count_) \
+   ( PB_CPtrShift( (base_), (count_), YRinc, &yrptr ) ? \
+     yrptr : ( PB_Cabort( DESCA[CTXT_], "PB_Cpsym", -1 ), (char *)0 ) )
    upper = ( Mupcase( UPLO[0] ) == CUPPER );
    lower = ( Mupcase( UPLO[0] ) == CLOWER );
 /*
@@ -307,9 +324,10 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
 /*
 *  The upper left block owns diagonal entries lcmt00 >= ilow && lcmt00 <= iupp
 */
-      SYM( TYPE, SIDE, UPLO, imbloc, inbloc, K, lcmt00, ALPHA, Mptr( A, Aii,
-           Ajj, Ald, size ), Ald, XC+Xii*XCinc, LDXC, XR+Xjj*XRinc, LDXR,
-           YC+Xii*YCinc, LDYC, YR+Xjj*YRinc, LDYR );
+      SYM( TYPE, SIDE, UPLO, imbloc, inbloc, K, lcmt00, ALPHA,
+           Mptr( A, Aii, Ajj, Ald, size ), Ald, XCSHIFT( XC, Xii ), LDXC,
+           XRSHIFT( XR, Xjj ), LDXR, YCSHIFT( YC, Xii ), LDYC,
+           YRSHIFT( YR, Xjj ), LDYR );
 /*
 *  Decide whether one should go south or east in the table: Go east if the
 *  block below the current one only owns lower entries. If this block, however,
@@ -329,8 +347,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
             tmp1 = Anq - inbloc;
             SYM( TYPE, SIDE, ALL, imbloc, tmp1, K, 0,
                  ALPHA, Mptr( A, Aii, Ajj+inbloc, Ald, size ), Ald,
-                 XC+Xii*XCinc, LDXC, XR+(Xjj+inbloc)*XRinc, LDXR,
-                 YC+Xii*YCinc, LDYC, YR+(Xjj+inbloc)*YRinc, LDYR );
+                 XCSHIFT( XC, Xii ), LDXC, XRSHIFT( XR, Xjj+inbloc ), LDXR,
+                 YCSHIFT( YC, Xii ), LDYC, YRSHIFT( YR, Xjj+inbloc ), LDYR );
          }
          Aii += imbloc; Xii += imbloc; m1  -= imbloc;
       }
@@ -346,8 +364,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
             tmp1 = Amp - imbloc;
             SYM( TYPE, SIDE, ALL, tmp1, inbloc, K, 0,
                  ALPHA, Mptr( A, Aii+imbloc, Ajj, Ald, size ), Ald,
-                 XC+(Xii+imbloc)*XCinc, LDXC, XR+Xjj*XRinc, LDXR,
-                 YC+(Xii+imbloc)*YCinc, LDYC, YR+Xjj*YRinc, LDYR );
+                 XCSHIFT( XC, Xii+imbloc ), LDXC, XRSHIFT( XR, Xjj ), LDXR,
+                 YCSHIFT( YC, Xii+imbloc ), LDYC, YRSHIFT( YR, Xjj ), LDYR );
          }
          Ajj += inbloc; Xjj += inbloc; n1  -= inbloc;
       }
@@ -376,8 +394,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
       {
          SYM( TYPE, SIDE, ALL, tmp1, n1, K, 0,
               ALPHA, Mptr( A, Aii, Aoffj+1, Ald, size ), Ald,
-              XC+Xii*XCinc, LDXC, XR+(Xoffj+1)*XRinc, LDXR,
-              YC+Xii*YCinc, LDYC, YR+(Xoffj+1)*YRinc, LDYR );
+              XCSHIFT( XC, Xii ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              YCSHIFT( YC, Xii ), LDYC, YRSHIFT( YR, Xoffj+1 ), LDYR );
          Aii += tmp1; Xii += tmp1; m1  -= tmp1;
       }
 /*
@@ -401,8 +419,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
          if( mblkd == 1 ) mbloc = lmbloc;
          SYM( TYPE, SIDE, UPLO, mbloc, inbloc, K, lcmt,
               ALPHA, Mptr( A, ioffd+1, Aoffj+1, Ald, size ), Ald,
-              XC+(ioffx+1)*XCinc, LDXC, XR+(Xoffj+1)*XRinc, LDXR,
-              YC+(ioffx+1)*YCinc, LDYC, YR+(Xoffj+1)*YRinc, LDYR );
+              XCSHIFT( XC, ioffx+1 ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              YCSHIFT( YC, ioffx+1 ), LDYC, YRSHIFT( YR, Xoffj+1 ), LDYR );
          lcmt00 = lcmt;  lcmt  -= pmb;
          mblks  = mblkd; mblkd--;
          Aoffi  = ioffd; ioffd += mbloc;
@@ -415,8 +433,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
       if( lower && ( tmp1 > 0 ) )
          SYM( TYPE, SIDE, ALL, tmp1, inbloc, K, 0,
               ALPHA, Mptr( A, ioffd+1, Aoffj+1, Ald, size ), Ald,
-              XC+(ioffx+1)*XCinc, LDXC, XR+(Xoffj+1)*XRinc, LDXR,
-              YC+(ioffx+1)*YCinc, LDYC, YR+(Xoffj+1)*YRinc, LDYR );
+              XCSHIFT( XC, ioffx+1 ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              YCSHIFT( YC, ioffx+1 ), LDYC, YRSHIFT( YR, Xoffj+1 ), LDYR );
 
       tmp1    = Aoffi - Aii + 1;
       m1     -= tmp1;
@@ -431,8 +449,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
       if( upper && ( tmp1 > 0 ) && ( n1 > 0 ) )
          SYM( TYPE, SIDE, ALL, tmp1, n1, K, 0,
               ALPHA, Mptr( A, Aii, Aoffj+1, Ald, size ), Ald,
-              XC+Xii*XCinc, LDXC, XR+(Xoffj+1)*XRinc, LDXR,
-              YC+Xii*YCinc, LDYC, YR+(Xoffj+1)*YRinc, LDYR );
+              XCSHIFT( XC, Xii ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              YCSHIFT( YC, Xii ), LDYC, YRSHIFT( YR, Xoffj+1 ), LDYR );
       Aii = Aoffi + 1; Ajj = Aoffj + 1;
       Xii = Xoffi + 1; Xjj = Xoffj + 1;
    }
@@ -458,8 +476,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
       {
          SYM( TYPE, SIDE, ALL, m1, tmp1, K, 0,
               ALPHA, Mptr( A, Aii, Ajj, Ald, size ), Ald,
-              XC+Xii*XCinc, LDXC, XR+Xjj*XRinc, LDXR,
-              YC+Xii*YCinc, LDYC, YR+Xjj*YRinc, LDYR );
+              XCSHIFT( XC, Xii ), LDXC, XRSHIFT( XR, Xjj ), LDXR,
+              YCSHIFT( YC, Xii ), LDYC, YRSHIFT( YR, Xjj ), LDYR );
          Ajj += tmp1; Xjj += tmp1; n1  -= tmp1;
       }
 /*
@@ -483,8 +501,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
          if( nblkd == 1 ) nbloc = lnbloc;
          SYM( TYPE, SIDE, UPLO, imbloc, nbloc, K, lcmt,
               ALPHA, Mptr( A, Aii, joffd+1, Ald, size ), Ald,
-              XC+Xii*XCinc, LDXC, XR+(joffx+1)*XRinc, LDXR,
-              YC+Xii*YCinc, LDYC, YR+(joffx+1)*YRinc, LDYR );
+              XCSHIFT( XC, Xii ), LDXC, XRSHIFT( XR, joffx+1 ), LDXR,
+              YCSHIFT( YC, Xii ), LDYC, YRSHIFT( YR, joffx+1 ), LDYR );
          lcmt00 = lcmt;  lcmt  += qnb;
          nblks  = nblkd; nblkd--;
          Aoffj  = joffd; joffd += nbloc;
@@ -497,8 +515,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
       if( upper && ( tmp1 > 0 ) )
          SYM( TYPE, SIDE, ALL, imbloc, tmp1, K, 0,
               ALPHA, Mptr( A, Aii, joffd+1, Ald, size ), Ald,
-              XC+Xii*XCinc, LDXC, XR+(joffx+1)*XRinc, LDXR,
-              YC+Xii*YCinc, LDYC, YR+(joffx+1)*YRinc, LDYR );
+              XCSHIFT( XC, Xii ), LDXC, XRSHIFT( XR, joffx+1 ), LDXR,
+              YCSHIFT( YC, Xii ), LDYC, YRSHIFT( YR, joffx+1 ), LDYR );
 
       tmp1    = Aoffj - Ajj + 1;
       m1     -= imbloc;
@@ -513,8 +531,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
       if( lower && ( m1 > 0 ) && ( tmp1 > 0 ) )
          SYM( TYPE, SIDE, ALL, m1, tmp1, K, 0,
               ALPHA, Mptr( A, Aoffi+1, Ajj, Ald, size ), Ald,
-              XC+(Xoffi+1)*XCinc, LDXC, XR+Xjj*XRinc, LDXR,
-              YC+(Xoffi+1)*YCinc, LDYC, YR+Xjj*YRinc, LDYR );
+              XCSHIFT( XC, Xoffi+1 ), LDXC, XRSHIFT( XR, Xjj ), LDXR,
+              YCSHIFT( YC, Xoffi+1 ), LDYC, YRSHIFT( YR, Xjj ), LDYR );
       Aii = Aoffi + 1; Ajj = Aoffj + 1;
       Xii = Xoffi + 1; Xjj = Xoffj + 1;
    }
@@ -539,8 +557,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
       {
          SYM( TYPE, SIDE, ALL, tmp1, n1, K, 0,
               ALPHA, Mptr( A, Aii, Aoffj+1, Ald, size ), Ald,
-              XC+Xii*XCinc, LDXC, XR+(Xoffj+1)*XRinc, LDXR,
-              YC+Xii*YCinc, LDYC, YR+(Xoffj+1)*YRinc, LDYR );
+              XCSHIFT( XC, Xii ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              YCSHIFT( YC, Xii ), LDYC, YRSHIFT( YR, Xoffj+1 ), LDYR );
          Aii += tmp1;
          Xii += tmp1;
          m1  -= tmp1;
@@ -566,8 +584,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
          if( mblkd == 1 ) mbloc = lmbloc;
          SYM( TYPE, SIDE, UPLO, mbloc, nbloc, K, lcmt,
               ALPHA, Mptr( A, ioffd+1, Aoffj+1, Ald, size ), Ald,
-              XC+(ioffx+1)*XCinc, LDXC, XR+(Xoffj+1)*XRinc, LDXR,
-              YC+(ioffx+1)*YCinc, LDYC, YR+(Xoffj+1)*YRinc, LDYR );
+              XCSHIFT( XC, ioffx+1 ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              YCSHIFT( YC, ioffx+1 ), LDYC, YRSHIFT( YR, Xoffj+1 ), LDYR );
          lcmt00 = lcmt;  lcmt  -= pmb;
          mblks  = mblkd; mblkd--;
          Aoffi  = ioffd; Xoffi  = ioffx;
@@ -580,8 +598,8 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
       if( lower && ( tmp1 > 0 ) )
          SYM( TYPE, SIDE, ALL, tmp1, nbloc, K, 0,
               ALPHA, Mptr( A, ioffd+1, Aoffj+1, Ald, size ), Ald,
-              XC+(ioffx+1)*XCinc, LDXC, XR+(Xoffj+1)*XRinc, LDXR,
-              YC+(ioffx+1)*YCinc, LDYC, YR+(Xoffj+1)*YRinc, LDYR );
+              XCSHIFT( XC, ioffx+1 ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              YCSHIFT( YC, ioffx+1 ), LDYC, YRSHIFT( YR, Xoffj+1 ), LDYR );
 
       tmp1    = MIN( Aoffi, iimax ) - Aii + 1;
       m1     -= tmp1;
@@ -596,12 +614,16 @@ void PB_Cpsym( TYPE, UTYP, SIDE, UPLO, N, K, ALPHA, A, IA, JA, DESCA,
       if( upper && ( tmp1 > 0 ) && ( n1 > 0 ) )
          SYM( TYPE, SIDE, ALL, tmp1, n1, K, 0,
               ALPHA, Mptr( A, Aii, Aoffj+1, Ald, size ), Ald,
-              XC+Xii*XCinc, LDXC, XR+(Xoffj+1)*XRinc, LDXR,
-              YC+Xii*YCinc, LDYC, YR+(Xoffj+1)*YRinc, LDYR );
+              XCSHIFT( XC, Xii ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              YCSHIFT( YC, Xii ), LDYC, YRSHIFT( YR, Xoffj+1 ), LDYR );
       Aii = Aoffi + 1; Ajj = Aoffj + 1;
       Xii = Xoffi + 1; Xjj = Xoffj + 1;
    }
 /*
 *  End of PB_Cpsym
 */
+#undef XCSHIFT
+#undef XRSHIFT
+#undef YCSHIFT
+#undef YRSHIFT
 }

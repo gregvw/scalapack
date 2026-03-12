@@ -16,7 +16,7 @@ void BI_EmergencyBuffS(ScaLAPACK_BufLen length)
    void BI_UpdateBuffs(BLACBUFF *);
 
    char *cptr;
-   size_t active_ops, i, j;
+   size_t active_ops, i, j, padding;
    double Mwalltime(void);
    double t1;
    extern Int BI_Np;
@@ -28,9 +28,17 @@ void BI_EmergencyBuffS(ScaLAPACK_BufLen length)
 
    j = sizeof(BLACBUFF);
    if (j % sizeof(MPI_Request))
-      j += sizeof(MPI_Request) - j % sizeof(MPI_Request);
-   i = j + active_ops * sizeof(MPI_Request);
-   if (i % BUFFALIGN) i += BUFFALIGN - i % BUFFALIGN;
+      if (!ScaLAPACK_SizeTAdd(j, sizeof(MPI_Request) - j % sizeof(MPI_Request), &j))
+         BI_BlacsErr(-1, __LINE__, __FILE__, "BLACS buffer metadata overflow");
+   if (!ScaLAPACK_SizeTMul(active_ops, sizeof(MPI_Request), &padding) ||
+       !ScaLAPACK_SizeTAdd(j, padding, &i))
+      BI_BlacsErr(-1, __LINE__, __FILE__, "BLACS buffer metadata overflow");
+   if (i % BUFFALIGN)
+   {
+      padding = BUFFALIGN - i % BUFFALIGN;
+      if (!ScaLAPACK_SizeTAdd(i, padding, &i))
+         BI_BlacsErr(-1, __LINE__, __FILE__, "BLACS buffer metadata overflow");
+   }
    t1 =  Mwalltime();
    while ( (BI_ActiveQ) && (Mwalltime() - t1 < BUFWAIT) && !(BI_ReadyB) )
    {
@@ -39,11 +47,11 @@ void BI_EmergencyBuffS(ScaLAPACK_BufLen length)
       {
          if (BI_ReadyB->BufLen < length)
          {
-	    free(BI_ReadyB);
-            if ((size_t) length > SIZE_MAX - i)
+            free(BI_ReadyB);
+            if (!ScaLAPACK_SizeTAdd(i, (size_t) length, &padding))
                BI_BlacsErr(-1, __LINE__, __FILE__,
                            "BLACS buffer allocation overflow");
-            cptr = malloc((size_t) length + i);
+            cptr = malloc(padding);
             BI_ReadyB = (BLACBUFF *) cptr;
             if (BI_ReadyB)
             {

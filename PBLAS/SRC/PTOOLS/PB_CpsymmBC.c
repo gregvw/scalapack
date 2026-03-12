@@ -295,6 +295,7 @@ void PB_CpsymmBC( TYPE, DIRECAB, CONJUG, SIDE, UPLO, M, N, ALPHA, A, IA,
    TZSYM_T        tzsymm;
    GEMM_T         gemm;
    GSUM2D_T       gsum2d;
+   ScaLAPACK_ByteCount alloc_bytes;
 /*
 *  .. Local Arrays ..
 */
@@ -393,13 +394,13 @@ void PB_CpsymmBC( TYPE, DIRECAB, CONJUG, SIDE, UPLO, M, N, ALPHA, A, IA,
       if( lside )
       {
          talphaRC = ALPHA; GemmTa = CCOTRAN; GemmTb = CTRAN;
-         talphaCR = PB_Cmalloc( size );
+         talphaCR = PB_Cmalloc64( (size_t) size );
          PB_Cconjg( TYPE, ALPHA, talphaCR );
       }
       else
       {
          talphaCR = ALPHA; GemmTa = CTRAN; GemmTb = CCOTRAN;
-         talphaRC = PB_Cmalloc( size );
+         talphaRC = PB_Cmalloc64( (size_t) size );
          PB_Cconjg( TYPE, ALPHA, talphaRC );
       }
    }
@@ -491,7 +492,9 @@ void PB_CpsymmBC( TYPE, DIRECAB, CONJUG, SIDE, UPLO, M, N, ALPHA, A, IA,
                Bbufld = MAX( 1, BnpD );
                if( BisR || ( BCmyprocR == BcurrocR ) )
                {
-                  Bbuf = PB_Cmalloc( BnpD * nbb * size );
+                  if( !PB_CSizeMul3( BnpD, nbb, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpsymmBC", -1 );
+                  Bbuf = PB_Cmalloc64( alloc_bytes );
                   PB_CVMpack( TYPE, &VM, COLUMN, COLUMN, PACKING, NOTRAN, nbb,
                               BnpD, one, Mptr( B, BiiD, Bkk, Bld, size ), Bld,
                               zero, Bbuf, Bbufld );
@@ -532,7 +535,9 @@ void PB_CpsymmBC( TYPE, DIRECAB, CONJUG, SIDE, UPLO, M, N, ALPHA, A, IA,
                Bbufld = nbb;
                if( BisR || ( BCmyprocR == BcurrocR ) )
                {
-                  Bbuf = PB_Cmalloc( BnpD * nbb * size );
+                  if( !PB_CSizeMul3( BnpD, nbb, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpsymmBC", -1 );
+                  Bbuf = PB_Cmalloc64( alloc_bytes );
                   PB_CVMpack( TYPE, &VM, COLUMN, ROW,    PACKING, NOTRAN, nbb,
                               BnpD, one, Mptr( B, Bkk, BiiD, Bld, size ), Bld,
                               zero, Bbuf, Bbufld );
@@ -677,7 +682,9 @@ void PB_CpsymmBC( TYPE, DIRECAB, CONJUG, SIDE, UPLO, M, N, ALPHA, A, IA,
 */
                Cbufld = MAX( 1, CnpD );  tbeta = zero;
                if( CisR || ( BCmyprocR == CcurrocR ) )
-                  Cbuf = PB_Cmalloc( CnpD * nbb * size );
+                  if( !PB_CSizeMul3( CnpD, nbb, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpsymmBC", -1 );
+                  Cbuf = PB_Cmalloc64( alloc_bytes );
             }
             else
             {
@@ -744,7 +751,9 @@ void PB_CpsymmBC( TYPE, DIRECAB, CONJUG, SIDE, UPLO, M, N, ALPHA, A, IA,
 */
                Cbufld = nbb; tbeta = zero;
                if( CisR || ( BCmyprocR == CcurrocR ) )
-                  Cbuf = PB_Cmalloc( CnpD * nbb * size );
+                  if( !PB_CSizeMul3( CnpD, nbb, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpsymmBC", -1 );
+                  Cbuf = PB_Cmalloc64( alloc_bytes );
             }
             else
             {

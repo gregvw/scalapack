@@ -16,13 +16,36 @@
 #include "../PBblacs.h"
 #include "../PBblas.h"
 
+static char * PB_Cmalloc_impl( ScaLAPACK_ByteCount LENGTH )
+{
+   char           * bufptr = NULL;
+
+   if( LENGTH > 0 )
+   {
+      if( !( bufptr = (char *) malloc( LENGTH ) ) )
+      {
+         (void) fprintf( stderr, "Not enough memory on line %d of file %s!!\n",
+                         __LINE__, __FILE__ );
+         Cblacs_abort( -1, -1 );
+      }
+   }
+   return( bufptr );
+}
+
+#ifdef __STDC__
+char * PB_Cmalloc64( ScaLAPACK_ByteCount LENGTH )
+#else
+char * PB_Cmalloc64( LENGTH )
+   ScaLAPACK_ByteCount LENGTH;
+#endif
+{
+   return( PB_Cmalloc_impl( LENGTH ) );
+}
+
 #ifdef __STDC__
 char * PB_Cmalloc( Int LENGTH )
 #else
 char * PB_Cmalloc( LENGTH )
-/*
-*  .. Scalar Arguments ..
-*/
    Int            LENGTH;
 #endif
 {
@@ -49,21 +72,11 @@ char * PB_Cmalloc( LENGTH )
 /*
 *  .. Local Scalars ..
 */
-   char           * bufptr = NULL;
-/* ..
-*  .. Executable Statements ..
-*
-*/
-   if( LENGTH > 0 )
-   {
-      if( !( bufptr = (char *) malloc( (unsigned)LENGTH ) ) )
-      {
-         (void) fprintf( stderr, "Not enough memory on line %d of file %s!!\n",
-                         __LINE__, __FILE__ );
-         Cblacs_abort( -1, -1 );
-      }
-   }
-   return( bufptr );
+   ScaLAPACK_ByteCount length_bytes;
+
+   if( LENGTH <= 0 ) return( NULL );
+   if( !PB_CSizeFromInt( LENGTH, &length_bytes ) ) Cblacs_abort( -1, -1 );
+   return( PB_Cmalloc_impl( length_bytes ) );
 /*
 *  End of PB_Cmalloc
 */

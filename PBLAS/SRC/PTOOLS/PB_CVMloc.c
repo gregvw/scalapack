@@ -136,12 +136,13 @@ Int PB_CVMloc( TYPE, VM, VROCS, ROCS, UNPA, TRANS, MN, K, ALPHA, A,
 /*
 *  .. Local Scalars ..
 */
-   Int            GoEast, GoSouth, ilow, imbloc, inbloc, inca, incb, iupp, kb,
+   Int            GoEast, GoSouth, ilow, imbloc, inbloc, iupp, kb,
                   lcmt, lcmt00, lmbloc, lnbloc, low, mb, mblkd, mblks, mbloc,
                   * m, * n, nb, nblkd, nblks, nbloc, notran, npcol, npq=0,
                   nprow, pmb, qnb, rows, size, tmp1, tmp2, upp;
    MMADD_T        add;
    char           * aptrd, * bptrd;
+   size_t         elem_bytes, inca, incb;
 /* ..
 *  .. Executable Statements ..
 *
@@ -238,6 +239,8 @@ Int PB_CVMloc( TYPE, VM, VROCS, ROCS, UNPA, TRANS, MN, K, ALPHA, A,
    }
 
    size = TYPE->size;
+   if( !PB_CSizeFromInt( size, &elem_bytes ) )
+      PB_Cabort( 0, "PB_CVMloc", -1 );
    rows = ( Mupcase( ROCS[0] ) == CROW );
 
    if( Mupcase( VROCS[0] ) == CROW )
@@ -250,8 +253,10 @@ Int PB_CVMloc( TYPE, VM, VROCS, ROCS, UNPA, TRANS, MN, K, ALPHA, A,
 /*
 *  (un)packing rows of mn by k array A.
 */
-         inca = size;
-         incb = ( notran ? size : LDB * size );
+         inca = elem_bytes;
+         if( notran ) incb = elem_bytes;
+         else if( !PB_CSizeMul2( LDB, size, &incb ) )
+            PB_Cabort( 0, "PB_CVMloc", -1 );
          m    = &tmp2;
          n    = &K;
       }
@@ -260,8 +265,14 @@ Int PB_CVMloc( TYPE, VM, VROCS, ROCS, UNPA, TRANS, MN, K, ALPHA, A,
 /*
 *  (un)packing columns of k by mn array A
 */
-         inca = LDA * size;
-         incb = ( notran ? LDB * size : size );
+         if( !PB_CSizeMul2( LDA, size, &inca ) )
+            PB_Cabort( 0, "PB_CVMloc", -1 );
+         if( notran )
+         {
+            if( !PB_CSizeMul2( LDB, size, &incb ) )
+               PB_Cabort( 0, "PB_CVMloc", -1 );
+         }
+         else incb = elem_bytes;
          m    = &K;
          n    = &tmp2;
       }
@@ -507,8 +518,10 @@ Int PB_CVMloc( TYPE, VM, VROCS, ROCS, UNPA, TRANS, MN, K, ALPHA, A,
 /*
 *  (un)packing rows of mn by k array A
 */
-         inca = size;
-         incb = ( notran ? size : LDB * size );
+         inca = elem_bytes;
+         if( notran ) incb = elem_bytes;
+         else if( !PB_CSizeMul2( LDB, size, &incb ) )
+            PB_Cabort( 0, "PB_CVMloc", -1 );
          m    = &tmp2;
          n    = &K;
       }
@@ -517,8 +530,14 @@ Int PB_CVMloc( TYPE, VM, VROCS, ROCS, UNPA, TRANS, MN, K, ALPHA, A,
 /*
 *  (un)packing columns of k by mn array A
 */
-         inca = LDA * size;
-         incb = ( notran ? LDB * size : size );
+         if( !PB_CSizeMul2( LDA, size, &inca ) )
+            PB_Cabort( 0, "PB_CVMloc", -1 );
+         if( notran )
+         {
+            if( !PB_CSizeMul2( LDB, size, &incb ) )
+               PB_Cabort( 0, "PB_CVMloc", -1 );
+         }
+         else incb = elem_bytes;
          m    = &K;
          n    = &tmp2;
       }

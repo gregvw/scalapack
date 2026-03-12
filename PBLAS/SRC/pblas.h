@@ -103,7 +103,7 @@
 *  ---------------------------------------------------------------------
 */
 #ifndef Int
-#define Int int
+#define Int ScaLAPACK_ApiInt
 #endif
 
 _Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),

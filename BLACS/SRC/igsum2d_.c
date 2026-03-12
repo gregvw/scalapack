@@ -77,7 +77,9 @@ F_VOID_FUNC igsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    BLACBUFF *bp, *bp2;
    BLACSCONTEXT *ctxt;
    char ttop, tscope;
-   Int N, length, dest, tlda, trdest, ierr, itr;
+   Int N, dest, tlda, trdest, ierr, itr;
+   ScaLAPACK_Index64 nprod;
+   size_t count, pair_bytes, total_bytes;
    MPI_Datatype Dtype;
    extern BLACBUFF *BI_ActiveQ;
    extern BLACBUFF BI_AuxBuff;
@@ -130,8 +132,14 @@ F_VOID_FUNC igsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
  * repeatable.
  */
    if (ttop == ' ') if ( (Mpval(m) < 1) || (Mpval(n) < 1) ) ttop = '1';
-   N = Mpval(m) * Mpval(n);
-   length = N * sizeof(Int);
+   if (!ScaLAPACK_Index64Mul((ScaLAPACK_Index64) Mpval(m),
+                             (ScaLAPACK_Index64) Mpval(n), &nprod) ||
+       !ScaLAPACK_Index64ToSizeT(nprod, &count) ||
+       !ScaLAPACK_Index64ToApiInt(nprod, &N) ||
+       !ScaLAPACK_SizeTMul(count, sizeof(Int), &pair_bytes))
+      BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                  "Integer sum span overflow (m=%d, n=%d)",
+                  Mpval(m), Mpval(n));
 /*
  * If A is contiguous, we can use it as one of the buffers
  */
@@ -139,16 +147,23 @@ F_VOID_FUNC igsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    {
       bp = &BI_AuxBuff;
       bp->Buff = (char *) A;
-      bp2 = BI_GetBuff(length);
+      if (!ScaLAPACK_SizeTToApiInt(pair_bytes, &itr))
+         BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                     "Integer sum buffer span overflow");
+      bp2 = BI_GetBuff(itr);
    }
 /*
  * Otherwise, we must allocate both buffers
  */
    else
    {
-      bp = BI_GetBuff(length*2);
+      if (!ScaLAPACK_SizeTMul((size_t) 2, pair_bytes, &total_bytes) ||
+          !ScaLAPACK_SizeTToApiInt(total_bytes, &itr))
+         BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                     "Integer sum temporary buffer overflow");
+      bp = BI_GetBuff(itr);
       bp2 = &BI_AuxBuff;
-      bp2->Buff = &bp->Buff[length];
+      bp2->Buff = &bp->Buff[pair_bytes];
       BI_imvcopy(Mpval(m), Mpval(n), A, tlda, (Int*)bp->Buff);
    }
 

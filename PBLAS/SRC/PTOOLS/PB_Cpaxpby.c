@@ -224,6 +224,7 @@ void PB_Cpaxpby( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                   npcol, npq, nprow, p, q, rdst, rsrc, size, src;
    PB_VM_T        VM;
    MMADD_T        add;
+   ScaLAPACK_ByteCount alloc_bytes;
 /* ..
 *  .. Executable Statements ..
 *
@@ -603,7 +604,9 @@ void PB_Cpaxpby( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                }
                if( ( myrow != rsrc ) || ( mycol != csrc ) )
                {
-                  buf = PB_Cmalloc( BnpD * BnR * size );
+                  if( !PB_CSizeMul3( BnpD, BnR, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cpaxpby", -1 );
+                  buf = PB_Cmalloc64( alloc_bytes );
                   TYPE->Cgerv2d( ctxt, ma, na, buf, ma, rsrc, csrc );
                   add( &ma, &na, ALPHA, buf, &ma, BETA, Mptr( B, Bii, Bjj, Bld,
                        size ), &Bld );
@@ -674,7 +677,9 @@ void PB_Cpaxpby( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                         if( ( AmyprocR == AprocR ) && ( AmyprocD == Aroc  ) )
                         {
                            if( AisRow ) { na = npq; } else { ma = npq; }
-                           buf = PB_Cmalloc( ma * na * size );
+                           if( !PB_CSizeMul3( ma, na, size, &alloc_bytes ) )
+                              PB_Cabort( ctxt, "PB_Cpaxpby", -1 );
+                           buf = PB_Cmalloc64( alloc_bytes );
                            PB_CVMpack( TYPE, &VM, ROW, &ascope, PACKING, NOTRAN,
                                        npq, AnR, one, Mptr( A, Aii, Ajj, Ald,
                                        size ), Ald, zero, buf, ma );
@@ -689,7 +694,9 @@ void PB_Cpaxpby( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                            { na = npq; rsrc = AprocR; csrc = Aroc; }
                            else
                            { ma = npq; rsrc = Aroc; csrc = AprocR; }
-                           buf = PB_Cmalloc( ma * na * size );
+                           if( !PB_CSizeMul3( ma, na, size, &alloc_bytes ) )
+                              PB_Cabort( ctxt, "PB_Cpaxpby", -1 );
+                           buf = PB_Cmalloc64( alloc_bytes );
                            TYPE->Cgerv2d( ctxt, ma, na, buf, ma, rsrc, csrc );
                            PB_CVMpack( TYPE, &VM, COLUMN, &bscope, UNPACKING,
                                        &tran, npq, AnR, BETA, Mptr( B, Bii, Bjj,

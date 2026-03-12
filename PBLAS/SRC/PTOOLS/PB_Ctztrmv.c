@@ -187,6 +187,7 @@ void PB_Ctztrmv( TYPE, SIDE, UPLO, TRANS, DIAG, M, N, K, IOFFD, ALPHA,
 *  .. Local Scalars ..
 */
    Int                ione = 1;
+   ScaLAPACK_ByteCount alloc_bytes;
    char               * Aptr = NULL;
 /* ..
 *  .. Executable Statements ..
@@ -196,7 +197,9 @@ void PB_Ctztrmv( TYPE, SIDE, UPLO, TRANS, DIAG, M, N, K, IOFFD, ALPHA,
 
    if( ( Mupcase( UPLO[0] ) == CLOWER ) || ( Mupcase( UPLO[0] ) == CUPPER ) )
    {
-      Aptr = PB_Cmalloc( M * N * TYPE->size );
+      if( !PB_CSizeMul3( M, N, TYPE->size, &alloc_bytes ) )
+         Cblacs_abort( -1, -1 );
+      Aptr = PB_Cmalloc64( alloc_bytes );
       TYPE->Ftzpadcpy( C2F_CHAR( UPLO ), C2F_CHAR( DIAG ), &M, &N, &IOFFD,
                        A, &LDA, Aptr, &M );
       if( Mupcase( TRANS[0] ) == CNOTRAN )

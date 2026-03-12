@@ -205,11 +205,13 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
 */
    Int            Acol, Arow, Aii, Aimb1, Ainb1, Ajj, Ald, Amp, Amb, Anb, Anq,
                   Aoffi, Aoffj, Arcol, Arrow, GoEast, GoSouth, IsColRepl,
-                  IsRowRepl, XCinc, XRinc, Xii=0, Xjj=0, Xoffi=-1, Xoffj=-1,
-                  iimax, ilow, imbloc, inbloc, ioffd, ioffx, iupp, jjmax, joffd,
+                  IsRowRepl, Xii=0, Xjj=0, Xoffi=-1, Xoffj=-1, iimax, ilow,
+                  imbloc, inbloc, ioffd, ioffx, iupp, jjmax, joffd,
                   joffx, lcmt, lcmt00, lmbloc, lnbloc, low, lower, m1, mbloc,
                   mblkd, mblks, mycol, myrow, n1, nbloc, nblkd, nblks, npcol,
                   nprow, pmb, qnb, size, tmp1, upp, upper;
+   size_t         XCinc, XRinc;
+   char           *xcptr, *xrptr;
 /* ..
 *  .. Executable Statements ..
 *
@@ -245,7 +247,15 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
       return;
    }
 
-   XCinc = size;         XRinc = LDXR * size;
+   if( !PB_CSizeFromInt( size, &XCinc ) ||
+       !PB_CSizeMul2( LDXR, size, &XRinc ) )
+      PB_Cabort( DESCA[CTXT_], "PB_Cpsyr", -1 );
+#define XCSHIFT(base_, count_) \
+   ( PB_CPtrShift( (base_), (count_), XCinc, &xcptr ) ? \
+     xcptr : ( PB_Cabort( DESCA[CTXT_], "PB_Cpsyr", -1 ), (char *)0 ) )
+#define XRSHIFT(base_, count_) \
+   ( PB_CPtrShift( (base_), (count_), XRinc, &xrptr ) ? \
+     xrptr : ( PB_Cabort( DESCA[CTXT_], "PB_Cpsyr", -1 ), (char *)0 ) )
    upper = ( Mupcase( UPLO[0] ) == CUPPER );
    lower = ( Mupcase( UPLO[0] ) == CLOWER );
 /*
@@ -275,8 +285,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
 /*
 *  The upper left block owns diagonal entries lcmt00 >= ilow && lcmt00 <= iupp
 */
-      SYR( TYPE, UPLO, imbloc, inbloc, K, lcmt00, ALPHA, XC+Xii*XCinc, LDXC,
-           XR+Xjj*XRinc, LDXR, Mptr( A, Aii, Ajj, Ald, size ), Ald );
+      SYR( TYPE, UPLO, imbloc, inbloc, K, lcmt00, ALPHA,
+           XCSHIFT( XC, Xii ), LDXC, XRSHIFT( XR, Xjj ), LDXR,
+           Mptr( A, Aii, Ajj, Ald, size ), Ald );
 /*
 *  Decide whether one should go south or east in the table: Go east if
 *  the block below the current one only owns lower entries. If this block,
@@ -294,9 +305,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
          if( upper && ( Anq > inbloc ) )
          {
             tmp1 = Anq - inbloc;
-            SYR( TYPE, ALL, imbloc, tmp1, K, 0, ALPHA, XC+Xii*XCinc, LDXC,
-                 XR+(Xjj+inbloc)*XRinc, LDXR, Mptr( A, Aii, Ajj+inbloc, Ald,
-                 size ), Ald );
+            SYR( TYPE, ALL, imbloc, tmp1, K, 0, ALPHA,
+                 XCSHIFT( XC, Xii ), LDXC, XRSHIFT( XR, Xjj+inbloc ), LDXR,
+                 Mptr( A, Aii, Ajj+inbloc, Ald, size ), Ald );
          }
          Aii += imbloc; Xii += imbloc; m1  -= imbloc;
       }
@@ -310,9 +321,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
          if( lower && ( Amp > imbloc ) )
          {
             tmp1 = Amp - imbloc;
-            SYR( TYPE, ALL, tmp1, inbloc, K, 0, ALPHA, XC+(Xii+imbloc)*XCinc,
-                 LDXC, XR+Xjj*XRinc, LDXR, Mptr( A, Aii+imbloc, Ajj, Ald,
-                 size ), Ald );
+            SYR( TYPE, ALL, tmp1, inbloc, K, 0, ALPHA,
+                 XCSHIFT( XC, Xii+imbloc ), LDXC, XRSHIFT( XR, Xjj ), LDXR,
+                 Mptr( A, Aii+imbloc, Ajj, Ald, size ), Ald );
          }
          Ajj += inbloc; Xjj += inbloc; n1  -= inbloc;
       }
@@ -337,9 +348,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
       tmp1 = MIN( Aoffi, iimax ) - Aii + 1;
       if( upper && ( tmp1 > 0 ) )
       {
-         SYR( TYPE, ALL, tmp1, n1, K, 0, ALPHA, XC+Xii*XCinc, LDXC,
-              XR+(Xoffj+1)*XRinc, LDXR, Mptr( A, Aii, Aoffj+1, Ald, size ),
-              Ald );
+         SYR( TYPE, ALL, tmp1, n1, K, 0, ALPHA, XCSHIFT( XC, Xii ), LDXC,
+              XRSHIFT( XR, Xoffj+1 ), LDXR,
+              Mptr( A, Aii, Aoffj+1, Ald, size ), Ald );
          Aii += tmp1; Xii += tmp1; m1  -= tmp1;
       }
 /*
@@ -361,9 +372,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
 *  A block owning diagonals lcmt00 >= ilow && lcmt00 <= upp has been found.
 */
          if( mblkd == 1 ) mbloc = lmbloc;
-         SYR( TYPE, UPLO, mbloc, inbloc, K, lcmt, ALPHA, XC+(ioffx+1)*XCinc,
-              LDXC, XR+(Xoffj+1)*XRinc, LDXR, Mptr( A, ioffd+1, Aoffj+1, Ald,
-              size ), Ald );
+         SYR( TYPE, UPLO, mbloc, inbloc, K, lcmt, ALPHA,
+              XCSHIFT( XC, ioffx+1 ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              Mptr( A, ioffd+1, Aoffj+1, Ald, size ), Ald );
          lcmt00 = lcmt;  lcmt  -= pmb;
          mblks  = mblkd; mblkd--;
          Aoffi  = ioffd; ioffd += mbloc;
@@ -374,9 +385,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
 */
       tmp1 = m1 - ioffd + Aii - 1;
       if( lower && ( tmp1 > 0 ) )
-         SYR( TYPE, ALL, tmp1, inbloc, K, 0, ALPHA, XC+(ioffx+1)*XCinc, LDXC,
-              XR+(Xoffj+1)*XRinc, LDXR, Mptr( A, ioffd+1, Aoffj+1, Ald, size ),
-              Ald );
+         SYR( TYPE, ALL, tmp1, inbloc, K, 0, ALPHA,
+              XCSHIFT( XC, ioffx+1 ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              Mptr( A, ioffd+1, Aoffj+1, Ald, size ), Ald );
 
       tmp1    = Aoffi - Aii + 1;
       m1     -= tmp1;
@@ -389,9 +400,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
 *  Update the upper triangular part of sub( A ).
 */
       if( upper && ( tmp1 > 0 ) && ( n1 > 0 ) )
-         SYR( TYPE, ALL, tmp1, n1, K, 0, ALPHA, XC+Xii*XCinc, LDXC,
-              XR+(Xoffj+1)*XRinc, LDXR, Mptr( A, Aii, Aoffj+1, Ald, size ),
-              Ald );
+         SYR( TYPE, ALL, tmp1, n1, K, 0, ALPHA, XCSHIFT( XC, Xii ), LDXC,
+              XRSHIFT( XR, Xoffj+1 ), LDXR,
+              Mptr( A, Aii, Aoffj+1, Ald, size ), Ald );
       Aii = Aoffi + 1; Ajj = Aoffj + 1;
       Xii = Xoffi + 1; Xjj = Xoffj + 1;
    }
@@ -414,8 +425,8 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
       tmp1 = MIN( Aoffj, jjmax ) - Ajj + 1;
       if( lower && ( tmp1 > 0 ) )
       {
-         SYR( TYPE, ALL, m1, tmp1, K, 0, ALPHA, XC+Xii*XCinc, LDXC,
-              XR+Xjj*XRinc, LDXR, Mptr( A, Aii, Ajj, Ald, size ), Ald );
+         SYR( TYPE, ALL, m1, tmp1, K, 0, ALPHA, XCSHIFT( XC, Xii ), LDXC,
+              XRSHIFT( XR, Xjj ), LDXR, Mptr( A, Aii, Ajj, Ald, size ), Ald );
          Ajj += tmp1; Xjj += tmp1; n1  -= tmp1;
       }
 /*
@@ -437,9 +448,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
 *  A block owning diagonals lcmt00 >= low && lcmt00 <= iupp has been found.
 */
          if( nblkd == 1 ) nbloc = lnbloc;
-         SYR( TYPE, UPLO, imbloc, nbloc, K, lcmt, ALPHA, XC+Xii*XCinc, LDXC,
-              XR+(joffx+1)*XRinc, LDXR, Mptr( A, Aii, joffd+1, Ald, size ),
-              Ald );
+         SYR( TYPE, UPLO, imbloc, nbloc, K, lcmt, ALPHA,
+              XCSHIFT( XC, Xii ), LDXC, XRSHIFT( XR, joffx+1 ), LDXR,
+              Mptr( A, Aii, joffd+1, Ald, size ), Ald );
          lcmt00 = lcmt;  lcmt  += qnb;
          nblks  = nblkd; nblkd--;
          Aoffj  = joffd; joffd += nbloc;
@@ -450,9 +461,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
 */
       tmp1 = n1 - joffd + Ajj - 1;
       if( upper && ( tmp1 > 0 ) )
-         SYR( TYPE, ALL, imbloc, tmp1, K, 0, ALPHA, XC+Xii*XCinc, LDXC,
-              XR+(joffx+1)*XRinc, LDXR, Mptr( A, Aii, (joffd+1), Ald, size ),
-              Ald );
+         SYR( TYPE, ALL, imbloc, tmp1, K, 0, ALPHA, XCSHIFT( XC, Xii ), LDXC,
+              XRSHIFT( XR, joffx+1 ), LDXR,
+              Mptr( A, Aii, (joffd+1), Ald, size ), Ald );
 
       tmp1    = Aoffj - Ajj + 1;
       m1     -= imbloc;
@@ -465,8 +476,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
 *  Update the lower triangular part of sub( A ).
 */
       if( lower && ( m1 > 0 ) && ( tmp1 > 0 ) )
-         SYR( TYPE, ALL, m1, tmp1, K, 0, ALPHA, XC+(Xoffi+1)*XCinc, LDXC,
-              XR+Xjj*XRinc, LDXR, Mptr( A, Aoffi+1, Ajj, Ald, size ), Ald );
+         SYR( TYPE, ALL, m1, tmp1, K, 0, ALPHA, XCSHIFT( XC, Xoffi+1 ), LDXC,
+              XRSHIFT( XR, Xjj ), LDXR,
+              Mptr( A, Aoffi+1, Ajj, Ald, size ), Ald );
       Aii = Aoffi + 1; Ajj = Aoffj + 1;
       Xii = Xoffi + 1; Xjj = Xoffj + 1;
    }
@@ -489,9 +501,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
       tmp1 = MIN( Aoffi, iimax ) - Aii + 1;
       if( upper && ( tmp1 > 0 ) )
       {
-         SYR( TYPE, ALL, tmp1, n1, K, 0, ALPHA, XC+Xii*XCinc, LDXC,
-              XR+(Xoffj+1)*XRinc, LDXR, Mptr( A, Aii, Aoffj+1, Ald, size ),
-              Ald );
+         SYR( TYPE, ALL, tmp1, n1, K, 0, ALPHA, XCSHIFT( XC, Xii ), LDXC,
+              XRSHIFT( XR, Xoffj+1 ), LDXR,
+              Mptr( A, Aii, Aoffj+1, Ald, size ), Ald );
          Aii += tmp1;
          Xii += tmp1;
          m1  -= tmp1;
@@ -515,9 +527,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
 *  A block owning diagonals lcmt00 >= low && lcmt00 <= upp has been found.
 */
          if( mblkd == 1 ) mbloc = lmbloc;
-         SYR( TYPE, UPLO, mbloc, nbloc, K, lcmt, ALPHA, XC+(ioffx+1)*XCinc,
-              LDXC, XR+(Xoffj+1)*XRinc, LDXR, Mptr( A, ioffd+1, Aoffj+1, Ald,
-              size ), Ald );
+         SYR( TYPE, UPLO, mbloc, nbloc, K, lcmt, ALPHA,
+              XCSHIFT( XC, ioffx+1 ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              Mptr( A, ioffd+1, Aoffj+1, Ald, size ), Ald );
          lcmt00 = lcmt;  lcmt  -= pmb;
          mblks  = mblkd; mblkd--;
          Aoffi  = ioffd; Xoffi  = ioffx;
@@ -528,9 +540,9 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
 */
       tmp1 = m1 - ioffd + Aii - 1;
       if( lower && ( tmp1 > 0 ) )
-         SYR( TYPE, ALL, tmp1, nbloc, K, 0, ALPHA, XC+(ioffx+1)*XCinc, LDXC,
-              XR+(Xoffj+1)*XRinc, LDXR, Mptr( A, ioffd+1, Aoffj+1, Ald, size ),
-              Ald );
+         SYR( TYPE, ALL, tmp1, nbloc, K, 0, ALPHA,
+              XCSHIFT( XC, ioffx+1 ), LDXC, XRSHIFT( XR, Xoffj+1 ), LDXR,
+              Mptr( A, ioffd+1, Aoffj+1, Ald, size ), Ald );
 
       tmp1    = MIN( Aoffi, iimax ) - Aii + 1;
       m1     -= tmp1;
@@ -543,13 +555,15 @@ void PB_Cpsyr( TYPE, UPLO, N, K, ALPHA, XC, LDXC, XR, LDXR, A, IA,
 *  Update the upper triangular part of sub( A ).
 */
       if( upper && ( tmp1 > 0 ) && ( n1 > 0 ) )
-         SYR( TYPE, ALL, tmp1, n1, K, 0, ALPHA, XC+Xii*XCinc, LDXC,
-              XR+(Xoffj+1)*XRinc, LDXR, Mptr( A, Aii, Aoffj+1, Ald, size ),
-              Ald );
+         SYR( TYPE, ALL, tmp1, n1, K, 0, ALPHA, XCSHIFT( XC, Xii ), LDXC,
+              XRSHIFT( XR, Xoffj+1 ), LDXR,
+              Mptr( A, Aii, Aoffj+1, Ald, size ), Ald );
       Aii = Aoffi + 1; Ajj = Aoffj + 1;
       Xii = Xoffi + 1; Xjj = Xoffj + 1;
    }
 /*
 *  End of PB_Cpsyr
 */
+#undef XCSHIFT
+#undef XRSHIFT
 }

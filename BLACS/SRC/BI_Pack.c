@@ -8,6 +8,7 @@ BLACBUFF *BI_Pack(BLACSCONTEXT *ctxt,BVOID *A,BLACBUFF *bp,MPI_Datatype Dtype)
    char *cptr;
    extern BLACBUFF BI_AuxBuff;
    extern Int BI_Np;
+   size_t header_bytes, aops_count, aops_bytes, total_bytes;
 #endif
 
 /*
@@ -17,19 +18,22 @@ BLACBUFF *BI_Pack(BLACSCONTEXT *ctxt,BVOID *A,BLACBUFF *bp,MPI_Datatype Dtype)
 #ifdef ZeroByteTypeBug
    if (Dtype == MPI_BYTE)
    {
-      info = sizeof(BLACBUFF);
-      if (info % sizeof(MPI_Request))
-         info += sizeof(MPI_Request) - info % sizeof(MPI_Request);
-      i = info + BI_Np*sizeof(MPI_Request);
-      if (i % BUFFALIGN) i += BUFFALIGN - i % BUFFALIGN;
-      cptr = malloc(i);
+      header_bytes = sizeof(BLACBUFF);
+      if (!ScaLAPACK_SizeTAlignUp(header_bytes, sizeof(MPI_Request), &header_bytes) ||
+          !ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) BI_Np, &aops_count) ||
+          !ScaLAPACK_SizeTMul(aops_count, sizeof(MPI_Request), &aops_bytes) ||
+          !ScaLAPACK_SizeTAdd(header_bytes, aops_bytes, &total_bytes) ||
+          !ScaLAPACK_SizeTAlignUp(total_bytes, BUFFALIGN, &total_bytes))
+         BI_BlacsErr(BI_ContxtNum(ctxt), __LINE__, __FILE__,
+                     "0 byte buffer workspace overflow");
+      cptr = malloc(total_bytes);
       if (cptr)
       {
          bp = (BLACBUFF *) cptr;
          bp->BufLen = 0;
          bp->Len = bp->nAops = 0;
          bp->N = 0;
-         bp->Aops = (MPI_Request *) &cptr[info];
+         bp->Aops = (MPI_Request *) &cptr[header_bytes];
          bp->Buff = (char *) &bp->BufLen;
          bp->dtype = MPI_BYTE;
          return(bp);

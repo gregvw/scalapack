@@ -213,6 +213,7 @@ void pcdotc_( N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
                   Yjj, Yld, Ylinc, YmyprocD, YmyprocR, YnbD, YnpD, YnprocsD,
                   YnprocsR, YprocD, YprocR, Yrow, cdst, csrc, ctxt, dst, info,
                   ione=1, mycol, myrow, npcol, nprow, rdst, rsrc, size, src;
+   ScaLAPACK_ByteCount alloc_bytes;
    PBTYP_T        * type;
    VVDOT_T        dot;
 /*
@@ -575,7 +576,9 @@ void pcdotc_( N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
                else         { rsrc = src; csrc = YprocR; }
                if( ( myrow != rsrc ) || ( mycol != csrc ) )
                {
-                  buf = PB_Cmalloc( XnpD * size );
+                  if( !PB_CSizeMul2( XnpD, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PCDOTC", -1 );
+                  buf = PB_Cmalloc64( alloc_bytes );
                   if( YisRow )
                      Ccgerv2d( ctxt, 1, XnpD, buf,    1, rsrc, csrc );
                   else
@@ -616,7 +619,11 @@ void pcdotc_( N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
                          MAX( 1, XnpD ) );
          }
          if( ( XmyprocR == XprocR ) && ( XnpD > 0 ) )
-            buf = PB_Cmalloc( XnpD * size );
+         {
+            if( !PB_CSizeMul2( XnpD, size, &alloc_bytes ) )
+               PB_Cabort( ctxt, "PCDOTC", -1 );
+            buf = PB_Cmalloc64( alloc_bytes );
+         }
 
          if( YisRow )
          {

@@ -226,6 +226,7 @@ void PB_CpdotND( TYPE, N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY,
                   YnbD, YnpD, YnprocsD, YnprocsR, YprocD, YprocR, Yroc, Yrow,
                   ctxt, ione=1, k, kbb, kk, kn, ktmp, mycol, mydist, myproc,
                   myrow, npcol, nprow, p, size;
+   size_t         alloc_bytes, buf_offset_bytes;
 /*
 *  .. Local Arrays ..
 */
@@ -406,7 +407,9 @@ void PB_CpdotND( TYPE, N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY,
 */
                if( YnpD > 0 )
                {
-                  buf = PB_Cmalloc( YnpD * size );
+                  if( !PB_CSizeMul2( YnpD, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpdotND", -1 );
+                  buf = PB_Cmalloc64( alloc_bytes );
                   if( YisRow )
                      TYPE->Cgerv2d( ctxt, 1, YnpD, buf,    1, YprocR,
                                     XmyprocD );
@@ -432,12 +435,14 @@ void PB_CpdotND( TYPE, N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY,
                      kbb = ktmp - k; kbb = MIN( kbb, YnbD );
                      if( YmyprocD == Yroc )
                      {
+                        if( !PB_CSizeMul2( kk, size, &buf_offset_bytes ) )
+                           PB_Cabort( ctxt, "PB_CpdotND", -1 );
                         if( XisRow )
                            FDOT( &kbb, DOT, Mptr( X, Xii, k, Xld, size ),
-                                 &Xlinc, buf+kk*size, &ione );
+                                 &Xlinc, buf+buf_offset_bytes, &ione );
                         else
                            FDOT( &kbb, DOT, Mptr( X, k, Xjj, Xld, size ),
-                                 &Xlinc, buf+kk*size, &ione );
+                                 &Xlinc, buf+buf_offset_bytes, &ione );
                         kk += kbb;
                      }
                      Yroc = MModAdd1( Yroc, YnprocsD );
@@ -582,7 +587,9 @@ void PB_CpdotND( TYPE, N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY,
                                         YnprocsD );
                      if( YnpD > 0 )
                      {
-                        buf  = PB_Cmalloc( YnpD * size );
+                        if( !PB_CSizeMul2( YnpD, size, &alloc_bytes ) )
+                           PB_Cabort( ctxt, "PB_CpdotND", -1 );
+                        buf  = PB_Cmalloc64( alloc_bytes );
                         Yroc = YprocD;
                         kk   = 0;
 /*
@@ -606,12 +613,15 @@ void PB_CpdotND( TYPE, N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY,
                            kbb = ktmp - k; kbb = MIN( kbb, YnbD );
                            if( myproc == Yroc )
                            {
+                              if( !PB_CSizeMul2( kk, size,
+                                                 &buf_offset_bytes ) )
+                                 PB_Cabort( ctxt, "PB_CpdotND", -1 );
                               if( XisRow )
                                  FDOT( &kbb, DOT, Mptr( X, Xii, k, Xld, size ),
-                                       &Xlinc, buf+kk*size, &ione );
+                                       &Xlinc, buf+buf_offset_bytes, &ione );
                               else
                                  FDOT( &kbb, DOT, Mptr( X, k, Xjj, Xld, size ),
-                                       &Xlinc, buf+kk*size, &ione );
+                                       &Xlinc, buf+buf_offset_bytes, &ione );
                               kk += kbb;
                            }
                            Yroc = MModAdd1( Yroc, YnprocsD );

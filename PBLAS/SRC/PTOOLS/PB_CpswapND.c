@@ -190,6 +190,7 @@ void PB_CpswapND( TYPE, N, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
                   YmyprocD, YmyprocR, YnbD, YnpD, YnprocsD, YnprocsR, YprocD,
                   YprocR, Yroc, Yrow, ctxt, ione=1, k, kbb, kk, kn, ktmp, mycol,
                   mydist, myproc, myrow, npcol, nprow, p, size;
+   size_t         alloc_bytes, buf_offset_bytes;
 /*
 *  .. Local Arrays ..
 */
@@ -393,7 +394,9 @@ void PB_CpswapND( TYPE, N, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
 */
                   if( YnpD > 0 )
                   {
-                     buf = PB_Cmalloc( YnpD * size );
+                     if( !PB_CSizeMul2( YnpD, size, &alloc_bytes ) )
+                        PB_Cabort( ctxt, "PB_CpswapND", -1 );
+                     buf = PB_Cmalloc64( alloc_bytes );
                      if( YisRow )
                         TYPE->Cgerv2d( ctxt, 1, YnpD, buf,    1, YprocR,
                                        XmyprocD );
@@ -425,12 +428,16 @@ void PB_CpswapND( TYPE, N, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
 
                         if( YmyprocD == Yroc )
                         {
+                           if( !PB_CSizeMul2( kk, size, &buf_offset_bytes ) )
+                              PB_Cabort( ctxt, "PB_CpswapND", -1 );
                            if( XisRow )
                               TYPE->Fswap( &kbb, Mptr( X, Xii, k, Xld, size ),
-                                           &Xlinc, buf+kk*size, &ione );
+                                           &Xlinc, buf+buf_offset_bytes,
+                                           &ione );
                            else
                               TYPE->Fswap( &kbb, Mptr( X, k, Xjj, Xld, size ),
-                                           &Xlinc, buf+kk*size, &ione );
+                                           &Xlinc, buf+buf_offset_bytes,
+                                           &ione );
                            kk += kbb;
                         }
                         else
@@ -597,7 +604,9 @@ void PB_CpswapND( TYPE, N, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
 */
                         if( XmyprocD == Xroc )
                         {
-                           buf = PB_Cmalloc( YnpD * size );
+                           if( !PB_CSizeMul2( YnpD, size, &alloc_bytes ) )
+                              PB_Cabort( ctxt, "PB_CpswapND", -1 );
+                           buf = PB_Cmalloc64( alloc_bytes );
                            if( XisRow )
                               TYPE->Cgerv2d( ctxt, YnpD, 1, buf, YnpD,
                                              p, YprocR );
@@ -629,14 +638,17 @@ void PB_CpswapND( TYPE, N, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY, INCY )
                            {
                               if( XmyprocD == Xroc )
                               {
+                                 if( !PB_CSizeMul2( kk, size,
+                                                    &buf_offset_bytes ) )
+                                    PB_Cabort( ctxt, "PB_CpswapND", -1 );
                                  if( XisRow )
                                     TYPE->Fswap( &kbb, Mptr( X, Xii, k, Xld,
-                                                 size ), &Xlinc, buf+kk*size,
-                                                 &ione );
+                                                 size ), &Xlinc,
+                                                 buf+buf_offset_bytes, &ione );
                                  else
                                     TYPE->Fswap( &kbb, Mptr( X, k, Xjj, Xld,
-                                                 size ), &Xlinc, buf+kk*size,
-                                                 &ione );
+                                                 size ), &Xlinc,
+                                                 buf+buf_offset_bytes, &ione );
                                  kk += kbb;
                               }
                               else

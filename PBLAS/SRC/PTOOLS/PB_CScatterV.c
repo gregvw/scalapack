@@ -204,6 +204,7 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
 */
    Int            Bd0[DLEN_], WAd[DLEN_];
    char           * Bptr = NULL, * Bbuf = NULL, * Bbufptr = NULL, * WA = NULL;
+   size_t         alloc_bytes, bptr_step_bytes, stride_bytes, tmp_bytes;
 /* ..
 *  .. Executable Statements ..
 *
@@ -295,7 +296,9 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
 *  If I don't own the row IB, then allocate and receive a buffer of length
 *  ( Bmp + Bnnxt ) * Bnq from the previous process row.
 */
-               Bbufptr = Bbuf = PB_Cmalloc( nlen * Bnq * size );
+               if( !PB_CSizeMul3( nlen, Bnq, size, &alloc_bytes ) )
+                  PB_Cabort( ctxt, "PB_CScatterV", -1 );
+               Bbufptr = Bbuf = PB_Cmalloc64( alloc_bytes );
                Bbufld  = nlen;
                TYPE->Cgerv2d( ctxt, nlen, Bnq, Bbuf, Bbufld, MModSub1( myrow,
                               nprow ), mycol );
@@ -321,7 +324,9 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
 */
                add      = TYPE->Fmmadd; shft = TYPE->Frshft;
                mydistnb = ( nprow - MModSub( myrow, Brow, nprow ) - 1 );
-               stride   = ( mydistnb *= Bmb ) * size;
+               mydistnb *= Bmb;
+               if( !PB_CSizeMul2( mydistnb, size, &stride_bytes ) )
+                  PB_Cabort( ctxt, "PB_CScatterV", -1 );
 
                do
                {
@@ -330,8 +335,10 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
                   nlen    -= kb;
                   offset   = -kb;
                   shft( &nlen, &Bnq, &offset, Bbufptr, &Bbufld );
-                  Bptr    += kb*size;
-                  Bbufptr += stride;
+                  if( !PB_CSizeMul2( kb, size, &bptr_step_bytes ) )
+                     PB_Cabort( ctxt, "PB_CScatterV", -1 );
+                  Bptr    += bptr_step_bytes;
+                  Bbufptr += stride_bytes;
                   nlen    -= mydistnb;
                   kb       = Bmb;
                } while( nlen > 0 );
@@ -375,7 +382,9 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
 *  If I don't own the row IB+M-1, then allocate and receive a buffer of length
 *  ( Bm - Bnnxt ) * Bnq from the next process row.
 */
-               Bbufptr = Bbuf = PB_Cmalloc( nlen * Bnq * size );
+               if( !PB_CSizeMul3( nlen, Bnq, size, &alloc_bytes ) )
+                  PB_Cabort( ctxt, "PB_CScatterV", -1 );
+               Bbufptr = Bbuf = PB_Cmalloc64( alloc_bytes );
                Bbufld  = nlen;
                TYPE->Cgerv2d( ctxt, nlen, Bnq, Bbuf, Bbufld, MModAdd1( myrow,
                               nprow ), mycol );
@@ -405,7 +414,9 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
                if( mydist < srcdist )
                {
                   tmp      = ( Bimb1 + ( srcdist - mydist - 1 ) * Bmb );
-                  Bbufptr += tmp * size;
+                  if( !PB_CSizeMul2( tmp, size, &tmp_bytes ) )
+                     PB_Cabort( ctxt, "PB_CScatterV", -1 );
+                  Bbufptr += tmp_bytes;
                   nlen    -= tmp;
                   kb       = Bmb;
                }
@@ -415,7 +426,9 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
                }
                else
                {
-                  Bbufptr += stridenb * size;
+                  if( !PB_CSizeMul2( stridenb, size, &stride_bytes ) )
+                     PB_Cabort( ctxt, "PB_CScatterV", -1 );
+                  Bbufptr += stride_bytes;
                   nlen    -= stridenb;
                   kb       = Bmb;
                }
@@ -427,8 +440,11 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
                   nlen    -= kb;
                   offset   = -kb;
                   shft( &nlen, &Bnq, &offset, Bbufptr, &Bbufld );
-                  Bptr    += kb*size;
-                  Bbufptr += stridenb*size;
+                  if( !PB_CSizeMul2( kb, size, &bptr_step_bytes ) ||
+                      !PB_CSizeMul2( stridenb, size, &stride_bytes ) )
+                     PB_Cabort( ctxt, "PB_CScatterV", -1 );
+                  Bptr    += bptr_step_bytes;
+                  Bbufptr += stride_bytes;
                   nlen    -= stridenb;
                   kb       = Bmb;
                } while( nlen > 0 );
@@ -517,7 +533,9 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
 *  If I don't own the column JB, then allocate and receive a buffer of length
 *  Bmp * ( Bnq + Bnnxt ) from the previous process column.
 */
-               Bbufptr = Bbuf = PB_Cmalloc( Bmp * nlen * size );
+               if( !PB_CSizeMul3( Bmp, nlen, size, &alloc_bytes ) )
+                  PB_Cabort( ctxt, "PB_CScatterV", -1 );
+               Bbufptr = Bbuf = PB_Cmalloc64( alloc_bytes );
                Bbufld  = Bmp;
                TYPE->Cgerv2d( ctxt, Bmp, nlen, Bbuf, Bbufld, myrow,
                               MModSub1( mycol, npcol ) );
@@ -544,7 +562,9 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
 */
                add      = TYPE->Fmmadd; shft = TYPE->Fcshft;
                mydistnb = ( npcol - MModSub( mycol, Bcol, npcol ) - 1 );
-               stride   = ( mydistnb *= Bnb ) * Bbufld * size;
+               mydistnb *= Bnb;
+               if( !PB_CSizeMul3( mydistnb, Bbufld, size, &stride_bytes ) )
+                  PB_Cabort( ctxt, "PB_CScatterV", -1 );
 
                do
                {
@@ -553,8 +573,10 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
                   nlen    -= kb;
                   offset   = -kb;
                   shft( &Bmp, &nlen, &offset, Bbufptr, &Bbufld );
-                  Bptr    += kb*Bld*size;
-                  Bbufptr += stride;
+                  if( !PB_CSizeMul3( kb, Bld, size, &bptr_step_bytes ) )
+                     PB_Cabort( ctxt, "PB_CScatterV", -1 );
+                  Bptr    += bptr_step_bytes;
+                  Bbufptr += stride_bytes;
                   nlen    -= mydistnb;
                   kb       = Bnb;
                } while( nlen > 0 );
@@ -598,7 +620,9 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
 *  If I don't own the column JB+N-1, then allocate and receive a buffer of
 *  length Bmp * ( Bn - Bnnxt ) from the next process column.
 */
-               Bbufptr = Bbuf = PB_Cmalloc( Bmp * nlen * size );
+               if( !PB_CSizeMul3( Bmp, nlen, size, &alloc_bytes ) )
+                  PB_Cabort( ctxt, "PB_CScatterV", -1 );
+               Bbufptr = Bbuf = PB_Cmalloc64( alloc_bytes );
                Bbufld  = Bmp;
                TYPE->Cgerv2d( ctxt, Bmp, nlen, Bbuf, Bbufld, myrow,
                               MModAdd1( mycol, npcol ) );
@@ -629,7 +653,9 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
                if( mydist < srcdist )
                {
                   tmp      = ( Binb1 + ( srcdist - mydist - 1 ) * Bnb );
-                  Bbufptr += tmp * Bbufld * size;
+                  if( !PB_CSizeMul3( tmp, Bbufld, size, &tmp_bytes ) )
+                     PB_Cabort( ctxt, "PB_CScatterV", -1 );
+                  Bbufptr += tmp_bytes;
                   nlen    -= tmp;
                   kb       = Bnb;
                }
@@ -639,7 +665,9 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
                }
                else
                {
-                  Bbufptr += stridenb * Bbufld * size;
+                  if( !PB_CSizeMul3( stridenb, Bbufld, size, &stride_bytes ) )
+                     PB_Cabort( ctxt, "PB_CScatterV", -1 );
+                  Bbufptr += stride_bytes;
                   nlen    -= stridenb;
                   kb       = Bnb;
                }
@@ -651,8 +679,11 @@ void PB_CScatterV( TYPE, DIRECA, M, N, A, IA, JA, DESCA, AROC,
                   nlen    -= kb;
                   offset   = -kb;
                   shft( &Bmp, &nlen, &offset, Bbufptr, &Bbufld );
-                  Bptr    += kb * Bld * size;
-                  Bbufptr += stridenb * Bbufld * size;
+                  if( !PB_CSizeMul3( kb, Bld, size, &bptr_step_bytes ) ||
+                      !PB_CSizeMul3( stridenb, Bbufld, size, &stride_bytes ) )
+                     PB_Cabort( ctxt, "PB_CScatterV", -1 );
+                  Bptr    += bptr_step_bytes;
+                  Bbufptr += stride_bytes;
                   nlen    -= stridenb;
                   kb       = Bnb;
                } while( nlen > 0 );

@@ -315,8 +315,12 @@ Cpitrmr2d(uplo, diag, m, n,
   Int  *ptrsendbuff, *ptrrecvbuff, *ptrNULL = 0;
   Int  *recvptr;
   MDESC newa, newb;
+  ScaLAPACK_ApiInt nprocs_api, param_span_api, proc0_span_api, proc1_span_api;
+  ScaLAPACK_ApiInt block_span_api;
+  size_t alloc_count, alloc_bytes;
   Int  *proc0, *proc1, *param;
   Int   mypnum, myprow0, mypcol0, myprow1, mypcol1, nprocs;
+  Int   param_span, proc0_span, proc1_span;
   Int   i, j;
   Int   nprow, npcol, gcontext;
   Int   recvsize, sendsize;
@@ -337,7 +341,12 @@ Cpitrmr2d(uplo, diag, m, n,
   jb -= 1;
   Cblacs_gridinfo(globcontext, &nprow, &npcol, &dummy, &mypnum);
   gcontext = globcontext;
-  nprocs = nprow * npcol;
+  if (!ScaLAPACK_RedistApiMulToSizeT(nprow, npcol, &alloc_count) ||
+      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &nprocs_api)) {
+    fprintf(stderr, "xxGEMR2D:global context size overflow\n");
+    exit(1);
+  }
+  nprocs = (Int)nprocs_api;
   /* if the global context that is given to us has not the shape of a line
    * (nprow != 1), create a new context.  TODO: to be optimal, we should
    * avoid this because it is an uncessary synchronisation */
@@ -356,13 +365,22 @@ Cpitrmr2d(uplo, diag, m, n,
   assert((myprow1 < p1 && mypcol1 < q1) || (myprow1 == -1 && mypcol1 == -1));
   /* exchange the missing parameters among the processors: shape of grids and
    * location of the processors */
-  param = (Int *) mr2d_malloc(3 * ((size_t)nprocs * 2 + NBPARAM) * sizeof(Int));
-  ra = param + nprocs * 2 + NBPARAM;
-  ca = param + (nprocs * 2 + NBPARAM) * 2;
-  for (i = 0; i < nprocs * 2 + NBPARAM; i++)
+  if (!ScaLAPACK_RedistApiMulToSizeT(nprocs, 2, &alloc_count) ||
+      !ScaLAPACK_SizeTAdd(alloc_count, (size_t)NBPARAM, &alloc_count) ||
+      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &param_span_api) ||
+      !ScaLAPACK_SizeTMul(alloc_count, sizeof(Int), &alloc_bytes) ||
+      !ScaLAPACK_SizeTMul(alloc_bytes, 3, &alloc_bytes)) {
+    fprintf(stderr, "xxGEMR2D:parameter workspace overflow\n");
+    exit(1);
+  }
+  param_span = (Int)param_span_api;
+  param = (Int *) mr2d_malloc(alloc_bytes);
+  ra = param + (size_t)param_span;
+  ca = param + ((size_t)param_span * 2);
+  for (i = 0; i < param_span; i++)
     param[i] = MAGIC_MAX;
   proc0 = param + NBPARAM;
-  proc1 = param + NBPARAM + nprocs;
+  proc1 = param + NBPARAM + (size_t)nprocs;
   /* we calulate proc0 and proc1 that will give the number of a proc in
    * respectively a or b in the global context */
   if (myprow0 >= 0) {
@@ -391,8 +409,8 @@ Cpitrmr2d(uplo, diag, m, n,
     param[18] = ib;
     param[19] = jb;
   }
-  Cigamn2d(gcontext, "All", "H", 2 * nprocs + NBPARAM, (Int)1, param, 2 * nprocs + NBPARAM,
-	   ra, ca, 2 * nprocs + NBPARAM, (Int)-1, (Int)-1);
+  Cigamn2d(gcontext, "All", "H", param_span, (Int)1, param, param_span,
+	   ra, ca, param_span, (Int)-1, (Int)-1);
   newa = *ma;
   newb = *mb;
   ma = &newa;
@@ -421,6 +439,15 @@ Cpitrmr2d(uplo, diag, m, n,
     ib = param[18];
     jb = param[19];
   }
+  if (!ScaLAPACK_RedistApiMulToSizeT(p0, q0, &alloc_count) ||
+      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &proc0_span_api) ||
+      !ScaLAPACK_RedistApiMulToSizeT(p1, q1, &alloc_count) ||
+      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &proc1_span_api)) {
+    fprintf(stderr, "xxGEMR2D:grid span overflow\n");
+    exit(1);
+  }
+  proc0_span = (Int)proc0_span_api;
+  proc1_span = (Int)proc1_span_api;
   for (i = 0; i < NBPARAM; i++) {
     if (param[i] == MAGIC_MAX) {
       fprintf(stderr, "xxGEMR2D:something wrong in the parameters\n");
@@ -428,9 +455,9 @@ Cpitrmr2d(uplo, diag, m, n,
     }
   }
 #ifndef NDEBUG
-  for (i = 0; i < p0 * q0; i++)
+  for (i = 0; i < proc0_span; i++)
     assert(proc0[i] >= 0 && proc0[i] < nprocs);
-  for (i = 0; i < p1 * q1; i++)
+  for (i = 0; i < proc1_span; i++)
     assert(proc1[i] >= 0 && proc1[i] < nprocs);
 #endif
   /* check the validity of the parameters */
@@ -481,10 +508,24 @@ Cpitrmr2d(uplo, diag, m, n,
   /* allocing room for the tabs, alloc for the worst case,local_n or local_m
    * intervals, in fact the worst case should be less, perhaps half that,I
    * should think of that one day. */
-  h_inter = (IDESC *) mr2d_malloc((size_t)(DIVUP(ma->n, q0 * ma->nbcol)) *
-				  (size_t)(ma->nbcol) * sizeof(IDESC));
-  v_inter = (IDESC *) mr2d_malloc((size_t)(DIVUP(ma->m, p0 * ma->nbrow))
-				  * (size_t)ma->nbrow * sizeof(IDESC));
+  if (!ScaLAPACK_RedistApiMulToSizeT(q0, ma->nbcol, &alloc_count) ||
+      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &block_span_api) ||
+      !ScaLAPACK_RedistDivUpToSizeT(ma->n, (Int)block_span_api, &alloc_count) ||
+      !ScaLAPACK_SizeTMul(alloc_count, (size_t)ma->nbcol, &alloc_count) ||
+      !ScaLAPACK_SizeTMul(alloc_count, sizeof(IDESC), &alloc_bytes)) {
+    fprintf(stderr, "xxGEMR2D:horizontal interval workspace overflow\n");
+    exit(1);
+  }
+  h_inter = (IDESC *) mr2d_malloc(alloc_bytes);
+  if (!ScaLAPACK_RedistApiMulToSizeT(p0, ma->nbrow, &alloc_count) ||
+      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &block_span_api) ||
+      !ScaLAPACK_RedistDivUpToSizeT(ma->m, (Int)block_span_api, &alloc_count) ||
+      !ScaLAPACK_SizeTMul(alloc_count, (size_t)ma->nbrow, &alloc_count) ||
+      !ScaLAPACK_SizeTMul(alloc_count, sizeof(IDESC), &alloc_bytes)) {
+    fprintf(stderr, "xxGEMR2D:vertical interval workspace overflow\n");
+    exit(1);
+  }
+  v_inter = (IDESC *) mr2d_malloc(alloc_bytes);
   /* We go for the scanning of indices. For each processor including mypnum,
    * we fill the sendbuff buffer (scanD0(SENDBUFF)) and when it is done send
    * it. Then for each processor, we compute the size of message to be
@@ -495,8 +536,8 @@ Cpitrmr2d(uplo, diag, m, n,
     Int   tot, myrang, step, sens;
     Int  *sender, *recver;
     Int   mesending, merecving;
-    tot = max(p0 * q0, p1 * q1);
-    init_chenille(mypnum, nprocs, p0 * q0, proc0, p1 * q1, proc1,
+    tot = max(proc0_span, proc1_span);
+    init_chenille(mypnum, nprocs, proc0_span, proc0, proc1_span, proc1,
 		  &sender, &recver, &myrang);
     if (myrang == -1)
       goto after_comm;
@@ -587,9 +628,16 @@ static2 void
 init_chenille(Int mypnum, Int nprocs, Int n0, Int *proc0, Int n1, Int *proc1, Int **psend, Int **precv, Int *myrang)
 {
   Int   ns, nr, i, tot;
+  size_t alloc_count, alloc_bytes;
   Int  *sender, *recver, *g0, *g1;
   tot = max(n0, n1);
-  sender = (Int *) mr2d_malloc((size_t)(nprocs + tot) * sizeof(Int) * 2);
+  if (!ScaLAPACK_RedistApiAddToSizeT(nprocs, tot, &alloc_count) ||
+      !ScaLAPACK_SizeTMul(alloc_count, sizeof(Int), &alloc_bytes) ||
+      !ScaLAPACK_SizeTMul(alloc_bytes, 2, &alloc_bytes)) {
+    fprintf(stderr, "xxGEMR2D:sender workspace overflow\n");
+    exit(1);
+  }
+  sender = (Int *) mr2d_malloc(alloc_bytes);
   recver = sender + tot;
   *psend = sender;
   *precv = recver;
@@ -656,19 +704,27 @@ gridreshape(Int *ctxtp)
 {
   Int   ori, final;	/* original context, and new context created, with
 			 * line form */
+  ScaLAPACK_ApiInt line_np_api;
+  size_t alloc_count, alloc_bytes;
   Int   nprow, npcol, myrow, mycol;
   Int  *usermap;
   Int   i, j;
   ori = *ctxtp;
   Cblacs_gridinfo(ori, &nprow, &npcol, &myrow, &mycol);
-  usermap = mr2d_malloc(sizeof(Int) * (size_t)nprow * (size_t)npcol);
+  if (!ScaLAPACK_RedistApiMulToSizeT(nprow, npcol, &alloc_count) ||
+      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &line_np_api) ||
+      !ScaLAPACK_SizeTMul(alloc_count, sizeof(Int), &alloc_bytes)) {
+    fprintf(stderr, "xxGEMR2D:grid reshape workspace overflow\n");
+    exit(1);
+  }
+  usermap = mr2d_malloc(alloc_bytes);
   for (i = 0; i < nprow; i++)
     for (j = 0; j < npcol; j++) {
       usermap[i + j * nprow] = Cblacs_pnum(ori, i, j);
     }
   /* Cblacs_get(0, 0, &final); */
   Cblacs_get(ori, (Int)10, &final);
-  Cblacs_gridmap(&final, usermap, (Int)1, (Int)1, nprow * npcol);
+  Cblacs_gridmap(&final, usermap, (Int)1, (Int)1, (Int)line_np_api);
   *ctxtp = final;
   free(usermap);
 }

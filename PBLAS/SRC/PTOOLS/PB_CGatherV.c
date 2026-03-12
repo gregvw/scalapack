@@ -197,6 +197,7 @@ void PB_CGatherV( TYPE, ALLOC, DIRECA, M, N, A, IA, JA, DESCA, AROC, B,
 *  .. Local Arrays ..
 */
    char           * Aptr = NULL, * Bptr = NULL;
+   ScaLAPACK_ByteCount alloc_bytes;
 /* ..
 *  .. Executable Statements ..
 *
@@ -266,7 +267,9 @@ void PB_CGatherV( TYPE, ALLOC, DIRECA, M, N, A, IA, JA, DESCA, AROC, B,
                if( AnpD > 0 )
                {
                   size   = TYPE->size;
-                  *B     = PB_Cmalloc( AnpD * M * size );
+                  if( !PB_CSizeMul3( AnpD, M, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CGatherV", -1 );
+                  *B     = PB_Cmalloc64( alloc_bytes );
                   *BFREE = 1;
                   TYPE->Fmmadd( &M, &AnpD, TYPE->one, Mptr( A, AiiR, AiiD, Ald,
                                 size ), &Ald, TYPE->zero, *B, &Bld );
@@ -330,7 +333,9 @@ void PB_CGatherV( TYPE, ALLOC, DIRECA, M, N, A, IA, JA, DESCA, AROC, B,
                if( AnpD > 0 )
                {
                   size   = TYPE->size;
-                  *B     = PB_Cmalloc( AnpD * N * size );
+                  if( !PB_CSizeMul3( AnpD, N, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CGatherV", -1 );
+                  *B     = PB_Cmalloc64( alloc_bytes );
                   *BFREE = 1;
                   TYPE->Fmmadd( &AnpD, &N, TYPE->one, Mptr( A, AiiD, AiiR, Ald,
                                 size ), &Ald, TYPE->zero, *B, &Bld );
@@ -393,7 +398,9 @@ void PB_CGatherV( TYPE, ALLOC, DIRECA, M, N, A, IA, JA, DESCA, AROC, B,
 */
             size     = TYPE->size; one = TYPE->one; zero = TYPE->zero;
             add      = TYPE->Fmmadd;
-            *B       = Bptr = PB_Cmalloc( ( AnpreR + AnpR ) * AnpD * size );
+            if( !PB_CSizeAddMul3( AnpreR, AnpR, AnpD, size, &alloc_bytes ) )
+               PB_Cabort( ctxt, "PB_CGatherV", -1 );
+            *B       = Bptr = PB_Cmalloc64( alloc_bytes );
             nlen     = AnpreR;
             mydistnb = MModSub( AmyprocR, AsrcR, AnprocsR ) * AnbR;
             kblks    = ( ( ( ktmp = AnR - Ainb1R - 1 ) >= 0 ) ?
@@ -544,7 +551,9 @@ void PB_CGatherV( TYPE, ALLOC, DIRECA, M, N, A, IA, JA, DESCA, AROC, B,
 */
             size     = TYPE->size; one = TYPE->one; zero = TYPE->zero;
             add      = TYPE->Fmmadd;
-            *B       = Bptr = PB_Cmalloc( ( AnnxtR + AnpR ) * AnpD * size );
+            if( !PB_CSizeAddMul3( AnnxtR, AnpR, AnpD, size, &alloc_bytes ) )
+               PB_Cabort( ctxt, "PB_CGatherV", -1 );
+            *B       = Bptr = PB_Cmalloc64( alloc_bytes );
             kblks    = ( ( ( ktmp = AnR - Ainb1R - 1 ) >= 0 ) ?
                          ( ( ktmp / AnbR ) + 1 ) / AnprocsR : 0 );
             mydist   = MModSub( ArocR, AmyprocR, AnprocsR );

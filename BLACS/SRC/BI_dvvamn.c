@@ -4,13 +4,14 @@ void BI_dvvamn(Int N, char *vec1, char *vec2)
    double *v1=(double*)vec1, *v2=(double*)vec2;
    double diff;
    BI_DistType *dist1, *dist2;
-   Int i, k;
+   size_t count, dist_offset;
+   Int k;
 
-   k = N * sizeof(double);
-   i = k % sizeof(BI_DistType);
-   if (i) k += sizeof(BI_DistType) - i;
-   dist1 = (BI_DistType *) &vec1[k];
-   dist2 = (BI_DistType *) &vec2[k];
+   count = (size_t) N;
+   ScaLAPACK_SizeTMul(count, sizeof(double), &dist_offset);
+   ScaLAPACK_SizeTAlignUp(dist_offset, sizeof(BI_DistType), &dist_offset);
+   dist1 = (BI_DistType *) &vec1[dist_offset];
+   dist2 = (BI_DistType *) &vec2[dist_offset];
 
    for (k=0; k < N; k++)
    {

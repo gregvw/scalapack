@@ -214,6 +214,7 @@ void PB_CpaxpbyNN( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
 *  .. Local Scalars ..
 */
    char           scope, * top;
+   ScaLAPACK_ByteCount alloc_bytes;
    Int            Acol, Aii, AisR, AisRow, Ajj, Ald, AmyprocD, AmyprocR,
                   AnprocsD, AnprocsR, AprocR, Arow, Bcol, Bii, BisR, BisRow,
                   Bjj, Bld, BmyprocD, BmyprocR, BnprocsD, BnprocsR, BprocR,
@@ -326,7 +327,9 @@ void PB_CpaxpbyNN( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
 */
                if( BmyprocR == BprocR )
                {
-                  buf = PB_Cmalloc( M * N * size );
+                  if( !PB_CSizeMul3( M, N, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpaxpbyNN", -1 );
+                  buf = PB_Cmalloc64( alloc_bytes );
                   if( BisRow )
                      TYPE->Cgerv2d( ctxt, M, N, buf, M, AprocR, BmyprocD );
                   else
@@ -369,7 +372,9 @@ void PB_CpaxpbyNN( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                   }
                   if( ( BmyprocR == BprocR ) && ( BmyprocD == p ) )
                   {
-                     buf = PB_Cmalloc( M * N * size );
+                     if( !PB_CSizeMul3( M, N, size, &alloc_bytes ) )
+                        PB_Cabort( ctxt, "PB_CpaxpbyNN", -1 );
+                     buf = PB_Cmalloc64( alloc_bytes );
                      if( AisRow )
                         TYPE->Cgerv2d( ctxt, M, N, buf, M, AprocR, iroca );
                      else

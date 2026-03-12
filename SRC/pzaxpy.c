@@ -172,13 +172,14 @@ void pzaxpy_( n, alpha, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
 *  .. Local Scalars ..
 */
    Int         ictxt, info, iix, iiy, ixcol, ixrow, iycol, iyrow, jjx,
-               jjy, lcm, lcmp, lcmq, mycol, myrow, nn, np, np0, nprow,
+               jjy, lcm, lcmp, lcmq, mone=-1, mycol, myrow, nn, np, np0, nprow,
                npcol, nq, nq0, nz, ione=1, tmp1, wksz;
    complex16   one, tmp, zero;
 /* ..
 *  .. PBLAS Buffer ..
 */
    complex16   * buff;
+   ScaLAPACK_ByteCount alloc_bytes, alloc_count;
 /* ..
 *  .. External Functions ..
 */
@@ -187,7 +188,7 @@ void pzaxpy_( n, alpha, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
    void        zgesd2d_();
    void        pbchkvect();
    void        pberror_();
-   char        * getpbbuf();
+   char        * getpbbuf64( char *mess, ScaLAPACK_ByteCount length );
    F_VOID_FCT  zaxpy_();
    F_VOID_FCT  zcopy_();
    F_VOID_FCT  pbztrnv_();
@@ -277,6 +278,14 @@ void pzaxpy_( n, alpha, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
       pberror_( &ictxt, "PZAXPY", &info );
       return;
    }
+#define XPTR(ii_, jj_) \
+   (&X[ScaLAPACK_Index64MatrixOffset((ScaLAPACK_Index64) (ii_) - 1, \
+                                     (ScaLAPACK_Index64) (jj_) - 1, \
+                                     (ScaLAPACK_Index64) desc_X[LLD_], 1)])
+#define YPTR(ii_, jj_) \
+   (&Y[ScaLAPACK_Index64MatrixOffset((ScaLAPACK_Index64) (ii_) - 1, \
+                                     (ScaLAPACK_Index64) (jj_) - 1, \
+                                     (ScaLAPACK_Index64) desc_Y[LLD_], 1)])
 /*
 *  Quick return if possible.
 */
@@ -292,11 +301,11 @@ void pzaxpy_( n, alpha, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          if( ( myrow != ixrow ) || ( mycol != ixcol ) )
             zgerv2d_( &ictxt, n, n, &tmp, n, &ixrow, &ixcol );
          else
-            tmp = X[iix-1+(jjx-1)*desc_X[LLD_]];
-         zaxpy_( n, alpha, &tmp, n, &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], n );
+            tmp = *XPTR( iix, jjx );
+         zaxpy_( n, alpha, &tmp, n, YPTR( iiy, jjy ), n );
       }
       else if( ( myrow == ixrow ) && ( mycol == ixcol ) )
-         zgesd2d_( &ictxt, n, n, &X[iix-1+(jjx-1)*desc_X[LLD_]], n,
+         zgesd2d_( &ictxt, n, n, XPTR( iix, jjx ), n,
                    &iyrow, &iycol );
       return;
    }
@@ -314,22 +323,28 @@ void pzaxpy_( n, alpha, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
       {
          if( myrow == ixrow )
             zaxpy_( &nq, alpha,
-                    &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
-                    &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_] );
+                    XPTR( iix, jjx ), &desc_X[LLD_],
+                    YPTR( iiy, jjy ), &desc_Y[LLD_] );
       }
       else
       {
          if( myrow == ixrow )
             zgesd2d_( &ictxt, &ione, &nq,
-                      &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
+                      XPTR( iix, jjx ), &desc_X[LLD_],
                       &iyrow, &mycol );
          else if( myrow == iyrow )
          {
-            buff = (complex16 *)getpbbuf( "PZAXPY", nq*sizeof(complex16) );
+            if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) nq, &alloc_count ) ||
+                !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+            {
+               pberror_( &ictxt, "PZAXPY", &mone );
+               return;
+            }
+            buff = (complex16 *)getpbbuf64( "PZAXPY", alloc_bytes );
             zgerv2d_( &ictxt, &nq, &ione, buff, &ione, &ixrow,
                       &mycol );
             zaxpy_( &nq, alpha, buff, &ione,
-                    &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_] );
+                    YPTR( iiy, jjy ), &desc_Y[LLD_] );
          }
       }
    }
@@ -345,22 +360,28 @@ void pzaxpy_( n, alpha, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
       {
          if( mycol == ixcol )
             zaxpy_( &np, alpha,
-                    &X[iix-1+(jjx-1)*desc_X[LLD_]], incx,
-                    &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], incy );
+                    XPTR( iix, jjx ), incx,
+                    YPTR( iiy, jjy ), incy );
       }
       else
       {
          if( mycol == ixcol )
             zgesd2d_( &ictxt, &np, &ione,
-                      &X[iix-1+(jjx-1)*desc_X[LLD_]], &desc_X[LLD_],
+                      XPTR( iix, jjx ), &desc_X[LLD_],
                       &myrow, &iycol );
          else if( mycol == iycol )
          {
-            buff = (complex16 *)getpbbuf( "PZAXPY", np*sizeof(complex16) );
+            if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) np, &alloc_count ) ||
+                !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+            {
+               pberror_( &ictxt, "PZAXPY", &mone );
+               return;
+            }
+            buff = (complex16 *)getpbbuf64( "PZAXPY", alloc_bytes );
             zgerv2d_( &ictxt, &np, &ione, buff, &ione, &myrow,
                       &ixcol );
             zaxpy_( &np, alpha, buff, &ione,
-                    &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], incy );
+                    YPTR( iiy, jjy ), incy );
          }
       }
    }
@@ -380,20 +401,26 @@ void pzaxpy_( n, alpha, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          tmp1 = nq0 / desc_Y[NB_];
          wksz = np + MYROC0( tmp1, nq0, desc_Y[NB_], lcmq );
 
-         buff = (complex16 *)getpbbuf( "PZAXPY", wksz*sizeof(complex16) );
+         if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) wksz, &alloc_count ) ||
+             !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+         {
+            pberror_( &ictxt, "PZAXPY", &mone );
+            return;
+         }
+         buff = (complex16 *)getpbbuf64( "PZAXPY", alloc_bytes );
 
          if( myrow == ixrow )
             np -= nz;
 
          if( mycol == ixcol )
          {
-            zcopy_( &np, &X[iix-1+(jjx-1)*desc_X[LLD_]], incx,
+            zcopy_( &np, XPTR( iix, jjx ), incx,
                     buff, incx );
             zscal_( &np, alpha, buff, incx );
          }
          pbztrnv_( &ictxt, C2F_CHAR( "C" ), C2F_CHAR( "T" ), n,
                    &desc_X[MB_], &nz, buff, incx, &one,
-                   &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], &desc_Y[LLD_],
+                   YPTR( iiy, jjy ), &desc_Y[LLD_],
                    &ixrow, &ixcol, &iyrow, &iycol, buff+np );
       }
       else                  /* Y is distributed over a process column */
@@ -408,10 +435,16 @@ void pzaxpy_( n, alpha, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
          wksz = MYROC0( tmp1, np0, desc_Y[MB_], lcmp );
          wksz = np + wksz;
 
-         buff = (complex16 *)getpbbuf( "PZAXPY", wksz*sizeof(complex16) );
+         if( !ScaLAPACK_Index64ToSizeT( (ScaLAPACK_Index64) wksz, &alloc_count ) ||
+             !ScaLAPACK_SizeTMul( alloc_count, sizeof(complex16), &alloc_bytes ) )
+         {
+            pberror_( &ictxt, "PZAXPY", &mone );
+            return;
+         }
+         buff = (complex16 *)getpbbuf64( "PZAXPY", alloc_bytes );
 
          pbztrnv_( &ictxt, C2F_CHAR( "R" ), C2F_CHAR( "T" ), n,
-                   &desc_X[NB_], &nz, &X[iix-1+(jjx-1)*desc_X[LLD_]],
+                   &desc_X[NB_], &nz, XPTR( iix, jjx ),
                    &desc_X[LLD_], &zero, buff, &ione, &ixrow, &ixcol,
                    &iyrow, &iycol, buff+np );
          if( mycol == iycol )
@@ -419,8 +452,10 @@ void pzaxpy_( n, alpha, X, ix, jx, desc_X, incx, Y, iy, jy, desc_Y,
             if( myrow == iyrow )
                np -= nz;
             zaxpy_( &np, alpha, buff, &ione,
-                    &Y[iiy-1+(jjy-1)*desc_Y[LLD_]], incy );
+                    YPTR( iiy, jjy ), incy );
          }
       }
    }
+#undef YPTR
+#undef XPTR
 }

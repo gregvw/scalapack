@@ -212,6 +212,7 @@ void PB_Cptran( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, BETA,
                   lcmPQ, lcmb, maxp, maxq, mycol, myrow, ncpq, npcol, npq,
                   nprow, nrpq, p, q, size;
    PB_VM_T        VM;
+   ScaLAPACK_ByteCount alloc_bytes;
 /*
 *  .. Local Arrays ..
 */
@@ -367,7 +368,9 @@ void PB_Cptran( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, BETA,
                      Abufld = MAX( 1, AnpD );
                      if( AisR || ( AmyprocR == AcurrocR ) )
                      {
-                        Abuf = PB_Cmalloc( AnpD * kbb * size );
+                        if( !PB_CSizeMul3( AnpD, kbb, size, &alloc_bytes ) )
+                           PB_Cabort( ctxt, "PB_Cptran", -1 );
+                        Abuf = PB_Cmalloc64( alloc_bytes );
                         PB_CVMpack( TYPE, &VM, COLUMN, &Aroc, PACKING, NOTRAN,
                                     kbb, AnpD, one, Mptr( A, AiiD, Akk, Ald,
                                     size ), Ald, zero,  Abuf, Abufld );
@@ -395,7 +398,11 @@ void PB_Cptran( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, BETA,
 */
                      Cbufld = kbb; talpha = one;   tbeta = zero;
                      if( CisR || ( CmyprocR == CcurrocR ) )
-                        Cbuf = PB_Cmalloc( CnpD * kbb * size );
+                     {
+                        if( !PB_CSizeMul3( CnpD, kbb, size, &alloc_bytes ) )
+                           PB_Cabort( ctxt, "PB_Cptran", -1 );
+                        Cbuf = PB_Cmalloc64( alloc_bytes );
+                     }
                   }
                   else
                   {
@@ -457,7 +464,9 @@ void PB_Cptran( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, BETA,
                      Abufld = kbb;
                      if( AisR || ( AmyprocR == AcurrocR ) )
                      {
-                        Abuf = PB_Cmalloc( AnpD * kbb * size );
+                        if( !PB_CSizeMul3( AnpD, kbb, size, &alloc_bytes ) )
+                           PB_Cabort( ctxt, "PB_Cptran", -1 );
+                        Abuf = PB_Cmalloc64( alloc_bytes );
                         PB_CVMpack( TYPE, &VM, COLUMN, &Aroc, PACKING, NOTRAN,
                                     kbb, AnpD, one, Mptr( A, Akk, AiiD, Ald,
                                     size ), Ald, zero,  Abuf, Abufld );
@@ -485,7 +494,11 @@ void PB_Cptran( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, BETA,
 */
                      Cbufld = MAX( 1, CnpD ); talpha = one;   tbeta = zero;
                      if( CisR || ( CmyprocR == CcurrocR ) )
-                        Cbuf = PB_Cmalloc( CnpD * kbb * size );
+                     {
+                        if( !PB_CSizeMul3( CnpD, kbb, size, &alloc_bytes ) )
+                           PB_Cabort( ctxt, "PB_Cptran", -1 );
+                        Cbuf = PB_Cmalloc64( alloc_bytes );
+                     }
                   }
                   else
                   {

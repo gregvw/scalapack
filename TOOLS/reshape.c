@@ -2,7 +2,7 @@
 #include "scalapack-types.h"
 
 #ifndef Int
-#define Int int
+#define Int ScaLAPACK_ApiInt
 #endif
 
 _Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
@@ -24,7 +24,7 @@ column major (2) in the input and output grids */
 
    /** variables **/
    ScaLAPACK_Index64 grid_offset, nprocs_new64, proc_index;
-   size_t grid_elems;
+   size_t grid_elems, alloc_bytes, grid_slot;
    Int j;
    Int nprow_in, npcol_in, myrow_in, mycol_in;
    Int myrow_old, mycol_old, myrow_new, mycol_new;
@@ -54,7 +54,12 @@ column major (2) in the input and output grids */
    }
 
    /* allocate space for new process mapping */
-   grid_new = (Int *) malloc( grid_elems * sizeof( Int ) );
+   if( !ScaLAPACK_SizeTMul( grid_elems, sizeof( Int ), &alloc_bytes ) )
+   {
+      Cblacs_abort( context_in, -25 );
+      return;
+   }
+   grid_new = (Int *) malloc( alloc_bytes );
    if( grid_new == NULL )
    {
       Cblacs_abort( context_in, -25 );
@@ -85,14 +90,14 @@ column major (2) in the input and output grids */
           !ScaLAPACK_Index64Add( grid_offset,
                                  (ScaLAPACK_Index64) myrow_new,
                                  &grid_offset ) ||
-          !ScaLAPACK_Index64ToSizeT( grid_offset, &grid_elems ) )
+          !ScaLAPACK_Index64ToSizeT( grid_offset, &grid_slot ) )
       {
          free( grid_new );
          Cblacs_abort( context_in, -26 );
          return;
       }
       pnum = Cblacs_pnum( context_in, myrow_old, mycol_old );
-      grid_new[grid_elems] = pnum;
+      grid_new[grid_slot] = pnum;
       proc_inc( &myrow_old, &mycol_old, nprow_in, npcol_in, major_in );
       proc_inc( &myrow_new, &mycol_new, nprow_new, npcol_new, major_out );
    }

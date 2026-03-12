@@ -178,6 +178,7 @@ void PB_COutV( TYPE, ROWCOL, ZEROIT, M, N, DESCA, K, YAPTR, DYA,
    Int            Acol, Aimb, Ainb, Amb, Amp, Anb, Anq, Arow, Yld, ctxt,
                   izero=0, nprow, myrow, npcol, mycol;
    char           * zero;
+   ScaLAPACK_ByteCount alloc_bytes;
 /* ..
 *  .. Executable Statements ..
 *
@@ -235,7 +236,9 @@ void PB_COutV( TYPE, ROWCOL, ZEROIT, M, N, DESCA, K, YAPTR, DYA,
 */
          if( Anq > 0 )
          {
-            *YAPTR  = PB_Cmalloc( K * Anq * TYPE->size );
+            if( !PB_CSizeMul3( K, Anq, TYPE->size, &alloc_bytes ) )
+               PB_Cabort( ctxt, "PB_COutV", -1 );
+            *YAPTR  = PB_Cmalloc64( alloc_bytes );
             *YAFREE = 1;
             if( Mupcase( ZEROIT[0] ) == CINIT )
             {
@@ -258,7 +261,9 @@ void PB_COutV( TYPE, ROWCOL, ZEROIT, M, N, DESCA, K, YAPTR, DYA,
          *YASUM = 0;
          if( ( myrow == Arow ) && ( Anq > 0 ) )
          {
-            *YAPTR  = PB_Cmalloc( K * Anq * TYPE->size );
+            if( !PB_CSizeMul3( K, Anq, TYPE->size, &alloc_bytes ) )
+               PB_Cabort( ctxt, "PB_COutV", -1 );
+            *YAPTR  = PB_Cmalloc64( alloc_bytes );
             *YAFREE = 1;
             if( Mupcase( ZEROIT[0] ) == CINIT )
             {
@@ -296,7 +301,9 @@ void PB_COutV( TYPE, ROWCOL, ZEROIT, M, N, DESCA, K, YAPTR, DYA,
 */
          if( Amp > 0 )
          {
-            *YAPTR  = PB_Cmalloc( Amp * K * TYPE->size );
+            if( !PB_CSizeMul3( Amp, K, TYPE->size, &alloc_bytes ) )
+               PB_Cabort( ctxt, "PB_COutV", -1 );
+            *YAPTR  = PB_Cmalloc64( alloc_bytes );
             *YAFREE = 1;
             if( Mupcase( ZEROIT[0] ) == CINIT )
             {
@@ -319,7 +326,9 @@ void PB_COutV( TYPE, ROWCOL, ZEROIT, M, N, DESCA, K, YAPTR, DYA,
          *YASUM = 0;
          if( ( mycol == Acol ) && ( Amp > 0 ) )
          {
-            *YAPTR  = PB_Cmalloc( Amp * K * TYPE->size );
+            if( !PB_CSizeMul3( Amp, K, TYPE->size, &alloc_bytes ) )
+               PB_Cabort( ctxt, "PB_COutV", -1 );
+            *YAPTR  = PB_Cmalloc64( alloc_bytes );
             *YAFREE = 1;
             if( Mupcase( ZEROIT[0] ) == CINIT )
             {

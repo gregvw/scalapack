@@ -271,6 +271,7 @@ void PB_CpgemmAB( TYPE, DIRECA, DIRECB, TRANSA, TRANSB, M, N, K, ALPHA,
                   myrow, ncpq, nota, notb, npcol, npq=0, nprow, nrpq, p=0, q=0,
                   size, tmp;
    GEMM_T         gemm;
+   ScaLAPACK_ByteCount alloc_bytes;
 /*
 *  .. Local Arrays ..
 */
@@ -509,7 +510,9 @@ void PB_CpgemmAB( TYPE, DIRECA, DIRECB, TRANSA, TRANSB, M, N, K, ALPHA,
                Abufld = MAX( 1, AnpD );
                if( AisR || ( AmyprocR == AcurrocR ) )
                {
-                  Abuf = PB_Cmalloc( AnpD * ABrocs * size );
+                  if( !PB_CSizeMul3( AnpD, ABrocs, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpgemmAB", -1 );
+                  Abuf = PB_Cmalloc64( alloc_bytes );
                   PB_CVMpack( TYPE, &VM, COLUMN, &Aroc, PACKING, NOTRAN,
                               ABrocs, AnpD, one, Mptr( A, AiiD, AkkR, Ald,
                               size ), Ald, zero, Abuf, Abufld );
@@ -542,7 +545,9 @@ void PB_CpgemmAB( TYPE, DIRECA, DIRECB, TRANSA, TRANSB, M, N, K, ALPHA,
                Abufld = ABrocs;
                if( AisR || ( AmyprocR == AcurrocR ) )
                {
-                  Abuf = PB_Cmalloc( AnpD * ABrocs * size );
+                  if( !PB_CSizeMul3( AnpD, ABrocs, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpgemmAB", -1 );
+                  Abuf = PB_Cmalloc64( alloc_bytes );
                   PB_CVMpack( TYPE, &VM, COLUMN, &Aroc, PACKING, NOTRAN,
                               ABrocs, AnpD, one, Mptr( A, AkkR, AiiD, Ald,
                               size ), Ald, zero, Abuf, Abufld );
@@ -576,7 +581,9 @@ void PB_CpgemmAB( TYPE, DIRECA, DIRECB, TRANSA, TRANSB, M, N, K, ALPHA,
                Bbufld = ABrocs;
                if( BisR || ( BmyprocR == BcurrocR ) )
                {
-                  Bbuf = PB_Cmalloc( BnpD * ABrocs * size );
+                  if( !PB_CSizeMul3( BnpD, ABrocs, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpgemmAB", -1 );
+                  Bbuf = PB_Cmalloc64( alloc_bytes );
                   PB_CVMpack( TYPE, &VM, ROW,    &Broc, PACKING, NOTRAN,
                               ABrocs, BnpD, one, Mptr( B, BkkR, BiiD, Bld,
                               size ), Bld, zero, Bbuf, Bbufld );
@@ -609,7 +616,9 @@ void PB_CpgemmAB( TYPE, DIRECA, DIRECB, TRANSA, TRANSB, M, N, K, ALPHA,
                Bbufld = MAX( 1, BnpD );
                if( BisR || ( BmyprocR == BcurrocR ) )
                {
-                  Bbuf = PB_Cmalloc( BnpD * ABrocs * size );
+                  if( !PB_CSizeMul3( BnpD, ABrocs, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpgemmAB", -1 );
+                  Bbuf = PB_Cmalloc64( alloc_bytes );
                   PB_CVMpack( TYPE, &VM, ROW,    &Broc, PACKING, NOTRAN,
                               ABrocs, BnpD, one, Mptr( B, BiiD, BkkR, Bld,
                               size ), Bld, zero, Bbuf, Bbufld );

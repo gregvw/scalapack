@@ -329,7 +329,7 @@ void PB_CptrmmB( TYPE, DIRECB, SIDE, UPLO, TRANSA, DIAG, M, N, ALPHA, A,
 */
    if( TranOp == CCOTRAN )
    {
-      conjg = CCONJG; talpha = PB_Cmalloc( size );
+      conjg = CCONJG; talpha = PB_Cmalloc64( (size_t) size );
       PB_Cconjg( TYPE, ALPHA, talpha );
    }
    else { conjg  = CNOCONJG; talpha = ALPHA; }

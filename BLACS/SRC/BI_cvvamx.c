@@ -4,13 +4,14 @@ void BI_cvvamx(MpiInt N, char *vec1, char *vec2)
    SCOMPLEX *v1=(SCOMPLEX*)vec1, *v2=(SCOMPLEX*)vec2;
    float diff;
    BI_DistType *dist1, *dist2;
-   MpiInt i, k;
+   size_t count, dist_offset;
+   MpiInt k;
 
-   k = N * sizeof(SCOMPLEX);
-   i = k % sizeof(BI_DistType);
-   if (i) k += sizeof(BI_DistType) - i;
-   dist1 = (BI_DistType *) &vec1[k];
-   dist2 = (BI_DistType *) &vec2[k];
+   count = (size_t) N;
+   ScaLAPACK_SizeTMul(count, sizeof(SCOMPLEX), &dist_offset);
+   ScaLAPACK_SizeTAlignUp(dist_offset, sizeof(BI_DistType), &dist_offset);
+   dist1 = (BI_DistType *) &vec1[dist_offset];
+   dist2 = (BI_DistType *) &vec2[dist_offset];
 
    for (k=0; k < N; k++)
    {

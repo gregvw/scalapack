@@ -1,6 +1,7 @@
 #ifndef SCALAPACK_TYPES_H
 #define SCALAPACK_TYPES_H 1
 
+#include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -72,6 +73,84 @@ static inline int ScaLAPACK_Index64ToApiInt(ScaLAPACK_Index64 value,
 #error "Unsupported ScaLAPACK API integer width."
 #endif
     *result = (ScaLAPACK_ApiInt) value;
+    return 1;
+}
+
+static inline int ScaLAPACK_ApiIntToCInt(ScaLAPACK_ApiInt value, int *result)
+{
+    if (value < INT_MIN || value > INT_MAX) return 0;
+    *result = (int) value;
+    return 1;
+}
+
+static inline int ScaLAPACK_SizeTToApiInt(size_t value,
+                                          ScaLAPACK_ApiInt *result)
+{
+#if SCALAPACK_FORTRAN_INT_BYTES == 4
+    if (value > (size_t) INT32_MAX) return 0;
+#elif SCALAPACK_FORTRAN_INT_BYTES == 8
+    if (value > (size_t) INT64_MAX) return 0;
+#else
+#error "Unsupported ScaLAPACK API integer width."
+#endif
+    *result = (ScaLAPACK_ApiInt) value;
+    return 1;
+}
+
+static inline int ScaLAPACK_SizeTAdd(size_t left, size_t right, size_t *sum)
+{
+    if (left > SIZE_MAX - right) return 0;
+    *sum = left + right;
+    return 1;
+}
+
+static inline int ScaLAPACK_SizeTMul(size_t left, size_t right, size_t *product)
+{
+    if (left != 0 && right > SIZE_MAX / left) return 0;
+    *product = left * right;
+    return 1;
+}
+
+static inline int ScaLAPACK_SizeTAlignUp(size_t value, size_t alignment,
+                                         size_t *aligned)
+{
+    size_t remainder;
+    size_t padding;
+
+    if (alignment == 0) return 0;
+    remainder = value % alignment;
+    if (remainder == 0)
+    {
+        *aligned = value;
+        return 1;
+    }
+    padding = alignment - remainder;
+    return ScaLAPACK_SizeTAdd(value, padding, aligned);
+}
+
+static inline ScaLAPACK_Index64
+ScaLAPACK_Index64MatrixOffset(ScaLAPACK_Index64 row,
+                              ScaLAPACK_Index64 col,
+                              ScaLAPACK_Index64 lda,
+                              ScaLAPACK_Index64 elem_size)
+{
+    return (row + col * lda) * elem_size;
+}
+
+static inline int
+ScaLAPACK_Index64MatrixOffsetChecked(ScaLAPACK_Index64 row,
+                                     ScaLAPACK_Index64 col,
+                                     ScaLAPACK_Index64 lda,
+                                     ScaLAPACK_Index64 elem_size,
+                                     ScaLAPACK_Index64 *offset)
+{
+    ScaLAPACK_Index64 col_offset;
+    ScaLAPACK_Index64 elem_offset;
+
+    if (!ScaLAPACK_Index64Mul(col, lda, &col_offset) ||
+        !ScaLAPACK_Index64Add(row, col_offset, &elem_offset) ||
+        !ScaLAPACK_Index64Mul(elem_offset, elem_size, offset))
+        return 0;
     return 1;
 }
 

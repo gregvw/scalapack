@@ -224,6 +224,7 @@ void PB_CpaxpbyDN( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                   size;
    MMADD_T        add;
    TZPAD_T        pad;
+   ScaLAPACK_ByteCount alloc_bytes;
 /*
 *  .. Local Arrays ..
 */
@@ -433,7 +434,9 @@ void PB_CpaxpbyDN( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                      {
                         ktmp = JB + N;
                         kn   = JB + Ainb1D;
-                        buf = PB_Cmalloc( M * AnpD * size );
+                        if( !PB_CSizeMul3( M, AnpD, size, &alloc_bytes ) )
+                           PB_Cabort( ctxt, "PB_CpaxpbyDN", -1 );
+                        buf = PB_Cmalloc64( alloc_bytes );
                         TYPE->Cgerv2d( ctxt, M, AnpD, buf,    M, AprocR,
                                        AmyprocD );
                      }
@@ -441,7 +444,9 @@ void PB_CpaxpbyDN( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                      {
                         ktmp = IB + M;
                         kn   = IB + Ainb1D;
-                        buf = PB_Cmalloc( AnpD * N * size );
+                        if( !PB_CSizeMul3( AnpD, N, size, &alloc_bytes ) )
+                           PB_Cabort( ctxt, "PB_CpaxpbyDN", -1 );
+                        buf = PB_Cmalloc64( alloc_bytes );
                         TYPE->Cgerv2d( ctxt, AnpD, N, buf, AnpD, AmyprocD,
                                        AprocR );
                      }
@@ -652,12 +657,16 @@ void PB_CpaxpbyDN( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                         {
                            if( AisRow )
                            {
-                              buf = PB_Cmalloc( M * AnpD * size );
+                              if( !PB_CSizeMul3( M, AnpD, size, &alloc_bytes ) )
+                                 PB_Cabort( ctxt, "PB_CpaxpbyDN", -1 );
+                              buf = PB_Cmalloc64( alloc_bytes );
                               TYPE->Cgerv2d( ctxt, M, AnpD, buf, M, AprocR, p );
                            }
                            else
                            {
-                              buf = PB_Cmalloc( AnpD * N * size );
+                              if( !PB_CSizeMul3( AnpD, N, size, &alloc_bytes ) )
+                                 PB_Cabort( ctxt, "PB_CpaxpbyDN", -1 );
+                              buf = PB_Cmalloc64( alloc_bytes );
                               TYPE->Cgerv2d( ctxt, AnpD, N, buf, AnpD, p,
                                              AprocR );
                            }

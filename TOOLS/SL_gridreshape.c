@@ -3,7 +3,7 @@
 #include "scalapack-types.h"
 
 #ifndef Int
-#define Int int
+#define Int ScaLAPACK_ApiInt
 #endif
 
 _Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
@@ -18,7 +18,7 @@ Int SL_Cgridreshape(Int ctxt, Int pstart, Int row_major_in, Int row_major_out, I
    Int Cblacs_pnum( Int context, Int prow, Int pcol );
    ScaLAPACK_ApiInt prow, pcol;
    ScaLAPACK_Index64 Np, grid_index, limit, source_rank, user_rank;
-   size_t grid_elems, grid_slot;
+   size_t grid_elems, grid_slot, alloc_bytes;
    Int nctxt, P0, Q0, mycol, myrow, *g;
 
    Cblacs_gridinfo(ctxt, &P0, &Q0, &myrow, &mycol);
@@ -38,7 +38,13 @@ Int SL_Cgridreshape(Int ctxt, Int pstart, Int row_major_in, Int row_major_out, I
       Cblacs_abort(ctxt, -22);
       return -1;
    }
-   g = (Int *) malloc(grid_elems * sizeof(Int));
+   if (!ScaLAPACK_SizeTMul(grid_elems, sizeof(Int), &alloc_bytes))
+   {
+      fprintf(stderr, "Illegal reshape command in %s\n",__FILE__);
+      Cblacs_abort(ctxt, -22);
+      return -1;
+   }
+   g = (Int *) malloc(alloc_bytes);
    if (!g)
    {
       fprintf(stderr, "Cannot allocate memory in %s\n",__FILE__);

@@ -8,6 +8,7 @@ void free_blacs_system_handle_(Int *ISysCxt)
 {
 #if (INTFACE == C_CALL)
    Int i, j, DEF_WORLD;
+   size_t alloc_elems, alloc_bytes;
    MPI_Comm *tSysCtxt;
    extern Int BI_MaxNSysCtxt;
    extern MPI_Comm *BI_SysContxts;
@@ -35,7 +36,14 @@ void free_blacs_system_handle_(Int *ISysCxt)
    if (j > 2*MAXNSYSCTXT)
    {
       j = BI_MaxNSysCtxt - MAXNSYSCTXT;
-      tSysCtxt = (MPI_Comm *) malloc(j * sizeof(MPI_Comm));
+      if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) j, &alloc_elems) ||
+          !ScaLAPACK_SizeTMul(alloc_elems, sizeof(MPI_Comm), &alloc_bytes))
+         BI_BlacsWarn(-1, __LINE__, __FILE__,
+             "System context table resize overflow");
+      tSysCtxt = (MPI_Comm *) malloc(alloc_bytes);
+      if (!tSysCtxt)
+         BI_BlacsWarn(-1, __LINE__, __FILE__,
+             "Cannot shrink system context table");
       for (i=j=0; i < BI_MaxNSysCtxt; i++)
       {
          if (BI_SysContxts[i] != MPI_COMM_NULL)

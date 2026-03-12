@@ -113,13 +113,18 @@ extern void Cpsgemr2d();
 void
 setmemory(float **adpointer, Int blocksize)
 {
+  size_t alloc_count, alloc_bytes;
   assert(blocksize >= 0);
   if (blocksize == 0) {
     *adpointer = NULL;
     return;
   }
-  *adpointer = (float *) mr2d_malloc(
-				     (size_t)blocksize * sizeof(float));
+  if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64)blocksize, &alloc_count) ||
+      !ScaLAPACK_SizeTMul(alloc_count, sizeof(float), &alloc_bytes)) {
+    fprintf(stderr, "xxGEMR2D:buffer workspace overflow\n");
+    exit(1);
+  }
+  *adpointer = (float *) mr2d_malloc(alloc_bytes);
 }
 /******************************************************************/
 /* Free the memory space after the malloc */

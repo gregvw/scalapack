@@ -233,7 +233,7 @@ void psamax_( N, AMAX, INDX, X, IX, JX, DESCX, INCX )
       if( ( ( myrow == Xrow ) || ( Xrow < 0 ) ) &&
           ( ( mycol == Xcol ) || ( Xcol < 0 ) ) )
       {
-         *INDX = *JX; *AMAX = X[Xii+Xjj*Xd[LLD_]];
+         *INDX = *JX; *AMAX = *Mptr( X, Xii, Xjj, Xd[LLD_], 1 );
       }
       return;
    }
@@ -262,7 +262,7 @@ void psamax_( N, AMAX, INDX, X, IX, JX, DESCX, INCX )
                Xlindx = Xjj - 1 +
                         isamax_( &Xnq, ((char*)(Mptr(X,Xii,Xjj,Xld,1))), &Xld );
                Mindxl2g( Xgindx, Xlindx, Xinb, Xnb, mycol, Xsrc, npcol );
-               work[0] = X[Xii+Xlindx*Xld];
+               work[0] = *Mptr( X, Xii, Xlindx, Xld, 1 );
                work[1] = ((float )( Xgindx+1 ));
             }
             else
@@ -503,8 +503,8 @@ l_40:
 */
                Xld = Xd[LLD_];
                Xlindx = Xii - 1 +
-                        isamax_( &Xnp, ((char*)(X+(Xii+Xjj*Xld))), INCX );
-               *AMAX = X[Xlindx+Xjj*Xld];
+                        isamax_( &Xnp, ((char*)Mptr( X, Xii, Xjj, Xld, 1 ) ), INCX );
+               *AMAX = *Mptr( X, Xlindx, Xjj, Xld, 1 );
             }
             else
             {

@@ -116,13 +116,18 @@ extern void Cpctrmr2d();
 void
 setmemory(complex **adpointer, Int blocksize)
 {
+  size_t alloc_count, alloc_bytes;
   assert(blocksize >= 0);
   if (blocksize == 0) {
     *adpointer = NULL;
     return;
   }
-  *adpointer = (complex *) mr2d_malloc(
-				       (size_t)blocksize * sizeof(complex));
+  if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64)blocksize, &alloc_count) ||
+      !ScaLAPACK_SizeTMul(alloc_count, sizeof(complex), &alloc_bytes)) {
+    fprintf(stderr, "xxGEMR2D:buffer workspace overflow\n");
+    exit(1);
+  }
+  *adpointer = (complex *) mr2d_malloc(alloc_bytes);
 }
 /******************************************************************/
 /* Free the memory space after the malloc */
@@ -198,6 +203,7 @@ intersect(uplo, diag,
   complex *ptrstart;
   Int   offset, nbline;
   Int   intervalsize;
+  size_t copy_count, copy_bytes;
   assert(start < end);
   assert(j >= 0 && j < n);
   nbline =
@@ -213,8 +219,13 @@ intersect(uplo, diag,
   case SENDBUFF:	/* fill buff with local elements to be sent */
     ptrstart = ptrblock + localindice(start + ia, j + ja,
 				      templateheight0, templatewidth0, ma);
+    if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) intervalsize, &copy_count) ||
+        !ScaLAPACK_SizeTMul(copy_count, sizeof(complex), &copy_bytes)) {
+      fprintf(stderr, "pctrmr2: interval byte count overflow\n");
+      exit(1);
+    }
     memcpy((char *) (*pptrbuff), (char *) ptrstart,
-	   intervalsize * sizeof(complex));
+	   copy_bytes);
     /* ccopy_(&intervalsize, (char *) (ptrstart), &un, (char *) (*pptrbuff),
      * &un); */
     (*pptrbuff) += intervalsize;
@@ -222,8 +233,13 @@ intersect(uplo, diag,
   case RECVBUFF:	/* fill local memory with the values received */
     ptrstart = ptrblock + localindice(start + ib, j + jb,
 				      templateheight1, templatewidth1, mb);
+    if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) intervalsize, &copy_count) ||
+        !ScaLAPACK_SizeTMul(copy_count, sizeof(complex), &copy_bytes)) {
+      fprintf(stderr, "pctrmr2: interval byte count overflow\n");
+      exit(1);
+    }
     memcpy((char *) ptrstart, (char *) (*pptrbuff),
-	   intervalsize * sizeof(complex));
+	   copy_bytes);
     /* ccopy_(&intervalsize, (char *) (*pptrbuff), &un, (char *) (ptrstart),
      * &un); */
     (*pptrbuff) += intervalsize;

@@ -49,6 +49,7 @@ void PB_CptrsmAB0( TYPE, SIDE, UPLO, DIAG, M, N, ALPHA, A, IA, JA, DESCA,
                   myrow, npcol, nprow, size, upper;
    char           * Aptr  = NULL, * Aptr0 = NULL, * Bptr = NULL, * Bptr0 = NULL,
                   * Cptr  = NULL;
+   ScaLAPACK_ByteCount alloc_bytes;
    MMADD_T        mmadd;
    GEBR2D_T       brecv;
    GEBS2D_T       bsend;
@@ -152,7 +153,13 @@ void PB_CptrsmAB0( TYPE, SIDE, UPLO, DIAG, M, N, ALPHA, A, IA, JA, DESCA,
    {
       Cld = M;
       PB_Cdescset( DESCC, M, N, M, Binb1, Bmb, Bnb, -1, Bcol, ctxt, Cld );
-      if( Bnq0 > 0 ) { Cptr = *C = PB_Cmalloc( M * Bnq0 * size ); *CFREE = 1; }
+      if( Bnq0 > 0 )
+      {
+         if( !PB_CSizeMul3( M, Bnq0, size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_CptrsmAB0", -1 );
+         Cptr = *C = PB_Cmalloc64( alloc_bytes );
+         *CFREE = 1;
+      }
       else           { *C = NULL; *CFREE = 0; return;                         }
 
       kblks = ( An > Aimb1 ? ( An - Aimb1 - 1 ) / Amb + 2 : 1 );
@@ -353,7 +360,13 @@ void PB_CptrsmAB0( TYPE, SIDE, UPLO, DIAG, M, N, ALPHA, A, IA, JA, DESCA,
    {
       Cld = MAX( 1, Bmp0 );
       PB_Cdescset( DESCC, M, N, Bimb1, N, Bmb, Bnb, Brow, -1, ctxt, Cld );
-      if( Bmp0 > 0 ) { Cptr = *C = PB_Cmalloc( Bmp0 * N * size ); *CFREE = 1; }
+      if( Bmp0 > 0 )
+      {
+         if( !PB_CSizeMul3( Bmp0, N, size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_CptrsmAB0", -1 );
+         Cptr = *C = PB_Cmalloc64( alloc_bytes );
+         *CFREE = 1;
+      }
       else           { *C = NULL; *CFREE = 0; return;                         }
 
       kblks = ( An > Ainb1 ? ( An - Ainb1 - 1 ) / Anb + 2 : 1 );

@@ -32,7 +32,11 @@ typedef struct {float r, i;} SCOMPLEX;
 #define Mmalloc(M_ptr, M_type, M_elt, M_i, M_ctxt) \
 { \
    void pberror_(); \
-   (M_ptr) = ( M_type * ) malloc((M_elt)*(sizeof(M_type))); \
+   size_t _m_alloc_elems, _m_alloc_bytes; \
+   (M_ptr) = NULL; \
+   if (ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) (M_elt), &_m_alloc_elems) && \
+       ScaLAPACK_SizeTMul(_m_alloc_elems, sizeof(M_type), &_m_alloc_bytes)) \
+      (M_ptr) = ( M_type * ) malloc(_m_alloc_bytes); \
    if (!(M_ptr)) \
    { \
       if ((M_elt) > 0) \

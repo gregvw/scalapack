@@ -255,8 +255,8 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
    Int            Acol, Aii, Aimb1, Ainb1, Ais1Col, Ais1Row, AisColRep,
                   AisRowRep, Ajj, Alcol, Ald, Alrow, Amb, Anpprev, Anb, Anp,
                   Anq, Arow, Asrc, ChangeRoc=0, LNorRT, Na, Nb, bcst, ctxt,
-                  izero=0, k=0, kb, kbprev=0, kbsize, lside, mb1, mycol, myrow,
-                  n1, n1last, n1p, n1pprev=0, nb1, nlast, notran, npcol, nprow,
+                  izero=0, k=0, kb, kbprev=0, lside, mb1, mycol, myrow, n1,
+                  n1last, n1p, n1pprev=0, nb1, nlast, notran, npcol, nprow,
                   rocprev, size, tmp1, tmp2;
    MMADD_T        add, tadd;
    TZPAD_T        pad;
@@ -271,6 +271,9 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
 */
    char           * Aprev = NULL, * Bd    = NULL, * Bdprev = NULL,
                   * Bprev = NULL, * work  = NULL;
+   size_t         alloc_bytes, factor_bytes, kb_bytes, lda_kb_bytes,
+                  ldbc_kb_bytes, ldbr_kb_bytes, lda_offset_bytes,
+                  ldbd_offset_bytes, offset_bytes;
 /* ..
 *  .. Executable Statements ..
 *
@@ -388,7 +391,9 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
          n1      = MAX( nlast, Anb );
          nlast  += Ainb1;
          n1last  = n1 - Anb + MAX( Ainb1, Anb );
-         work    = PB_Cmalloc( Nb * MIN( n1last, Anp ) * size );
+         if( !PB_CSizeMul3( Nb, MIN( n1last, Anp ), size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_Cptrsm", -1 );
+         work    = PB_Cmalloc64( alloc_bytes );
          tmp1    = Na-1;
          Alrow   = PB_Cindxg2p( tmp1, Aimb1, Amb, Arow, Arow, nprow );
          Alcol   = PB_Cindxg2p( tmp1, Ainb1, Anb, Acol, Acol, npcol );
@@ -406,10 +411,12 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
                                ALPHA : one );
          while( Na > 0 )
          {
-            kbsize = kb * size;
+            if( !PB_CSizeMul2( kb, size, &kb_bytes ) ||
+                !PB_CSizeMul3( Ald, kb, size, &lda_kb_bytes ) )
+               PB_Cabort( ctxt, "PB_Cptrsm", -1 );
 
             if( Ais1Col || ( mycol == Alcol ) )
-            { A -= Ald*kbsize; Anq -= kb; Bd = Mptr( BR, 0, Anq, LDBR, size ); }
+            { A -= lda_kb_bytes; Anq -= kb; Bd = Mptr( BR, 0, Anq, LDBR, size ); }
             if( ( Arow < 0 ) || ( myrow == Alrow ) ) { Anp -= kb; }
 /*
 *  Partial update of previous block
@@ -418,10 +425,11 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
             {
                if( ( Ais1Col || ( mycol == rocprev ) ) && ( kbprev > 0 ) )
                {
-                  tmp1 = ( Anpprev - n1pprev ) * size;
+                  if( !PB_CSizeMul2( Anpprev - n1pprev, size, &offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsm", -1 );
                   gemm( C2F_CHAR( NOTRAN ), C2F_CHAR( TRAN ), &n1pprev, &Nb,
-                        &kbprev, negone, Aprev+tmp1, &Ald, Bdprev, &LDBR,
-                        talpha1, Bprev+tmp1, &LDBC );
+                        &kbprev, negone, Aprev+offset_bytes, &Ald, Bdprev,
+                        &LDBR, talpha1, Bprev+offset_bytes, &LDBC );
                }
 /*
 *  Send partial updated result to current column
@@ -525,7 +533,9 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
 *  Initiate lookahead
 */
          n1    = ( MAX( npcol, 2 ) - 1 ) * Anb;
-         work  = PB_Cmalloc( Nb*MIN( n1, Anp )*size );
+         if( !PB_CSizeMul3( Nb, MIN( n1, Anp ), size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_Cptrsm", -1 );
+         work  = PB_Cmalloc64( alloc_bytes );
          Aprev = A; Bprev = BC, Bdprev = BR; Anpprev = Anp;
          mb1   = Aimb1; nb1 = Ainb1; rocprev = Acol;
          tmp1  = Na - ( kb = MIN( mb1, nb1 ) ); tmp2 = n1 + nb1 - kb;
@@ -536,7 +546,10 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
                                ALPHA : one );
          while( kb > 0 )
          {
-            kbsize = kb * size;
+            if( !PB_CSizeMul2( kb, size, &kb_bytes ) ||
+                !PB_CSizeMul3( Ald, kb, size, &lda_kb_bytes ) ||
+                !PB_CSizeMul3( LDBR, kb, size, &ldbr_kb_bytes ) )
+               PB_Cabort( ctxt, "PB_Cptrsm", -1 );
 /*
 *  Partial update of previous block
 */
@@ -598,23 +611,26 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
             {
                if( ( tmp1 = Anpprev - n1pprev ) > 0 )
                {
-                  tmp2 = n1pprev * size;
+                  if( !PB_CSizeMul2( n1pprev, size, &offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsm", -1 );
                   gemm( C2F_CHAR( NOTRAN ), C2F_CHAR( TRAN ), &tmp1, &Nb,
-                        &kbprev, negone, Aprev+tmp2, &Ald, Bdprev, &LDBR,
-                        talpha1, Bprev+tmp2, &LDBC );
+                        &kbprev, negone, Aprev+offset_bytes, &Ald, Bdprev,
+                        &LDBR, talpha1, Bprev+offset_bytes, &LDBC );
                }
-               Aprev += Ald * kbprev * size; talpha1 = one;
+               if( !PB_CSizeMul3( Ald, kbprev, size, &offset_bytes ) )
+                  PB_Cabort( ctxt, "PB_Cptrsm", -1 );
+               Aprev += offset_bytes; talpha1 = one;
             }
 /*
 *  Save info of current step and update info for the next step
 */
             if( Ais1Col || ( mycol == Acol ) )
-            { A += Ald*kbsize; Bdprev = Bd = BR; BR += LDBR*kbsize; }
+            { A += lda_kb_bytes; Bdprev = Bd = BR; BR += ldbr_kb_bytes; }
             if( AisRowRep || ( myrow == Arow ) )
             {
-               Bprev   = ( BC += kbsize );
-               A      += kbsize;
-               Aprev  += kbsize;
+               Bprev   = ( BC += kb_bytes );
+               A      += kb_bytes;
+               Aprev  += kb_bytes;
                Anpprev = ( Anp -= kb );
             }
             n1pprev = n1p;
@@ -663,7 +679,9 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
 *  Initiate lookahead
 */
          n1    = ( MAX( nprow, 2 ) - 1 ) * Amb;
-         work  = PB_Cmalloc( Nb*MIN( n1, Anq )*size );
+         if( !PB_CSizeMul3( Nb, MIN( n1, Anq ), size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_Cptrsm", -1 );
+         work  = PB_Cmalloc64( alloc_bytes );
          Aprev = A; Bprev = BR, Bdprev = BC; Anpprev = Anq;
          mb1   = Aimb1; nb1 = Ainb1; rocprev = Arow;
          tmp1  = Na - ( kb = MIN( mb1, nb1 ) ); tmp2 = n1 + mb1 - kb;
@@ -674,7 +692,10 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
                                ALPHA : one );
          while( kb > 0 )
          {
-            kbsize = kb * size;
+            if( !PB_CSizeMul2( kb, size, &kb_bytes ) ||
+                !PB_CSizeMul3( Ald, kb, size, &lda_kb_bytes ) ||
+                !PB_CSizeMul3( LDBR, kb, size, &ldbr_kb_bytes ) )
+               PB_Cabort( ctxt, "PB_Cptrsm", -1 );
 /*
 *  Partial update of previous block
 */
@@ -734,24 +755,35 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
             {
                if( ( tmp1 = Anpprev - n1pprev ) > 0  )
                {
-                  tmp2 = n1pprev * size;
+                  if( !PB_CSizeMul2( n1pprev, size, &offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsm", -1 );
+                  if( !PB_CSizeFromInt( Ald, &factor_bytes ) ||
+                      !ScaLAPACK_SizeTMul( factor_bytes, offset_bytes,
+                                           &lda_offset_bytes ) ||
+                      !PB_CSizeFromInt( LDBR, &factor_bytes ) ||
+                      !ScaLAPACK_SizeTMul( factor_bytes, offset_bytes,
+                                           &ldbd_offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsm", -1 );
                   gemm( C2F_CHAR( TRAN ), C2F_CHAR( NOTRAN ), &Nb, &tmp1,
-                        &kbprev, negone, Bdprev, &LDBC, Aprev+Ald*tmp2, &Ald,
-                        talpha1, Bprev+LDBR*tmp2, &LDBR );
+                        &kbprev, negone, Bdprev, &LDBC,
+                        Aprev+lda_offset_bytes, &Ald, talpha1,
+                        Bprev+ldbd_offset_bytes, &LDBR );
                }
-               Aprev  += kbprev * size; talpha1 = one;
+               if( !PB_CSizeMul2( kbprev, size, &offset_bytes ) )
+                  PB_Cabort( ctxt, "PB_Cptrsm", -1 );
+               Aprev  += offset_bytes; talpha1 = one;
             }
 /*
 *  Save info of current step and update info for the next step
 */
             if( Ais1Row || ( myrow == Arow ) )
-            { A += kbsize; Bdprev = Bd = BC; BC += kbsize; }
+            { A += kb_bytes; Bdprev = Bd = BC; BC += kb_bytes; }
             if( AisColRep || ( mycol == Acol ) )
             {
-               Bprev   = ( BR += LDBR * kbsize );
-               A      += Ald * kbsize;
+               Bprev   = ( BR += ldbr_kb_bytes );
+               A      += lda_kb_bytes;
                Anpprev = ( Anq -= kb );
-               Aprev  += Ald * kbsize;
+               Aprev  += lda_kb_bytes;
             }
             n1pprev = n1p;
             rocprev = Arow;
@@ -790,7 +822,9 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
          n1      = MAX( nlast, Amb );
          nlast  += Aimb1;
          n1last  = n1 - Amb + MAX( Aimb1, Amb );
-         work    = PB_Cmalloc( Nb * MIN( n1last, Anq ) * size );
+         if( !PB_CSizeMul3( Nb, MIN( n1last, Anq ), size, &alloc_bytes ) )
+            PB_Cabort( ctxt, "PB_Cptrsm", -1 );
+         work    = PB_Cmalloc64( alloc_bytes );
          tmp1    = Na-1;
          Alrow   = PB_Cindxg2p( tmp1, Aimb1, Amb, Arow, Arow, nprow );
          Alcol   = PB_Cindxg2p( tmp1, Ainb1, Anb, Acol, Acol, npcol );
@@ -808,10 +842,11 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
                                ALPHA : one );
          while( Na > 0 )
          {
-            kbsize = kb * size;
+            if( !PB_CSizeMul2( kb, size, &kb_bytes ) )
+               PB_Cabort( ctxt, "PB_Cptrsm", -1 );
 
             if( Ais1Row || ( myrow == Alrow ) )
-            { A -= kbsize; Anp -= kb; Bd = Mptr( BC, Anp, 0, LDBC, size ); }
+            { A -= kb_bytes; Anp -= kb; Bd = Mptr( BC, Anp, 0, LDBC, size ); }
             if( ( Acol < 0 ) || ( mycol == Alcol ) ) { Anq -= kb; }
 /*
 *  Partial update of previous block
@@ -820,11 +855,19 @@ void PB_Cptrsm( TYPE, FBCAST, SIDE, UPLO, TRANS, DIAG, M, N, ALPHA,
             {
                if( ( Ais1Row || ( myrow == rocprev ) ) && ( kbprev > 0 ) )
                {
-                  tmp1 = ( Anpprev - n1pprev ) * size;
+                  if( !PB_CSizeMul2( Anpprev - n1pprev, size, &offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsm", -1 );
+                  if( !PB_CSizeFromInt( Ald, &factor_bytes ) ||
+                      !ScaLAPACK_SizeTMul( factor_bytes, offset_bytes,
+                                           &lda_offset_bytes ) ||
+                      !PB_CSizeFromInt( LDBR, &factor_bytes ) ||
+                      !ScaLAPACK_SizeTMul( factor_bytes, offset_bytes,
+                                           &ldbd_offset_bytes ) )
+                     PB_Cabort( ctxt, "PB_Cptrsm", -1 );
                   TYPE->Fgemm( C2F_CHAR( TRAN ), C2F_CHAR( NOTRAN ),
                                &Nb, &n1pprev, &kbprev, negone, Bdprev,
-                               &LDBC, Aprev+Ald*tmp1, &Ald, talpha1,
-                               Bprev+LDBR*tmp1, &LDBR );
+                               &LDBC, Aprev+lda_offset_bytes, &Ald,
+                               talpha1, Bprev+ldbd_offset_bytes, &LDBR );
                }
 /*
 *  Send partial updated result to current row

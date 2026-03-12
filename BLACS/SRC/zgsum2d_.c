@@ -78,7 +78,9 @@ F_VOID_FUNC zgsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    BLACBUFF *bp, *bp2;
    BLACSCONTEXT *ctxt;
    char ttop, tscope;
-   Int N, length, dest, tlda, trdest, ierr;
+   Int N, dest, tlda, trdest, ierr, request_bytes;
+   ScaLAPACK_Index64 nprod;
+   size_t count, pair_bytes, total_bytes;
    MPI_Op BlacComb;
    extern BLACBUFF *BI_ActiveQ;
    extern BLACBUFF BI_AuxBuff;
@@ -132,8 +134,14 @@ F_VOID_FUNC zgsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
  */
    if (ttop == ' ')
       if ( (Mpval(m) < 1) || (Mpval(n) < 1) || (ctxt->TopsRepeat) ) ttop = '1';
-   N = Mpval(m) * Mpval(n);
-   length = N * sizeof(DCOMPLEX);
+   if (!ScaLAPACK_Index64Mul((ScaLAPACK_Index64) Mpval(m),
+                             (ScaLAPACK_Index64) Mpval(n), &nprod) ||
+       !ScaLAPACK_Index64ToSizeT(nprod, &count) ||
+       !ScaLAPACK_Index64ToApiInt(nprod, &N) ||
+       !ScaLAPACK_SizeTMul(count, sizeof(DCOMPLEX), &pair_bytes))
+      BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                  "Double complex sum span overflow (m=%d, n=%d)",
+                  Mpval(m), Mpval(n));
 /*
  * If A is contiguous, we can use it as one of the buffers
  */
@@ -141,16 +149,23 @@ F_VOID_FUNC zgsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    {
       bp = &BI_AuxBuff;
       bp->Buff = (char *) A;
-      bp2 = BI_GetBuff(length);
+      if (!ScaLAPACK_SizeTToApiInt(pair_bytes, &request_bytes))
+         BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                     "Double complex sum buffer span overflow");
+      bp2 = BI_GetBuff(request_bytes);
    }
 /*
  * Otherwise, we must allocate both buffers
  */
    else
    {
-      bp = BI_GetBuff(length*2);
+      if (!ScaLAPACK_SizeTMul((size_t) 2, pair_bytes, &total_bytes) ||
+          !ScaLAPACK_SizeTToApiInt(total_bytes, &request_bytes))
+         BI_BlacsErr(Mpval(ConTxt), __LINE__, __FILE__,
+                     "Double complex sum temporary buffer overflow");
+      bp = BI_GetBuff(request_bytes);
       bp2 = &BI_AuxBuff;
-      bp2->Buff = &bp->Buff[length];
+      bp2->Buff = &bp->Buff[pair_bytes];
       BI_zmvcopy(Mpval(m), Mpval(n), A, tlda, bp->Buff);
    }
    bp->dtype = bp2->dtype = MPI_DOUBLE_COMPLEX;
@@ -159,8 +174,7 @@ F_VOID_FUNC zgsum2d_(Int *ConTxt, F_CHAR scope, F_CHAR top, Int *m, Int *n,
    switch(ttop)
    {
    case ' ':         /* use MPI's reduction by default */
-      length = 1;
-      ierr=_MPI_Op_create(BI_zMPI_sum, length, &BlacComb);
+      ierr=_MPI_Op_create(BI_zMPI_sum, 1, &BlacComb);
       if (dest != -1)
       {
          ierr=_MPI_Reduce(bp->Buff, bp2->Buff, bp->N, bp->dtype, BlacComb,

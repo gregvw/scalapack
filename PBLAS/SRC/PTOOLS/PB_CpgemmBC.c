@@ -270,6 +270,7 @@ void PB_CpgemmBC( TYPE, DIRECB, DIRECC, TRANSA, TRANSB, M, N, K, ALPHA,
                   notb, npcol, npq=0, nprow, nrpq, p=0, q=0, size, tmp;
    GEMM_T         gemm;
    GSUM2D_T       gsum2d;
+   ScaLAPACK_ByteCount alloc_bytes;
 /*
 *  .. Local Arrays ..
 */
@@ -348,7 +349,7 @@ void PB_CpgemmBC( TYPE, DIRECB, DIRECC, TRANSA, TRANSB, M, N, K, ALPHA,
       top    = *PB_Ctop( &ctxt, COMBINE, COLUMN, TOP_GET );
       if( TrA == CCOTRAN )
       {
-         talpha = PB_Cmalloc( size ); PB_Cconjg( TYPE, ALPHA, talpha );
+         talpha = PB_Cmalloc64( (size_t) size ); PB_Cconjg( TYPE, ALPHA, talpha );
          GemmTa = ( ( TrB == CCOTRAN ) ? CTRAN : CCOTRAN );
       }
       else
@@ -444,7 +445,9 @@ void PB_CpgemmBC( TYPE, DIRECB, DIRECC, TRANSA, TRANSB, M, N, K, ALPHA,
                Bbufld = MAX( 1, BnpD );
                if( BisR || ( BmyprocR == BcurrocR ) )
                {
-                  Bbuf   = PB_Cmalloc( BnpD * nbb * size );
+                  if( !PB_CSizeMul3( BnpD, nbb, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpgemmBC", -1 );
+                  Bbuf   = PB_Cmalloc64( alloc_bytes );
                   PB_CVMpack( TYPE, &VM, COLUMN, &Broc, PACKING, NOTRAN, nbb,
                               BnpD, one, Mptr( B, BiiD, Bkk,  Bld, size ), Bld,
                               zero, Bbuf, Bbufld );
@@ -477,7 +480,9 @@ void PB_CpgemmBC( TYPE, DIRECB, DIRECC, TRANSA, TRANSB, M, N, K, ALPHA,
                Bbufld = nbb;
                if( BisR || ( BmyprocR == BcurrocR ) )
                {
-                  Bbuf   = PB_Cmalloc( BnpD * nbb * size );
+                  if( !PB_CSizeMul3( BnpD, nbb, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpgemmBC", -1 );
+                  Bbuf   = PB_Cmalloc64( alloc_bytes );
                   PB_CVMpack( TYPE, &VM, COLUMN, &Broc, PACKING, NOTRAN, nbb,
                               BnpD, one, Mptr( B, Bkk,  BiiD, Bld, size ), Bld,
                               zero, Bbuf, Bbufld );
@@ -539,7 +544,11 @@ void PB_CpgemmBC( TYPE, DIRECB, DIRECC, TRANSA, TRANSB, M, N, K, ALPHA,
 */
                Cbufld = MAX( 1, Cmp );  tbeta = zero;
                if( CisR || ( mycol == Ccurcol ) )
-                  Cbuf = PB_Cmalloc( Cmp * nbb * size );
+               {
+                  if( !PB_CSizeMul3( Cmp, nbb, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpgemmBC", -1 );
+                  Cbuf = PB_Cmalloc64( alloc_bytes );
+               }
             }
             else
             {
@@ -612,7 +621,11 @@ void PB_CpgemmBC( TYPE, DIRECB, DIRECC, TRANSA, TRANSB, M, N, K, ALPHA,
 */
                Cbufld = MAX( 1, Cmp );  tbeta = zero;
                if( CisR || ( mycol == Ccurcol ) )
-                  Cbuf = PB_Cmalloc( Cmp * nbb * size );
+               {
+                  if( !PB_CSizeMul3( Cmp, nbb, size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CpgemmBC", -1 );
+                  Cbuf = PB_Cmalloc64( alloc_bytes );
+               }
             }
             else
             {

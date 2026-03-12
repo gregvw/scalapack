@@ -16,17 +16,42 @@
 #include "../PBblacs.h"
 #include "../PBblas.h"
 
+static char    * pblasbuf = NULL;
+static ScaLAPACK_ByteCount pbbuflen = 0;
+
+static char * PB_Cgetbuf_impl( char * MESS, ScaLAPACK_ByteCount LENGTH )
+{
+   if( LENGTH > pbbuflen )
+   {
+      if( pblasbuf ) free( pblasbuf );
+      pblasbuf = (char *) malloc( LENGTH );
+      if( !pblasbuf )
+      {
+         (void) fprintf( stderr, "ERROR: Memory allocation failed\n%s\n",
+                         MESS );
+         Cblacs_abort( -1, -1 );
+      }
+      pbbuflen = LENGTH;
+   }
+   return( pblasbuf );
+}
+
+#ifdef __STDC__
+char * PB_Cgetbuf64( char * MESS, ScaLAPACK_ByteCount LENGTH )
+#else
+char * PB_Cgetbuf64( MESS, LENGTH )
+   ScaLAPACK_ByteCount LENGTH;
+   char           * MESS;
+#endif
+{
+   return( PB_Cgetbuf_impl( MESS, LENGTH ) );
+}
+
 #ifdef __STDC__
 char * PB_Cgetbuf( char * MESS, Int LENGTH )
 #else
 char * PB_Cgetbuf( MESS, LENGTH )
-/*
-*  .. Scalar Arguments ..
-*/
    Int            LENGTH;
-/*
-*  .. Array Arguments ..
-*/
    char           * MESS;
 #endif
 {
@@ -62,8 +87,7 @@ char * PB_Cgetbuf( MESS, LENGTH )
 /*
 *  .. Local Scalars ..
 */
-   static char    * pblasbuf = NULL;
-   static Int     pbbuflen = 0;
+   ScaLAPACK_ByteCount requested;
 /* ..
 *  .. Executable Statements ..
 *
@@ -72,15 +96,8 @@ char * PB_Cgetbuf( MESS, LENGTH )
    {
       if( LENGTH > pbbuflen )
       {
-         if( pblasbuf ) free( pblasbuf );
-         pblasbuf = (char *) malloc( (unsigned) LENGTH );
-         if( !pblasbuf )
-         {
-            (void) fprintf( stderr, "ERROR: Memory allocation failed\n%s\n",
-                            MESS );
-            Cblacs_abort( -1, -1 );
-         }
-         pbbuflen = LENGTH;
+         if( !PB_CSizeFromInt( LENGTH, &requested ) ) Cblacs_abort( -1, -1 );
+         pblasbuf = PB_Cgetbuf_impl( MESS, requested );
       }
    }
    else if( pblasbuf )

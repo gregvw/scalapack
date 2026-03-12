@@ -229,6 +229,7 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
                   Yii, Yimb, Yimb1, Yinb, Yinb1, YisD, YisR, YisRow, Yjj, Yld,
                   Ymb, Ymp, Ynb, Ynq, Yrow, ctxt, izero=0, nprow, myrow, npcol,
                   mycol;
+   ScaLAPACK_ByteCount alloc_bytes;
 /* ..
 *  .. Executable Statements ..
 *
@@ -410,7 +411,10 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
                         Yld    = MAX( 1, K );
                         if( Ynq > 0 )
                         {
-                           *YAPTR  = PB_Cmalloc( K * Ynq * TYPE->size );
+                           if( !PB_CSizeMul3( K, Ynq, TYPE->size,
+                                              &alloc_bytes ) )
+                              PB_Cabort( ctxt, "PB_CInOutV", -1 );
+                           *YAPTR  = PB_Cmalloc64( alloc_bytes );
                            *YAFREE = 1;
                            TYPE->Ftzpad( C2F_CHAR( ALL ), C2F_CHAR( NOCONJG ),
                                          &K, &Ynq, &izero, *TBETA, *TBETA,
@@ -451,7 +455,10 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
                         {
                            if( Ynq > 0 )
                            {
-                              *YAPTR  = PB_Cmalloc( K * Ynq * TYPE->size );
+                              if( !PB_CSizeMul3( K, Ynq, TYPE->size,
+                                                 &alloc_bytes ) )
+                                 PB_Cabort( ctxt, "PB_CInOutV", -1 );
+                              *YAPTR  = PB_Cmalloc64( alloc_bytes );
                               *YAFREE = 1;
                               TYPE->Ftzpad( C2F_CHAR( ALL ),
                                             C2F_CHAR( NOCONJG ), &K, &Ynq,
@@ -493,7 +500,9 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
          Arow   = -1;
          if( Anq > 0 )
          {
-            *YAPTR  = PB_Cmalloc( K * Anq * TYPE->size );
+            if( !PB_CSizeMul3( K, Anq, TYPE->size, &alloc_bytes ) )
+               PB_Cabort( ctxt, "PB_CInOutV", -1 );
+            *YAPTR  = PB_Cmalloc64( alloc_bytes );
             *YAFREE = 1;
             TYPE->Ftzpad( C2F_CHAR( ALL ), C2F_CHAR( NOCONJG ), &K, &Anq,
                           &izero, *TBETA, *TBETA, *YAPTR, &Yld );
@@ -527,7 +536,9 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
             }
             if( ( myrow == Arow ) && ( Anq > 0 ) )
             {
-               *YAPTR  = PB_Cmalloc( K * Anq * TYPE->size );
+               if( !PB_CSizeMul3( K, Anq, TYPE->size, &alloc_bytes ) )
+                  PB_Cabort( ctxt, "PB_CInOutV", -1 );
+               *YAPTR  = PB_Cmalloc64( alloc_bytes );
                *YAFREE = 1;
                TYPE->Ftzpad( C2F_CHAR( ALL ), C2F_CHAR( NOCONJG ), &K, &Anq,
                              &izero, *TBETA, *TBETA, *YAPTR, &Yld );
@@ -544,7 +555,9 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
                *YASUM = ( nprow > 1 );
                if( Anq > 0 )
                {
-                  *YAPTR  = PB_Cmalloc( K * Anq * TYPE->size );
+                  if( !PB_CSizeMul3( K, Anq, TYPE->size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CInOutV", -1 );
+                  *YAPTR  = PB_Cmalloc64( alloc_bytes );
                   *YAFREE = 1;
                   TYPE->Ftzpad( C2F_CHAR( ALL ), C2F_CHAR( NOCONJG ), &K, &Anq,
                                 &izero, *TBETA, *TBETA, *YAPTR, &K );
@@ -559,7 +572,9 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
                *YASUM = 0;
                if( ( myrow == Arow ) && ( Anq > 0 ) )
                {
-                  *YAPTR  = PB_Cmalloc( K * Anq * TYPE->size );
+                  if( !PB_CSizeMul3( K, Anq, TYPE->size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CInOutV", -1 );
+                  *YAPTR  = PB_Cmalloc64( alloc_bytes );
                   *YAFREE = 1;
                   TYPE->Ftzpad( C2F_CHAR( ALL ), C2F_CHAR( NOCONJG ), &K, &Anq,
                                 &izero, *TBETA, *TBETA, *YAPTR, &K );
@@ -700,7 +715,10 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
                         Yld    = MAX( 1, Ymp );
                         if( Ymp > 0 )
                         {
-                           *YAPTR  = PB_Cmalloc( Ymp * K * TYPE->size );
+                           if( !PB_CSizeMul3( Ymp, K, TYPE->size,
+                                              &alloc_bytes ) )
+                              PB_Cabort( ctxt, "PB_CInOutV", -1 );
+                           *YAPTR  = PB_Cmalloc64( alloc_bytes );
                            *YAFREE = 1;
                            TYPE->Ftzpad( C2F_CHAR( ALL ), C2F_CHAR( NOCONJG ),
                                          &Ymp, &K, &izero, *TBETA, *TBETA,
@@ -741,7 +759,10 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
                         {
                            if( Ymp > 0 )
                            {
-                              *YAPTR  = PB_Cmalloc( Ymp * K * TYPE->size );
+                              if( !PB_CSizeMul3( Ymp, K, TYPE->size,
+                                                 &alloc_bytes ) )
+                                 PB_Cabort( ctxt, "PB_CInOutV", -1 );
+                              *YAPTR  = PB_Cmalloc64( alloc_bytes );
                               *YAFREE = 1;
                               TYPE->Ftzpad( C2F_CHAR( ALL ),
                                             C2F_CHAR( NOCONJG ), &Ymp, &K,
@@ -783,7 +804,9 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
          Acol   = -1;
          if( Amp > 0 )
          {
-            *YAPTR  = PB_Cmalloc( Amp * K * TYPE->size );
+            if( !PB_CSizeMul3( Amp, K, TYPE->size, &alloc_bytes ) )
+               PB_Cabort( ctxt, "PB_CInOutV", -1 );
+            *YAPTR  = PB_Cmalloc64( alloc_bytes );
             *YAFREE = 1;
             TYPE->Ftzpad( C2F_CHAR( ALL ), C2F_CHAR( NOCONJG ), &Amp, &K,
                           &izero, *TBETA, *TBETA, *YAPTR, &Yld );
@@ -817,7 +840,9 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
             }
             if( ( mycol == Acol ) && ( Amp > 0 ) )
             {
-               *YAPTR  = PB_Cmalloc( Amp * K * TYPE->size );
+               if( !PB_CSizeMul3( Amp, K, TYPE->size, &alloc_bytes ) )
+                  PB_Cabort( ctxt, "PB_CInOutV", -1 );
+               *YAPTR  = PB_Cmalloc64( alloc_bytes );
                *YAFREE = 1;
                TYPE->Ftzpad( C2F_CHAR( ALL ), C2F_CHAR( NOCONJG ), &Amp, &K,
                              &izero, *TBETA, *TBETA, *YAPTR, &Yld );
@@ -834,7 +859,9 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
                *YASUM = ( npcol > 1 );
                if( Amp > 0 )
                {
-                  *YAPTR  = PB_Cmalloc( Amp * K * TYPE->size );
+                  if( !PB_CSizeMul3( Amp, K, TYPE->size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CInOutV", -1 );
+                  *YAPTR  = PB_Cmalloc64( alloc_bytes );
                   *YAFREE = 1;
                   TYPE->Ftzpad( C2F_CHAR( ALL ), C2F_CHAR( NOCONJG ), &Amp, &K,
                                 &izero, *TBETA, *TBETA, *YAPTR, &Yld );
@@ -849,7 +876,9 @@ void PB_CInOutV( TYPE, ROWCOL, M, N, DESCA, K,
                *YASUM = 0;
                if( ( mycol == Acol ) && ( Amp > 0 ) )
                {
-                  *YAPTR  = PB_Cmalloc( Amp * K * TYPE->size );
+                  if( !PB_CSizeMul3( Amp, K, TYPE->size, &alloc_bytes ) )
+                     PB_Cabort( ctxt, "PB_CInOutV", -1 );
+                  *YAPTR  = PB_Cmalloc64( alloc_bytes );
                   *YAFREE = 1;
                   TYPE->Ftzpad( C2F_CHAR( ALL ), C2F_CHAR( NOCONJG ), &Amp, &K,
                                 &izero, *TBETA, *TBETA, *YAPTR, &Yld );

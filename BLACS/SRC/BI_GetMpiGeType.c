@@ -4,6 +4,7 @@ MPI_Datatype BI_GetMpiGeType(BLACSCONTEXT *ctxt, Int m, Int n, Int lda,
 {
    Int info;
    MPI_Datatype GeType;
+   MpiInt mpi_m, mpi_n, mpi_lda;
 
 /*
  * Some versions of mpich and its derivitives cannot handle 0 byte typedefs,
@@ -17,7 +18,10 @@ MPI_Datatype BI_GetMpiGeType(BLACSCONTEXT *ctxt, Int m, Int n, Int lda,
    }
 #endif
    *N = 1;
-   info=MPI_Type_vector(n, m, lda, Dtype, &GeType);
+   mpi_m = (MpiInt) m;
+   mpi_n = (MpiInt) n;
+   mpi_lda = (MpiInt) lda;
+   info = _MPI_Type_vector(mpi_n, mpi_m, mpi_lda, Dtype, &GeType);
    info=MPI_Type_commit(&GeType);
 
    return(GeType);

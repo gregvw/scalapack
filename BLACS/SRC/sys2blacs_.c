@@ -8,6 +8,7 @@ Int sys2blacs_handle_(Int *SysCtxt)
 {
 #if (INTFACE == C_CALL)
    Int i, j, DEF_WORLD;
+   size_t alloc_elems, alloc_bytes;
    MPI_Comm *tSysCtxt;
    extern Int BI_MaxNSysCtxt;
    extern MPI_Comm *BI_SysContxts;
@@ -39,7 +40,14 @@ Int sys2blacs_handle_(Int *SysCtxt)
    {
       j = BI_MaxNSysCtxt + MAXNSYSCTXT;
       if ( (MAXNSYSCTXT == 1) && (DEF_WORLD) ) j++;
-      tSysCtxt = (MPI_Comm *) malloc(j * sizeof(MPI_Comm));
+      if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) j, &alloc_elems) ||
+          !ScaLAPACK_SizeTMul(alloc_elems, sizeof(MPI_Comm), &alloc_bytes))
+         BI_BlacsErr(-1, __LINE__, __FILE__,
+                     "System context table allocation overflow");
+      tSysCtxt = (MPI_Comm *) malloc(alloc_bytes);
+      if (!tSysCtxt)
+         BI_BlacsErr(-1, __LINE__, __FILE__,
+                     "Cannot allocate system context table");
       for (i=0; i < BI_MaxNSysCtxt; i++) tSysCtxt[i] = BI_SysContxts[i];
       BI_MaxNSysCtxt = j;
       for (j=i; j < BI_MaxNSysCtxt; j++) tSysCtxt[j] = MPI_COMM_NULL;

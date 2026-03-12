@@ -216,6 +216,7 @@ void PB_CpaxpbyND( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
 *  .. Local Scalars ..
 */
    char           * one, * top, * zero;
+   ScaLAPACK_ByteCount alloc_bytes;
    Int            Acol, Aii, AisR, AisRow, Ajj, Ald, AmyprocD, AmyprocR,
                   AnprocsD, AprocR, Aroc, Arow, Bcol, Bii, Binb1D, BisR, BisRow,
                   Bjj, Bld, BmyprocD, BmyprocR, BnD, BnbD, BnpD, BnprocsD,
@@ -367,7 +368,9 @@ void PB_CpaxpbyND( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                   {
                      if( BisRow )
                      {
-                        buf = PB_Cmalloc( M * BnpD * size );
+                        if( !PB_CSizeMul3( M, BnpD, size, &alloc_bytes ) )
+                           PB_Cabort( ctxt, "PB_CpaxpbyND", -1 );
+                        buf = PB_Cmalloc64( alloc_bytes );
                         TYPE->Cgerv2d( ctxt, M, BnpD, buf, M, AprocR,
                                        BmyprocD );
                         add( &M, &BnpD, ALPHA, buf, &M, BETA, Mptr( B, Bii, Bjj,
@@ -376,7 +379,9 @@ void PB_CpaxpbyND( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                      }
                      else
                      {
-                        buf = PB_Cmalloc( BnpD * N * size );
+                        if( !PB_CSizeMul3( BnpD, N, size, &alloc_bytes ) )
+                           PB_Cabort( ctxt, "PB_CpaxpbyND", -1 );
+                        buf = PB_Cmalloc64( alloc_bytes );
                         TYPE->Cgerv2d( ctxt, BnpD, N, buf, BnpD, BmyprocD,
                                        AprocR );
                         add( &BnpD, &N, ALPHA, buf, &BnpD, BETA, Mptr( B, Bii,
@@ -398,13 +403,17 @@ void PB_CpaxpbyND( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                      {
                         ktmp = JA + N;
                         kn   = JA + Binb1D;
-                        buf = PB_Cmalloc( M * BnpD * size );
+                        if( !PB_CSizeMul3( M, BnpD, size, &alloc_bytes ) )
+                           PB_Cabort( ctxt, "PB_CpaxpbyND", -1 );
+                        buf = PB_Cmalloc64( alloc_bytes );
                      }
                      else
                      {
                         ktmp = IA + M;
                         kn   = IA + Binb1D;
-                        buf = PB_Cmalloc( BnpD * N * size );
+                        if( !PB_CSizeMul3( BnpD, N, size, &alloc_bytes ) )
+                           PB_Cabort( ctxt, "PB_CpaxpbyND", -1 );
+                        buf = PB_Cmalloc64( alloc_bytes );
                      }
                      Broc = BprocD;
                      kk   = 0;
@@ -532,7 +541,9 @@ void PB_CpaxpbyND( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                      {
                         if( AisRow )
                         {
-                           buf = PB_Cmalloc( M * BnpD * size );
+                           if( !PB_CSizeMul3( M, BnpD, size, &alloc_bytes ) )
+                              PB_Cabort( ctxt, "PB_CpaxpbyND", -1 );
+                           buf = PB_Cmalloc64( alloc_bytes );
                            TYPE->Cgerv2d( ctxt, BnpD, M, buf, BnpD, AprocR,
                                           Aroc );
                            TYPE->Fmmadd( &BnpD, &M, ALPHA, buf, &BnpD, BETA,
@@ -540,7 +551,9 @@ void PB_CpaxpbyND( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                         }
                         else
                         {
-                           buf = PB_Cmalloc( BnpD * N * size );
+                           if( !PB_CSizeMul3( BnpD, N, size, &alloc_bytes ) )
+                              PB_Cabort( ctxt, "PB_CpaxpbyND", -1 );
+                           buf = PB_Cmalloc64( alloc_bytes );
                            TYPE->Cgerv2d( ctxt, N, BnpD, buf, N, Aroc, AprocR );
                            TYPE->Fmmadd( &N, &BnpD, ALPHA, buf, &N, BETA,
                                          Mptr( B, Bii, Bjj, Bld, size ), &Bld );
@@ -556,9 +569,17 @@ void PB_CpaxpbyND( TYPE, CONJUG, M, N, ALPHA, A, IA, JA, DESCA, AROC,
                      if( BnpD > 0 )
                      {
                         if( AisRow )
-                           buf = PB_Cmalloc( M * BnpD * size );
+                        {
+                           if( !PB_CSizeMul3( M, BnpD, size, &alloc_bytes ) )
+                              PB_Cabort( ctxt, "PB_CpaxpbyND", -1 );
+                           buf = PB_Cmalloc64( alloc_bytes );
+                        }
                         else
-                           buf = PB_Cmalloc( BnpD * N * size );
+                        {
+                           if( !PB_CSizeMul3( BnpD, N, size, &alloc_bytes ) )
+                              PB_Cabort( ctxt, "PB_CpaxpbyND", -1 );
+                           buf = PB_Cmalloc64( alloc_bytes );
+                        }
                         Broc = BprocD;
                         kk   = 0;
 

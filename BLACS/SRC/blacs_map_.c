@@ -13,7 +13,10 @@ F_VOID_FUNC blacs_gridmap_(Int *ConTxt, Int *usermap, Int *ldup, Int *nprow0,
    MPI_Comm Cblacs2sys_handle(Int BlacsCtxt);
    MPI_Comm BI_TransUserComm(Int, Int, Int *);
 
+   ScaLAPACK_ApiInt ng_api;
    int Iam;
+   ScaLAPACK_Index64 ng64;
+   size_t alloc_elems, alloc_bytes;
    Int info, i, j, *iptr;
    Int myrow, mycol, nprow, npcol, Ng;
    BLACSCONTEXT *ctxt, **tCTxts;
@@ -32,13 +35,28 @@ F_VOID_FUNC blacs_gridmap_(Int *ConTxt, Int *usermap, Int *ldup, Int *nprow0,
    {
       Cblacs_pinfo(&BI_Iam, &BI_Np);
       BI_AuxBuff.nAops = 0;
-      BI_AuxBuff.Aops = (MPI_Request*)malloc(BI_Np*sizeof(*BI_AuxBuff.Aops));
-      BI_Stats = (MPI_Status *) malloc(BI_Np * sizeof(MPI_Status));
+      if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) BI_Np, &alloc_elems) ||
+          !ScaLAPACK_SizeTMul(alloc_elems, sizeof(*BI_AuxBuff.Aops), &alloc_bytes))
+         BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDMAP",
+                     "Auxiliary request allocation overflow");
+      BI_AuxBuff.Aops = (MPI_Request*)malloc(alloc_bytes);
+      if (!ScaLAPACK_SizeTMul(alloc_elems, sizeof(MPI_Status), &alloc_bytes))
+         BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDMAP",
+                     "Auxiliary status allocation overflow");
+      BI_Stats = (MPI_Status *) malloc(alloc_bytes);
+      if (BI_AuxBuff.Aops == NULL || BI_Stats == NULL)
+         BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDMAP",
+                     "Cannot allocate auxiliary BLACS buffers");
    }
 
    nprow = Mpval(nprow0);
    npcol = Mpval(npcol0);
-   Ng = nprow * npcol;
+   if (!ScaLAPACK_Index64Mul((ScaLAPACK_Index64) nprow,
+                             (ScaLAPACK_Index64) npcol, &ng64) ||
+       !ScaLAPACK_Index64ToApiInt(ng64, &ng_api))
+      BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDINIT/BLACS_GRIDMAP",
+                  "Illegal grid (%d x %d), #procs=%d", nprow, npcol, BI_Np);
+   Ng = (Int) ng_api;
    if ( (Ng > BI_Np) || (nprow < 1) || (npcol < 1) )
       BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDINIT/BLACS_GRIDMAP",
                   "Illegal grid (%d x %d), #procs=%d", nprow, npcol, BI_Np);
@@ -47,14 +65,37 @@ F_VOID_FUNC blacs_gridmap_(Int *ConTxt, Int *usermap, Int *ldup, Int *nprow0,
  */
    if (Ng > 2) i = Ng;
    else i = 2;
-   iptr = (Int *) malloc(i*sizeof(Int));
+   if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) i, &alloc_elems) ||
+       !ScaLAPACK_SizeTMul(alloc_elems, sizeof(Int), &alloc_bytes))
+      BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDMAP",
+                  "User rank map allocation overflow");
+   iptr = (Int *) malloc(alloc_bytes);
+   if (iptr == NULL)
+      BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDMAP",
+                  "Cannot allocate user rank map");
    for (j=0; j < npcol; j++)
    {
       for (i=0; i < nprow; i++) iptr[i*npcol+j] = usermap[j*Mpval(ldup)+i];
    }
 #if (INTFACE == C_CALL)
-   int *miptr = (int *) malloc(Ng*sizeof(int));
-   for (j=0; j < Ng; j++) miptr[j] = iptr[j];
+   if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) Ng, &alloc_elems) ||
+       !ScaLAPACK_SizeTMul(alloc_elems, sizeof(int), &alloc_bytes))
+      BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDMAP",
+                  "MPI rank map allocation overflow");
+   int *miptr = (int *) malloc(alloc_bytes);
+   if (miptr == NULL)
+      BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDMAP",
+                  "Cannot allocate MPI rank map");
+   for (j=0; j < Ng; j++)
+   {
+      if (!ScaLAPACK_ApiIntToCInt((ScaLAPACK_ApiInt) iptr[j], &miptr[j]))
+      {
+         free(miptr);
+         free(iptr);
+         BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDMAP",
+                     "MPI rank map value out of range");
+      }
+   }
    tcomm = Cblacs2sys_handle(*ConTxt);
    MPI_Comm_group(tcomm, &grp);           /* find input comm's group */
    MPI_Group_incl(grp, Ng, miptr, &tgrp);  /* form new group */
@@ -82,6 +123,9 @@ F_VOID_FUNC blacs_gridmap_(Int *ConTxt, Int *usermap, Int *ldup, Int *nprow0,
  * ==================================================
  */
    ctxt = (BLACSCONTEXT *) malloc(sizeof(BLACSCONTEXT));
+   if (ctxt == NULL)
+      BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDMAP",
+                  "Cannot allocate BLACS context");
 /*
  * Find free slot in my context array
  */
@@ -92,7 +136,14 @@ F_VOID_FUNC blacs_gridmap_(Int *ConTxt, Int *usermap, Int *ldup, Int *nprow0,
    if (i == BI_MaxNCtxt)
    {
       j = BI_MaxNCtxt + MAXNCTXT;
-      tCTxts = (BLACSCONTEXT **) malloc(j * sizeof(*tCTxts));
+      if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) j, &alloc_elems) ||
+          !ScaLAPACK_SizeTMul(alloc_elems, sizeof(*tCTxts), &alloc_bytes))
+         BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDMAP",
+                     "Context table allocation overflow");
+      tCTxts = (BLACSCONTEXT **) malloc(alloc_bytes);
+      if (tCTxts == NULL)
+         BI_BlacsErr((Int)-1, (Int)-1, "BLACS_GRIDMAP",
+                     "Cannot allocate context table");
       for (i=0; i < BI_MaxNCtxt; i++) tCTxts[i] = BI_MyContxts[i];
       BI_MaxNCtxt = j;
       for(j=i; j < BI_MaxNCtxt; j++) tCTxts[j] = NULL;

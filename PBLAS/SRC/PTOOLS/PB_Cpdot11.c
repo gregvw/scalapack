@@ -283,7 +283,7 @@ void PB_Cpdot11( TYPE, N, DOT, X, IX, JX, DESCX, INCX, Y, IY, JY, DESCY,
 *  Copy sub( Y ) in sub( X )'s scope
 */
    PB_Cdescset( dbuf, 1, 1, 1, 1, 1, 1, Xrow, Xcol, ctxt, 1 );
-   buf = PB_Cmalloc( TYPE->size );
+   buf = PB_Cmalloc64( (size_t) TYPE->size );
    PB_Cpaxpby( TYPE, NOCONJG, 1, 1, TYPE->one, Y, IY, JY, DESCY, ( YisRow ?
                ROW : COLUMN ), TYPE->zero, buf, 0, 0, dbuf, ( XisRow ? ROW :
                COLUMN ) );
