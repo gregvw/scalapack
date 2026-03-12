@@ -688,17 +688,27 @@ Int _m,_n,_lda,_ldb; \
 static2 Int
 block2buff(IDESC *vi, Int vinb, IDESC *hi, Int hinb, dcomplex *ptra, MDESC *ma, dcomplex *buff)
 {
-  Int   h, v, sizebuff;
+  Int   h, v, sizebuff, block_elems;
+  size_t row_offset_elems;
   dcomplex *ptr2;
   sizebuff = 0;
   for (h = 0; h < hinb; h++) {
-    ptr2 = ptra + hi[h].lstart * ma->lda;
+    if (!ScaLAPACK_RedistApiMulToSizeT(hi[h].lstart, ma->lda,
+                                       &row_offset_elems)) {
+      fprintf(stderr, "xxGEMR2D:block row offset overflow\n");
+      exit(1);
+    }
+    ptr2 = ptra + row_offset_elems;
     for (v = 0; v < vinb; v++) {
       Mlacpy(vi[v].len, hi[h].len,
 	     ptr2 + vi[v].lstart,
 	     ma->lda,
 	     buff + sizebuff, vi[v].len);
-      sizebuff += hi[h].len * vi[v].len;
+      if (!ScaLAPACK_RedistApiMulToApiInt(hi[h].len, vi[v].len, &block_elems) ||
+          !ScaLAPACK_RedistApiAddToApiInt(sizebuff, block_elems, &sizebuff)) {
+        fprintf(stderr, "xxGEMR2D:block size overflow\n");
+        exit(1);
+      }
     }
   }
   return sizebuff;
@@ -706,31 +716,51 @@ block2buff(IDESC *vi, Int vinb, IDESC *hi, Int hinb, dcomplex *ptra, MDESC *ma, 
 static2 void
 buff2block(IDESC *vi, Int vinb, IDESC *hi, Int hinb, dcomplex *buff, dcomplex *ptrb, MDESC *mb)
 {
-  Int   h, v, sizebuff;
+  Int   h, v, sizebuff, block_elems;
+  size_t row_offset_elems;
   dcomplex *ptr2;
   sizebuff = 0;
   for (h = 0; h < hinb; h++) {
-    ptr2 = ptrb + hi[h].lstart * mb->lda;
+    if (!ScaLAPACK_RedistApiMulToSizeT(hi[h].lstart, mb->lda,
+                                       &row_offset_elems)) {
+      fprintf(stderr, "xxGEMR2D:block row offset overflow\n");
+      exit(1);
+    }
+    ptr2 = ptrb + row_offset_elems;
     for (v = 0; v < vinb; v++) {
       Mlacpy(vi[v].len, hi[h].len,
 	     buff + sizebuff, vi[v].len,
 	     ptr2 + vi[v].lstart,
 	     mb->lda);
-      sizebuff += hi[h].len * vi[v].len;
+      if (!ScaLAPACK_RedistApiMulToApiInt(hi[h].len, vi[v].len, &block_elems) ||
+          !ScaLAPACK_RedistApiAddToApiInt(sizebuff, block_elems, &sizebuff)) {
+        fprintf(stderr, "xxGEMR2D:block size overflow\n");
+        exit(1);
+      }
     }
   }
 }
 static2 Int
 inter_len(Int hinb, IDESC *hi, Int vinb, IDESC *vi)
 {
-  Int   hlen, vlen, h, v;
+  Int   hlen, vlen, h, v, total;
   hlen = 0;
   for (h = 0; h < hinb; h++)
-    hlen += hi[h].len;
+    if (!ScaLAPACK_RedistApiAddToApiInt(hlen, hi[h].len, &hlen)) {
+      fprintf(stderr, "xxGEMR2D:horizontal span overflow\n");
+      exit(1);
+    }
   vlen = 0;
   for (v = 0; v < vinb; v++)
-    vlen += vi[v].len;
-  return hlen * vlen;
+    if (!ScaLAPACK_RedistApiAddToApiInt(vlen, vi[v].len, &vlen)) {
+      fprintf(stderr, "xxGEMR2D:vertical span overflow\n");
+      exit(1);
+    }
+  if (!ScaLAPACK_RedistApiMulToApiInt(hlen, vlen, &total)) {
+    fprintf(stderr, "xxGEMR2D:intersection size overflow\n");
+    exit(1);
+  }
+  return total;
 }
 void
 Clacpy(Int m, Int n, dcomplex *a, Int lda, dcomplex *b, Int ldb)

@@ -268,7 +268,7 @@ localindice(Int ig, Int jg, Int templateheight, Int templatewidth, MDESC *a)
 /* Return the indice in local memory (scattered distribution) of the element
  * of indice a in global matrix */
 {
-  Int   vtemp, htemp, vsubtemp, hsubtemp, il, jl;
+  Int   vtemp, htemp, vsubtemp, hsubtemp, il, jl, local_index;
   assert(ig >= 0 && ig < a->m && jg >= 0 && jg < a->n);
   /* coordinates in global matrix with the tests in intersect, ig MUST BE in
    * [0..m] and jg in [0..n] */
@@ -280,8 +280,13 @@ localindice(Int ig, Int jg, Int templateheight, Int templatewidth, MDESC *a)
   vsubtemp = ig % a->nbrow;
   hsubtemp = jg % a->nbcol;
   /* coordinates of the element in the local block of the processor */
-  il = a->nbrow * vtemp + vsubtemp;
-  jl = a->nbcol * htemp + hsubtemp;
+  if (!ScaLAPACK_RedistApiMulToApiInt(a->nbrow, vtemp, &il) ||
+      !ScaLAPACK_RedistApiAddToApiInt(il, vsubtemp, &il) ||
+      !ScaLAPACK_RedistApiMulToApiInt(a->nbcol, htemp, &jl) ||
+      !ScaLAPACK_RedistApiAddToApiInt(jl, hsubtemp, &jl)) {
+    fprintf(stderr, "xxMR2D:local index coordinate overflow\n");
+    exit(1);
+  }
   assert(il < a->lda);
 #ifndef NDEBUG
   {
@@ -295,5 +300,10 @@ localindice(Int ig, Int jg, Int templateheight, Int templatewidth, MDESC *a)
     assert(lq == SHIFT(pc, a->spcol, q));
   }
 #endif
-  return (jl * a->lda + il);
+  if (!ScaLAPACK_RedistApiMulToApiInt(jl, a->lda, &local_index) ||
+      !ScaLAPACK_RedistApiAddToApiInt(local_index, il, &local_index)) {
+    fprintf(stderr, "xxMR2D:local index overflow\n");
+    exit(1);
+  }
+  return local_index;
 }

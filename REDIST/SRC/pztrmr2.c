@@ -214,7 +214,10 @@ intersect(uplo, diag,
   if (start >= end)
     return;
   intervalsize = min(end - start, nbline);
-  (*ptrsizebuff) += intervalsize;
+  if (!ScaLAPACK_RedistApiAddToApiInt(*ptrsizebuff, intervalsize, ptrsizebuff)) {
+    fprintf(stderr, "pztrmr2: interval element count overflow\n");
+    exit(1);
+  }
   switch (action) {
   case SENDBUFF:	/* fill buff with local elements to be sent */
     ptrstart = ptrblock + localindice(start + ia, j + ja,
@@ -265,17 +268,25 @@ scan_intervals(type, ja, jb, n, ma, mb, q0, q1, col0, col1,
   IDESC *result;
 {
   Int   offset, j0, j1, templatewidth0, templatewidth1, nbcol0, nbcol1;
-  Int   l;	/* local indice on the beginning of the interval */
+  Int   l, shifted0, shifted1, end0, end1;	/* local indice on the beginning of the interval */
   assert(type == 'c' || type == 'r');
   nbcol0 = (type == 'c' ? ma->nbcol : ma->nbrow);
   nbcol1 = (type == 'c' ? mb->nbcol : mb->nbrow);
-  templatewidth0 = q0 * nbcol0;
-  templatewidth1 = q1 * nbcol1;
+  if (!ScaLAPACK_RedistApiMulToApiInt(q0, nbcol0, &templatewidth0) ||
+      !ScaLAPACK_RedistApiMulToApiInt(q1, nbcol1, &templatewidth1)) {
+    fprintf(stderr, "xxGEMR2D:template width overflow\n");
+    exit(1);
+  }
   {
     Int   sp0 = (type == 'c' ? ma->spcol : ma->sprow);
     Int   sp1 = (type == 'c' ? mb->spcol : mb->sprow);
-    j0 = SHIFT(col0, sp0, q0) * nbcol0 - ja;
-    j1 = SHIFT(col1, sp1, q1) * nbcol1 - jb;
+    if (!ScaLAPACK_RedistApiMulToApiInt(SHIFT(col0, sp0, q0), nbcol0, &shifted0) ||
+        !ScaLAPACK_RedistApiMulToApiInt(SHIFT(col1, sp1, q1), nbcol1, &shifted1) ||
+        !ScaLAPACK_RedistApiSubToApiInt(shifted0, ja, &j0) ||
+        !ScaLAPACK_RedistApiSubToApiInt(shifted1, jb, &j1)) {
+      fprintf(stderr, "xxGEMR2D:template offset overflow\n");
+      exit(1);
+    }
   }
   offset = 0;
   l = 0;
@@ -285,17 +296,25 @@ scan_intervals(type, ja, jb, n, ma, mb, q0, q1, col0, col1,
   assert(j0 + nbcol0 > 0);
   assert(j1 + nbcol1 > 0);
   while ((j0 < n) && (j1 < n)) {
-    Int   end0, end1;
     Int   start, end;
-    end0 = j0 + nbcol0;
-    end1 = j1 + nbcol1;
+    if (!ScaLAPACK_RedistApiAddToApiInt(j0, nbcol0, &end0) ||
+        !ScaLAPACK_RedistApiAddToApiInt(j1, nbcol1, &end1)) {
+      fprintf(stderr, "xxGEMR2D:interval bound overflow\n");
+      exit(1);
+    }
     if (end0 <= j1) {
-      j0 += templatewidth0;
-      l += nbcol0;
+      if (!ScaLAPACK_RedistApiAddToApiInt(j0, templatewidth0, &j0) ||
+          !ScaLAPACK_RedistApiAddToApiInt(l, nbcol0, &l)) {
+        fprintf(stderr, "xxGEMR2D:interval advance overflow\n");
+        exit(1);
+      }
       continue;
     }
     if (end1 <= j0) {
-      j1 += templatewidth1;
+      if (!ScaLAPACK_RedistApiAddToApiInt(j1, templatewidth1, &j1)) {
+        fprintf(stderr, "xxGEMR2D:interval advance overflow\n");
+        exit(1);
+      }
       continue;
     }
     /* compute the raw intersection */
@@ -305,11 +324,17 @@ scan_intervals(type, ja, jb, n, ma, mb, q0, q1, col0, col1,
     result[offset].gstart = start;
     end = min(end0, end1);
     if (end0 == end) {
-      j0 += templatewidth0;
-      l += nbcol0;
+      if (!ScaLAPACK_RedistApiAddToApiInt(j0, templatewidth0, &j0) ||
+          !ScaLAPACK_RedistApiAddToApiInt(l, nbcol0, &l)) {
+        fprintf(stderr, "xxGEMR2D:interval advance overflow\n");
+        exit(1);
+      }
     }
     if (end1 == end)
-      j1 += templatewidth1;
+      if (!ScaLAPACK_RedistApiAddToApiInt(j1, templatewidth1, &j1)) {
+        fprintf(stderr, "xxGEMR2D:interval advance overflow\n");
+        exit(1);
+      }
     /* throw the limit if they go out of the matrix */
     end = min(end, n);
     assert(end > start);
@@ -319,8 +344,11 @@ scan_intervals(type, ja, jb, n, ma, mb, q0, q1, col0, col1,
      * here only if the raw intersection is non-void, if we remove a limit
      * that means the corresponding frontier is in both intervals which
      * proove the final interval is non-void, clear ?? */
-    result[offset].len = end - start;
-    offset += 1;
+    if (!ScaLAPACK_RedistApiSubToApiInt(end, start, &result[offset].len) ||
+        !ScaLAPACK_RedistApiAddToApiInt(offset, (Int)1, &offset)) {
+      fprintf(stderr, "xxGEMR2D:interval descriptor overflow\n");
+      exit(1);
+    }
   }	/* while */
   return offset;
 }

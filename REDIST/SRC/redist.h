@@ -53,3 +53,36 @@ static inline int ScaLAPACK_RedistDivUpToSizeT(Int numerator, Int denominator,
     count = (((ScaLAPACK_Index64) numerator) - 1) / denominator + 1;
     return ScaLAPACK_Index64ToSizeT(count, result);
 }
+
+static inline int ScaLAPACK_RedistApiMulToApiInt(Int left, Int right,
+                                                 Int *result)
+{
+    ScaLAPACK_Index64 product;
+
+    if (!ScaLAPACK_Index64Mul((ScaLAPACK_Index64) left,
+                              (ScaLAPACK_Index64) right, &product))
+        return 0;
+    return ScaLAPACK_Index64ToApiInt(product, result);
+}
+
+static inline int ScaLAPACK_RedistApiAddToApiInt(Int left, Int right,
+                                                 Int *result)
+{
+    ScaLAPACK_Index64 sum;
+
+    if (!ScaLAPACK_Index64Add((ScaLAPACK_Index64) left,
+                              (ScaLAPACK_Index64) right, &sum))
+        return 0;
+    return ScaLAPACK_Index64ToApiInt(sum, result);
+}
+
+static inline int ScaLAPACK_RedistApiSubToApiInt(Int left, Int right,
+                                                 Int *result)
+{
+    ScaLAPACK_Index64 diff;
+
+    if (!ScaLAPACK_Index64Add((ScaLAPACK_Index64) left,
+                              -((ScaLAPACK_Index64) right), &diff))
+        return 0;
+    return ScaLAPACK_Index64ToApiInt(diff, result);
+}
