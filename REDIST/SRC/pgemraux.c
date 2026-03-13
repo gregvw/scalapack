@@ -220,7 +220,7 @@ paramcheck(MDESC *a, Int i, Int j, Int m, Int n, Int p, Int q, Int gcontext)
   /* compatibility T3D, must check myprow  and mypcol are within bounds */
   if (myprow >= p2 || mypcol >= q2)
     myprow = mypcol = -1;
-  if ((myprow >= 0 || mypcol >= 0) && (p2 != p && q2 != q)) {
+  if ((myprow >= 0 || mypcol >= 0) && (p2 != p || q2 != q)) {
     fprintf(stderr, "??MR2D:incoherent p,q parameters\n");
     exit(1);
   }

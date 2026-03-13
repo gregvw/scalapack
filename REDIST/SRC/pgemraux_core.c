@@ -183,7 +183,7 @@ paramcheck_core(const MDESC_CORE *a,
     if (myprow >= p2 || mypcol >= q2)
         myprow = mypcol = -1;
 
-    if ((myprow >= 0 || mypcol >= 0) && (p2 != p && q2 != q)) {
+    if ((myprow >= 0 || mypcol >= 0) && (p2 != p || q2 != q)) {
         fprintf(stderr, "??MR2D_CORE:incoherent p,q parameters\n");
         exit(1);
     }
