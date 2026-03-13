@@ -66,6 +66,8 @@
 *
       GCPY = GINDX - 1
       IBLK = GCPY / NB
+*     INT() narrowing is safe: MOD result is in [0, NPROCS),
+*     bounded by process grid size, not by matrix dimensions.
       ROCSRC = INT( MOD( IBLK + ISRCPROC, NP8 ) )
 *
       LINDX = ( IBLK / NP8 + 1 ) * NB + 1

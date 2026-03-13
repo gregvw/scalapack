@@ -205,6 +205,7 @@ configure_file(${SCALAPACK_SOURCE_DIR}/CMAKE/scalapack-types.h.in
                ${SCALAPACK_BINARY_DIR}/scalapack-types.h
                @ONLY)
 include_directories(${SCALAPACK_BINARY_DIR})
+include_directories(${SCALAPACK_SOURCE_DIR}/TOOLS)
 
 message(STATUS "CHECKING BLAS AND LAPACK LIBRARIES")
 

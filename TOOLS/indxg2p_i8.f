@@ -57,6 +57,8 @@
 *
       NP8 = NPROCS
 *
+*     INT() narrowing is safe: MOD result is in [0, NPROCS),
+*     bounded by process grid size, not by matrix dimensions.
       INDXG2P_I8 = INT( MOD( ISRCPROC + (INDXGLOB - 1) / NB, NP8 ) )
 *
       RETURN

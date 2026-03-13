@@ -70,8 +70,7 @@
 *  =====================================================================
 *
 *     .. Parameters ..
-      INTEGER            MB_, NB_, RSRC_, CSRC_
-      PARAMETER          ( MB_ = 5, NB_ = 6, RSRC_ = 7, CSRC_ = 8 )
+      INCLUDE 'SL_i8_params.inc'
 *     ..
 *     .. Local Scalars ..
       INTEGER*8          CBLK, GCCPY, GRCPY, RBLK, NPR8, NPC8
@@ -91,6 +90,8 @@
 *
       RBLK = GRCPY / DESC(MB_)
       CBLK = GCCPY / DESC(NB_)
+*     INT() narrowing is safe: MOD result is in [0, NPROW) or [0, NPCOL),
+*     bounded by process grid dimensions, not by matrix dimensions.
       RSRC = INT( MOD( RBLK + DESC(RSRC_), NPR8 ) )
       CSRC = INT( MOD( CBLK + DESC(CSRC_), NPC8 ) )
 *
