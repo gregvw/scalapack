@@ -293,15 +293,9 @@ static2 Int block2buff();
 static2 void buff2block();
 static2 void gridreshape( Int *ctxtp );
 void
-Cpctrmr2do(uplo, diag, m, n,
-	   ptrmyblock, ia, ja, ma,
-	   ptrmynewblock, ib, jb, mb)
-  char *uplo, *diag;
-  complex *ptrmyblock, *ptrmynewblock;
-/* pointers to the memory location of the matrix and the redistributed matrix */
-  MDESC *ma;
-  MDESC *mb;
-  Int   ia, ja, ib, jb, m, n;
+Cpctrmr2do(char *uplo, char *diag, Int m, Int n,
+	   complex *ptrmyblock, Int ia, Int ja, MDESC *ma,
+	   complex *ptrmynewblock, Int ib, Int jb, MDESC *mb)
 {
   Int   dummy, nprocs;
   Int   gcontext;
@@ -315,14 +309,10 @@ Cpctrmr2do(uplo, diag, m, n,
   Cblacs_gridexit(gcontext);
 }
 void
-Cpctrmr2d(uplo, diag, m, n,
-	  ptrmyblock, ia, ja, ma,
-	  ptrmynewblock, ib, jb, mb, globcontext)
-  char *uplo, *diag;
-  complex *ptrmyblock, *ptrmynewblock;
-  MDESC *ma;
-  MDESC *mb;
-  Int   ia, ja, ib, jb, m, n, globcontext;
+Cpctrmr2d(char *uplo, char *diag, Int m, Int n,
+	  complex *ptrmyblock, Int ia, Int ja, MDESC *ma,
+	  complex *ptrmynewblock, Int ib, Int jb, MDESC *mb,
+	  Int globcontext)
 {
   MDESC_CORE core_a, core_b;
   core_a.desctype = (int)ma->desctype;

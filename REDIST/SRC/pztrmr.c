@@ -293,15 +293,9 @@ static2 Int block2buff( IDESC *vi, Int vinb, IDESC *hi, Int hinb, dcomplex *ptra
 static2 void buff2block( IDESC *vi, Int vinb, IDESC *hi, Int hinb, dcomplex *buff, dcomplex *ptrb, MDESC *mb );
 static2 void gridreshape( Int *ctxtp );
 void
-Cpztrmr2do(uplo, diag, m, n,
-	   ptrmyblock, ia, ja, ma,
-	   ptrmynewblock, ib, jb, mb)
-  char *uplo, *diag;
-  dcomplex *ptrmyblock, *ptrmynewblock;
-/* pointers to the memory location of the matrix and the redistributed matrix */
-  MDESC *ma;
-  MDESC *mb;
-  Int   ia, ja, ib, jb, m, n;
+Cpztrmr2do(char *uplo, char *diag, Int m, Int n,
+	   dcomplex *ptrmyblock, Int ia, Int ja, MDESC *ma,
+	   dcomplex *ptrmynewblock, Int ib, Int jb, MDESC *mb)
 {
   Int   dummy, nprocs;
   Int   gcontext;
@@ -315,14 +309,10 @@ Cpztrmr2do(uplo, diag, m, n,
   Cblacs_gridexit(gcontext);
 }
 void
-Cpztrmr2d(uplo, diag, m, n,
-	  ptrmyblock, ia, ja, ma,
-	  ptrmynewblock, ib, jb, mb, globcontext)
-  char *uplo, *diag;
-  dcomplex *ptrmyblock, *ptrmynewblock;
-  MDESC *ma;
-  MDESC *mb;
-  Int   ia, ja, ib, jb, m, n, globcontext;
+Cpztrmr2d(char *uplo, char *diag, Int m, Int n,
+	  dcomplex *ptrmyblock, Int ia, Int ja, MDESC *ma,
+	  dcomplex *ptrmynewblock, Int ib, Int jb, MDESC *mb,
+	  Int globcontext)
 {
   MDESC_CORE core_a, core_b;
   core_a.desctype = (int)ma->desctype;
