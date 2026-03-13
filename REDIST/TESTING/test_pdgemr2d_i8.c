@@ -9,12 +9,11 @@
  *     arithmetic in the core helpers.
  *
  *   Test 2 ("cross-rank redistribution"): M=12, N=8, two different
- *     grids (2×2 and 1×4), small block sizes (MB=3,NB=2 → MB=4,NB=3),
- *     but with MB_ fields set to 3e9 in the descriptor to exercise
- *     64-bit descriptor metadata.  Data is distributed across ranks
- *     in grid 0, then redistributed to grid 1 with a different layout,
- *     then back.  This exercises scan_intervals_core, cross-rank
- *     send/recv, proc-map extraction, and reassembly.
+ *     grids (2×2 and 1×4), small block sizes (MB=3,NB=2 → MB=4,NB=3).
+ *     Data is distributed across ranks in grid 0, then redistributed
+ *     to grid 1 with a different layout, then back.  This exercises
+ *     scan_intervals_core, cross-rank send/recv, proc-map extraction,
+ *     and reassembly.
  *
  * Usage:  mpirun -np 4 ./xdgemr_i8
  */
