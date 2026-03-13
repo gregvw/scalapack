@@ -1,11 +1,15 @@
 add_subdirectory(LAPACK)
 
 set (ATOOLS
-         iceil.f      ilacpy.f     ilcm.f       indxg2p.f    indxg2l.f    
-         indxl2g.f    infog1l.f    infog2l.f    npreroc.f    numroc.f     
-         chk1mat.f    pchkxmat.f   sltimer.f    desc_convert.f 
-         descinit.f   descset.f    
+         iceil.f      ilacpy.f     ilcm.f       indxg2p.f    indxg2l.f
+         indxl2g.f    infog1l.f    infog2l.f    npreroc.f    numroc.f
+         chk1mat.f    pchkxmat.f   sltimer.f    desc_convert.f
+         descinit.f   descset.f
          SL_init.f)
+
+set (ATOOLS_I8
+         numroc_i8.f    descinit_i8.f  descset_i8.f   infog2l_i8.f
+         infog1l_i8.f   indxl2g_i8.f   indxg2p_i8.f   indxg2l_i8.f)
 
 set (ITOOLS
          picol2row.f  pirow2col.f  pilaprnt.f   pitreecomb.f  pifillpad.f 
@@ -36,8 +40,8 @@ set (ZTOOLS
          pzchekpad.f  pzelset.f    pzelset2.f   pzelget.f
          pzlaread.f   pzlawrite.f)
 
-set(tools 
-     ${ATOOLS} ${ITOOLS} ${STOOLS} ${DTOOLS} ${CTOOLS} ${ZTOOLS})
+set(tools
+     ${ATOOLS} ${ATOOLS_I8} ${ITOOLS} ${STOOLS} ${DTOOLS} ${CTOOLS} ${ZTOOLS})
      
 set(tools-C 
     reshape.c  SL_gridreshape.c )
