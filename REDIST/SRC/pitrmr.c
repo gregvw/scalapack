@@ -466,20 +466,43 @@ Cpitrmr2d(uplo, diag, m, n,
   /* we change the problem so that ia < a->nbrow ... andia + m = a->m ... */
   {
     Int   decal;
+    size_t shift_bytes;
     ia = changeorigin(myprow0, ma->sprow, p0,
 		      ma->nbrow, ia, &decal, &ma->sprow);
-    ptrmyblock += decal;
+    if (!ScaLAPACK_RedistApiElemsToBytes(decal, sizeof(*ptrmyblock),
+                                         &shift_bytes)) {
+      fprintf(stderr, "xxTRMR2D:local block pointer overflow\n");
+      exit(1);
+    }
+    ptrmyblock = (Int *) ((char *) ptrmyblock + shift_bytes);
     ja = changeorigin(mypcol0, ma->spcol, q0,
 		      ma->nbcol, ja, &decal, &ma->spcol);
-    ptrmyblock += decal * ma->lda;
+    if (!ScaLAPACK_RedistApiMulElemsToBytes(decal, ma->lda,
+                                            sizeof(*ptrmyblock),
+                                            &shift_bytes)) {
+      fprintf(stderr, "xxTRMR2D:local block pointer overflow\n");
+      exit(1);
+    }
+    ptrmyblock = (Int *) ((char *) ptrmyblock + shift_bytes);
     ma->m = ia + m;
     ma->n = ja + n;
     ib = changeorigin(myprow1, mb->sprow, p1,
 		      mb->nbrow, ib, &decal, &mb->sprow);
-    ptrmynewblock += decal;
+    if (!ScaLAPACK_RedistApiElemsToBytes(decal, sizeof(*ptrmynewblock),
+                                         &shift_bytes)) {
+      fprintf(stderr, "xxTRMR2D:local destination pointer overflow\n");
+      exit(1);
+    }
+    ptrmynewblock = (Int *) ((char *) ptrmynewblock + shift_bytes);
     jb = changeorigin(mypcol1, mb->spcol, q1,
 		      mb->nbcol, jb, &decal, &mb->spcol);
-    ptrmynewblock += decal * mb->lda;
+    if (!ScaLAPACK_RedistApiMulElemsToBytes(decal, mb->lda,
+                                            sizeof(*ptrmynewblock),
+                                            &shift_bytes)) {
+      fprintf(stderr, "xxTRMR2D:local destination pointer overflow\n");
+      exit(1);
+    }
+    ptrmynewblock = (Int *) ((char *) ptrmynewblock + shift_bytes);
     mb->m = ib + m;
     mb->n = jb + n;
     if (p0 == 1)

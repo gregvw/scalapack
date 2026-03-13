@@ -86,3 +86,25 @@ static inline int ScaLAPACK_RedistApiSubToApiInt(Int left, Int right,
         return 0;
     return ScaLAPACK_Index64ToApiInt(diff, result);
 }
+
+static inline int ScaLAPACK_RedistApiElemsToBytes(Int elements,
+                                                  size_t elem_size,
+                                                  size_t *result)
+{
+    size_t count;
+
+    if (!ScaLAPACK_Index64ToSizeT((ScaLAPACK_Index64) elements, &count))
+        return 0;
+    return ScaLAPACK_SizeTMul(count, elem_size, result);
+}
+
+static inline int ScaLAPACK_RedistApiMulElemsToBytes(Int left, Int right,
+                                                     size_t elem_size,
+                                                     size_t *result)
+{
+    size_t count;
+
+    if (!ScaLAPACK_RedistApiMulToSizeT(left, right, &count))
+        return 0;
+    return ScaLAPACK_SizeTMul(count, elem_size, result);
+}
