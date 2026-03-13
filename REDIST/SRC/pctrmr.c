@@ -1,4 +1,5 @@
 #include "redist.h"
+#include "redist_core.h"
 #include <stddef.h>
 /** $Id: pctrmr.c,v 1.1.1.1 2000/02/15 18:04:09 susan Exp $
   ------------------------------------------------------------------------
@@ -171,6 +172,14 @@
 #define ccopy_ ccopy
 #define clacpy_ clacpy
 #endif
+/* I8 entry point name mangling */
+#if defined(Add_) || defined(f77IsF2C)
+#define fortran_mr2dnew_i8 pctrmr2d_i8_
+#elif defined(UpCase)
+#define fortran_mr2dnew_i8 PCTRMR2D_I8
+#else
+#define fortran_mr2dnew_i8 pctrmr2d_i8
+#endif
 typedef struct {
   float r, i;
 }     complex;
@@ -246,6 +255,7 @@ extern void freememory( char* ptr );
 extern Int scan_intervals( char type, Int ja, Int jb, Int n, MDESC *ma, MDESC *mb, Int q0, Int q1, Int col0, Int col1, IDESC *result );
 extern void Cpctrmr2do( char* uplo, char* diag, Int m, Int n, complex *ptrmyblock, Int ia, Int ja, MDESC *ma, complex *ptrmynewblock, Int ib, Int jb, MDESC *mb );
 extern void Cpctrmr2d( char* uplo, char* diag, Int m, Int n, complex *ptrmyblock, Int ia, Int ja, MDESC *ma, complex *ptrmynewblock, Int ib, Int jb, MDESC *mb, Int globcontext );
+extern void Cpctrmr2d_core( char* uplo, char* diag, ScaLAPACK_Index64 m, ScaLAPACK_Index64 n, complex *ptrmyblock, ScaLAPACK_Index64 ia, ScaLAPACK_Index64 ja, MDESC_CORE *ma, complex *ptrmynewblock, ScaLAPACK_Index64 ib, ScaLAPACK_Index64 jb, MDESC_CORE *mb, int globcontext );
 /* some defines for Cpctrmr2do */
 #define SENDBUFF 0
 #define RECVBUFF 1
@@ -303,355 +313,43 @@ Cpctrmr2do(uplo, diag, m, n,
 	    ptrmynewblock, ib, jb, mb, gcontext);
   Cblacs_gridexit(gcontext);
 }
-#define NBPARAM 20	/* p0,q0,p1,q1, puis ma,na,mba,nba,rowa,cola puis
-			 * idem B puis ia,ja puis ib,jb */
-#define MAGIC_MAX 100000000
 void
 Cpctrmr2d(uplo, diag, m, n,
 	  ptrmyblock, ia, ja, ma,
 	  ptrmynewblock, ib, jb, mb, globcontext)
   char *uplo, *diag;
   complex *ptrmyblock, *ptrmynewblock;
-/* pointers to the memory location of the matrix and the redistributed matrix */
   MDESC *ma;
   MDESC *mb;
   Int   ia, ja, ib, jb, m, n, globcontext;
 {
-  complex *ptrsendbuff, *ptrrecvbuff, *ptrNULL = 0;
-  complex *recvptr;
-  MDESC newa, newb;
-  ScaLAPACK_ApiInt nprocs_api, param_span_api, proc0_span_api, proc1_span_api;
-  ScaLAPACK_ApiInt block_span_api;
-  size_t alloc_count, alloc_bytes;
-  Int  *proc0, *proc1, *param;
-  Int   mypnum, myprow0, mypcol0, myprow1, mypcol1, nprocs;
-  Int   param_span, proc0_span, proc1_span;
-  Int   i, j;
-  Int   nprow, npcol, gcontext;
-  Int   recvsize, sendsize;
-  IDESC *h_inter;	/* to store the horizontal intersections */
-  IDESC *v_inter;	/* to store the vertical intersections */
-  Int   hinter_nb, vinter_nb;	/* number of intrsections in both directions */
-  Int   dummy;
-  Int   p0, q0, p1, q1;
-  Int  *ra, *ca;
-  /* end of variables */
-  /* To simplify further calcul we change the matrix indexation from
-   * 1..m,1..n (fortran) to 0..m-1,0..n-1 */
-  if (m == 0 || n == 0)
-    return;
-  ia -= 1;
-  ja -= 1;
-  ib -= 1;
-  jb -= 1;
-  Cblacs_gridinfo(globcontext, &nprow, &npcol, &dummy, &mypnum);
-  gcontext = globcontext;
-  if (!ScaLAPACK_RedistApiMulToSizeT(nprow, npcol, &alloc_count) ||
-      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &nprocs_api)) {
-    fprintf(stderr, "xxGEMR2D:global context size overflow\n");
-    exit(1);
-  }
-  nprocs = (Int)nprocs_api;
-  /* if the global context that is given to us has not the shape of a line
-   * (nprow != 1), create a new context.  TODO: to be optimal, we should
-   * avoid this because it is an uncessary synchronisation */
-  if (nprow != 1) {
-    gridreshape(&gcontext);
-    Cblacs_gridinfo(gcontext, &dummy, &dummy, &dummy, &mypnum);
-  }
-  Cblacs_gridinfo(ma->ctxt, &p0, &q0, &myprow0, &mypcol0);
-  /* compatibility T3D, must check myprow  and mypcol are within bounds */
-  if (myprow0 >= p0 || mypcol0 >= q0)
-    myprow0 = mypcol0 = -1;
-  assert((myprow0 < p0 && mypcol0 < q0) || (myprow0 == -1 && mypcol0 == -1));
-  Cblacs_gridinfo(mb->ctxt, &p1, &q1, &myprow1, &mypcol1);
-  if (myprow1 >= p1 || mypcol1 >= q1)
-    myprow1 = mypcol1 = -1;
-  assert((myprow1 < p1 && mypcol1 < q1) || (myprow1 == -1 && mypcol1 == -1));
-  /* exchange the missing parameters among the processors: shape of grids and
-   * location of the processors */
-  if (!ScaLAPACK_RedistApiMulToSizeT(nprocs, 2, &alloc_count) ||
-      !ScaLAPACK_SizeTAdd(alloc_count, (size_t)NBPARAM, &alloc_count) ||
-      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &param_span_api) ||
-      !ScaLAPACK_SizeTMul(alloc_count, sizeof(Int), &alloc_bytes) ||
-      !ScaLAPACK_SizeTMul(alloc_bytes, 3, &alloc_bytes)) {
-    fprintf(stderr, "xxGEMR2D:parameter workspace overflow\n");
-    exit(1);
-  }
-  param_span = (Int)param_span_api;
-  param = (Int *) mr2d_malloc(alloc_bytes);
-  ra = param + (size_t)param_span;
-  ca = param + ((size_t)param_span * 2);
-  for (i = 0; i < param_span; i++)
-    param[i] = MAGIC_MAX;
-  proc0 = param + NBPARAM;
-  proc1 = param + NBPARAM + (size_t)nprocs;
-  /* we calulate proc0 and proc1 that will give the number of a proc in
-   * respectively a or b in the global context */
-  if (myprow0 >= 0) {
-    proc0[myprow0 * q0 + mypcol0] = mypnum;
-    param[0] = p0;
-    param[1] = q0;
-    param[4] = ma->m;
-    param[5] = ma->n;
-    param[6] = ma->nbrow;
-    param[7] = ma->nbcol;
-    param[8] = ma->sprow;
-    param[9] = ma->spcol;
-    param[10] = ia;
-    param[11] = ja;
-  }
-  if (myprow1 >= 0) {
-    proc1[myprow1 * q1 + mypcol1] = mypnum;
-    param[2] = p1;
-    param[3] = q1;
-    param[12] = mb->m;
-    param[13] = mb->n;
-    param[14] = mb->nbrow;
-    param[15] = mb->nbcol;
-    param[16] = mb->sprow;
-    param[17] = mb->spcol;
-    param[18] = ib;
-    param[19] = jb;
-  }
-  Cigamn2d(gcontext, "All", "H", param_span, (Int)1, param, param_span,
-	   ra, ca, param_span, (Int)-1, (Int)-1);
-  newa = *ma;
-  newb = *mb;
-  ma = &newa;
-  mb = &newb;
-  if (myprow0 == -1) {
-    p0 = param[0];
-    q0 = param[1];
-    ma->m = param[4];
-    ma->n = param[5];
-    ma->nbrow = param[6];
-    ma->nbcol = param[7];
-    ma->sprow = param[8];
-    ma->spcol = param[9];
-    ia = param[10];
-    ja = param[11];
-  }
-  if (myprow1 == -1) {
-    p1 = param[2];
-    q1 = param[3];
-    mb->m = param[12];
-    mb->n = param[13];
-    mb->nbrow = param[14];
-    mb->nbcol = param[15];
-    mb->sprow = param[16];
-    mb->spcol = param[17];
-    ib = param[18];
-    jb = param[19];
-  }
-  if (!ScaLAPACK_RedistApiMulToSizeT(p0, q0, &alloc_count) ||
-      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &proc0_span_api) ||
-      !ScaLAPACK_RedistApiMulToSizeT(p1, q1, &alloc_count) ||
-      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &proc1_span_api)) {
-    fprintf(stderr, "xxGEMR2D:grid span overflow\n");
-    exit(1);
-  }
-  proc0_span = (Int)proc0_span_api;
-  proc1_span = (Int)proc1_span_api;
-  for (i = 0; i < NBPARAM; i++) {
-    if (param[i] == MAGIC_MAX) {
-      fprintf(stderr, "xxGEMR2D:something wrong in the parameters\n");
-      exit(1);
-    }
-  }
-#ifndef NDEBUG
-  for (i = 0; i < proc0_span; i++)
-    assert(proc0[i] >= 0 && proc0[i] < nprocs);
-  for (i = 0; i < proc1_span; i++)
-    assert(proc1[i] >= 0 && proc1[i] < nprocs);
-#endif
-  /* check the validity of the parameters */
-  paramcheck(ma, ia, ja, m, n, p0, q0, gcontext);
-  paramcheck(mb, ib, jb, m, n, p1, q1, gcontext);
-  /* we change the problem so that ia < a->nbrow ... andia + m = a->m ... */
-  {
-    Int   decal;
-    size_t shift_bytes;
-    ia = changeorigin(myprow0, ma->sprow, p0,
-		      ma->nbrow, ia, &decal, &ma->sprow);
-    if (!ScaLAPACK_RedistApiElemsToBytes(decal, sizeof(*ptrmyblock),
-                                         &shift_bytes)) {
-      fprintf(stderr, "xxTRMR2D:local block pointer overflow\n");
-      exit(1);
-    }
-    ptrmyblock = (complex *) ((char *) ptrmyblock + shift_bytes);
-    ja = changeorigin(mypcol0, ma->spcol, q0,
-		      ma->nbcol, ja, &decal, &ma->spcol);
-    if (!ScaLAPACK_RedistApiMulElemsToBytes(decal, ma->lda,
-                                            sizeof(*ptrmyblock),
-                                            &shift_bytes)) {
-      fprintf(stderr, "xxTRMR2D:local block pointer overflow\n");
-      exit(1);
-    }
-    ptrmyblock = (complex *) ((char *) ptrmyblock + shift_bytes);
-    ma->m = ia + m;
-    ma->n = ja + n;
-    ib = changeorigin(myprow1, mb->sprow, p1,
-		      mb->nbrow, ib, &decal, &mb->sprow);
-    if (!ScaLAPACK_RedistApiElemsToBytes(decal, sizeof(*ptrmynewblock),
-                                         &shift_bytes)) {
-      fprintf(stderr, "xxTRMR2D:local destination pointer overflow\n");
-      exit(1);
-    }
-    ptrmynewblock = (complex *) ((char *) ptrmynewblock + shift_bytes);
-    jb = changeorigin(mypcol1, mb->spcol, q1,
-		      mb->nbcol, jb, &decal, &mb->spcol);
-    if (!ScaLAPACK_RedistApiMulElemsToBytes(decal, mb->lda,
-                                            sizeof(*ptrmynewblock),
-                                            &shift_bytes)) {
-      fprintf(stderr, "xxTRMR2D:local destination pointer overflow\n");
-      exit(1);
-    }
-    ptrmynewblock = (complex *) ((char *) ptrmynewblock + shift_bytes);
-    mb->m = ib + m;
-    mb->n = jb + n;
-    if (p0 == 1)
-      ma->nbrow = ma->m;
-    if (q0 == 1)
-      ma->nbcol = ma->n;
-    if (p1 == 1)
-      mb->nbrow = mb->m;
-    if (q1 == 1)
-      mb->nbcol = mb->n;
-#ifndef NDEBUG
-    paramcheck(ma, ia, ja, m, n, p0, q0, gcontext);
-    paramcheck(mb, ib, jb, m, n, p1, q1, gcontext);
-#endif
-  }
-  /* We compute the size of the memory buffer ( we choose the worst case,
-   * when the buffer sizes == the memory block sizes). */
-  if (myprow0 >= 0 && mypcol0 >= 0) {
-    /* Initialize pointer variables */
-    setmemory(&ptrsendbuff, memoryblocksize(ma));
-  }	/* if (mypnum < p0 * q0) */
-  if (myprow1 >= 0 && mypcol1 >= 0) {
-    /* Initialize pointer variables */
-    setmemory(&ptrrecvbuff, memoryblocksize(mb));
-  }	/* if (mypnum < p1 * q1) */
-  /* allocing room for the tabs, alloc for the worst case,local_n or local_m
-   * intervals, in fact the worst case should be less, perhaps half that,I
-   * should think of that one day. */
-  if (!ScaLAPACK_RedistApiMulToSizeT(q0, ma->nbcol, &alloc_count) ||
-      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &block_span_api) ||
-      !ScaLAPACK_RedistDivUpToSizeT(ma->n, (Int)block_span_api, &alloc_count) ||
-      !ScaLAPACK_SizeTMul(alloc_count, (size_t)ma->nbcol, &alloc_count) ||
-      !ScaLAPACK_SizeTMul(alloc_count, sizeof(IDESC), &alloc_bytes)) {
-    fprintf(stderr, "xxGEMR2D:horizontal interval workspace overflow\n");
-    exit(1);
-  }
-  h_inter = (IDESC *) mr2d_malloc(alloc_bytes);
-  if (!ScaLAPACK_RedistApiMulToSizeT(p0, ma->nbrow, &alloc_count) ||
-      !ScaLAPACK_Index64ToApiInt((ScaLAPACK_Index64)alloc_count, &block_span_api) ||
-      !ScaLAPACK_RedistDivUpToSizeT(ma->m, (Int)block_span_api, &alloc_count) ||
-      !ScaLAPACK_SizeTMul(alloc_count, (size_t)ma->nbrow, &alloc_count) ||
-      !ScaLAPACK_SizeTMul(alloc_count, sizeof(IDESC), &alloc_bytes)) {
-    fprintf(stderr, "xxGEMR2D:vertical interval workspace overflow\n");
-    exit(1);
-  }
-  v_inter = (IDESC *) mr2d_malloc(alloc_bytes);
-  /* We go for the scanning of indices. For each processor including mypnum,
-   * we fill the sendbuff buffer (scanD0(SENDBUFF)) and when it is done send
-   * it. Then for each processor, we compute the size of message to be
-   * receive scanD0(SIZEBUFF)), post a receive and then allocate the elements
-   * of recvbuff the right place (scanD)(RECVBUFF)) */
-  recvptr = ptrrecvbuff;
-  {
-    Int   tot, myrang, step, sens;
-    Int  *sender, *recver;
-    Int   mesending, merecving;
-    tot = max(proc0_span, proc1_span);
-    init_chenille(mypnum, nprocs, proc0_span, proc0, proc1_span, proc1,
-		  &sender, &recver, &myrang);
-    if (myrang == -1)
-      goto after_comm;
-    mesending = myprow0 >= 0;
-    assert(sender[myrang] >= 0 || !mesending);
-    assert(!mesending || proc0[sender[myrang]] == mypnum);
-    merecving = myprow1 >= 0;
-    assert(recver[myrang] >= 0 || !merecving);
-    assert(!merecving || proc1[recver[myrang]] == mypnum);
-    step = tot - 1 - myrang;
-    do {
-      for (sens = 0; sens < 2; sens++) {
-	/* be careful here, when we communicating with ourselves, we must
-	 * send first (myrang > step == 0) */
-	if (mesending && recver[step] >= 0 &&
-	    (sens == 0)) {
-	  i = recver[step] / q1;
-	  j = recver[step] % q1;
-	  vinter_nb = scan_intervals('r', ia, ib, m, ma, mb, p0, p1, myprow0, i,
-				     v_inter);
-	  hinter_nb = scan_intervals('c', ja, jb, n, ma, mb, q0, q1, mypcol0, j,
-				     h_inter);
-	  scanD0(uplo, diag, SENDBUFF, ptrsendbuff, &sendsize,
-		 m, n, ma, ia, ja, p0, q0, mb, ib, jb, p1, q1,
-		 v_inter, vinter_nb, h_inter, hinter_nb,
-		 ptrmyblock);
-	}	/* if (mesending...) { */
-	if (mesending && recver[step] >= 0 &&
-	    (sens == myrang > step)) {
-	  i = recver[step] / q1;
-	  j = recver[step] % q1;
-	  if (sendsize > 0
-	      && (step != myrang || !merecving)
-		) {
-	    Ccgesd2d(gcontext, sendsize, (Int)1, ptrsendbuff, sendsize,
-		     (Int)0, proc1[i * q1 + j]);
-	  }	/* sendsize > 0 */
-	}	/* if (mesending ... */
-	if (merecving && sender[step] >= 0 &&
-	    (sens == myrang <= step)) {
-	  i = sender[step] / q0;
-	  j = sender[step] % q0;
-	  vinter_nb = scan_intervals('r', ib, ia, m, mb, ma, p1, p0, myprow1, i,
-				     v_inter);
-	  hinter_nb = scan_intervals('c', jb, ja, n, mb, ma, q1, q0, mypcol1, j,
-				     h_inter);
-	  scanD0(uplo, diag, SIZEBUFF, ptrNULL, &recvsize,
-		 m, n, ma, ia, ja, p0, q0, mb, ib, jb, p1, q1,
-		 v_inter, vinter_nb, h_inter, hinter_nb, ptrNULL);
-	  if (recvsize > 0) {
-	    if (step == myrang && mesending) {
-	      Clacpy(recvsize, 1,
-		     ptrsendbuff, recvsize,
-		     ptrrecvbuff, recvsize);
-	    } else {
-	      Ccgerv2d(gcontext, recvsize, (Int)1, ptrrecvbuff, recvsize,
-		       (Int)0, proc0[i * q0 + j]);
-	    }
-	  }	/* recvsize > 0 */
-	}	/* if (merecving ...) */
-	if (merecving && sender[step] >= 0 && sens == 1) {
-	  scanD0(uplo, diag, RECVBUFF, ptrrecvbuff, &recvsize,
-		 m, n, ma, ia, ja, p0, q0, mb, ib, jb, p1, q1,
-		 v_inter, vinter_nb, h_inter, hinter_nb, ptrmynewblock);
-	}	/* if (merecving...)  */
-      }	/* for (sens = 0) */
-      step -= 1;
-      if (step < 0)
-	step = tot - 1;
-    } while (step != tot - 1 - myrang);
-after_comm:
-    free(sender);
-  }	/* { int tot,nr,ns ...} */
-  /* don't forget to clean up things! */
-  if (myprow1 >= 0 && mypcol1 >= 0) {
-    freememory((char *) ptrrecvbuff);
-  }
-  if (myprow0 >= 0 && mypcol0 >= 0) {
-    freememory((char *) ptrsendbuff);
-  }
-  if (nprow != 1)
-    Cblacs_gridexit(gcontext);
-  free(v_inter);
-  free(h_inter);
-  free(param);
-}/* distrib */
+  MDESC_CORE core_a, core_b;
+  core_a.desctype = (int)ma->desctype;
+  core_a.ctxt     = (int)ma->ctxt;
+  core_a.m        = (ScaLAPACK_Index64)ma->m;
+  core_a.n        = (ScaLAPACK_Index64)ma->n;
+  core_a.mb       = (ScaLAPACK_Index64)ma->nbrow;
+  core_a.nb       = (ScaLAPACK_Index64)ma->nbcol;
+  core_a.rsrc     = (int)ma->sprow;
+  core_a.csrc     = (int)ma->spcol;
+  core_a.lld      = (ScaLAPACK_Index64)ma->lda;
+  core_b.desctype = (int)mb->desctype;
+  core_b.ctxt     = (int)mb->ctxt;
+  core_b.m        = (ScaLAPACK_Index64)mb->m;
+  core_b.n        = (ScaLAPACK_Index64)mb->n;
+  core_b.mb       = (ScaLAPACK_Index64)mb->nbrow;
+  core_b.nb       = (ScaLAPACK_Index64)mb->nbcol;
+  core_b.rsrc     = (int)mb->sprow;
+  core_b.csrc     = (int)mb->spcol;
+  core_b.lld      = (ScaLAPACK_Index64)mb->lda;
+  Cpctrmr2d_core(uplo, diag,
+		 (ScaLAPACK_Index64)m, (ScaLAPACK_Index64)n,
+		 ptrmyblock,
+		 (ScaLAPACK_Index64)ia, (ScaLAPACK_Index64)ja, &core_a,
+		 ptrmynewblock,
+		 (ScaLAPACK_Index64)ib, (ScaLAPACK_Index64)jb, &core_b,
+		 (int)globcontext);
+}
 static2 void
 init_chenille(Int mypnum, Int nprocs, Int n0, Int *proc0, Int n1, Int *proc1, Int **psend, Int **precv, Int *myrang)
 {
@@ -755,4 +453,559 @@ gridreshape(Int *ctxtp)
   Cblacs_gridmap(&final, usermap, (Int)1, (Int)1, (Int)line_np_api);
   *ctxtp = final;
   free(usermap);
+}
+
+/* ================================================================== */
+/* Core implementation — all dimensions are ScaLAPACK_Index64         */
+/* ================================================================== */
+
+static void
+setmemory_core(complex **adpointer, ScaLAPACK_Index64 blocksize)
+{
+  size_t alloc_bytes;
+  assert(blocksize >= 0);
+  if (blocksize == 0) {
+    *adpointer = NULL;
+    return;
+  }
+  if (!ScaLAPACK_Index64ToSizeT(blocksize, &alloc_bytes) ||
+      !ScaLAPACK_SizeTMul(alloc_bytes, sizeof(complex), &alloc_bytes)) {
+    fprintf(stderr, "xxTRMR2D_CORE:buffer workspace overflow\n");
+    exit(1);
+  }
+  *adpointer = (complex *) mr2d_malloc(alloc_bytes);
+}
+
+static void
+Clacpy_core(ScaLAPACK_Index64 m, ScaLAPACK_Index64 n,
+	    complex *a, ScaLAPACK_Index64 lda,
+	    complex *b, ScaLAPACK_Index64 ldb)
+{
+  ScaLAPACK_Index64 i, j;
+  lda -= m;
+  ldb -= m;
+  assert(lda >= 0 && ldb >= 0);
+  for (j = 0; j < n; j++) {
+    for (i = 0; i < m; i++)
+      *b++ = *a++;
+    b += ldb;
+    a += lda;
+  }
+}
+
+/* Checked narrowing from Index64 to Int for BLACS message counts */
+static Int
+i64_to_blacs_count(ScaLAPACK_Index64 v)
+{
+  ScaLAPACK_ApiInt r;
+  if (!ScaLAPACK_Index64ToApiInt(v, &r)) {
+    fprintf(stderr, "xxTRMR2D_CORE:BLACS message count overflow "
+	    "(count=%lld exceeds Int range)\n", (long long)v);
+    exit(1);
+  }
+  return (Int)r;
+}
+
+/* ------------------------------------------------------------------ */
+/* intersect_core — handle one intersection in the triangular scan    */
+/* ------------------------------------------------------------------ */
+
+static void
+intersect_core(const char *uplo, const char *diag,
+	       ScaLAPACK_Index64 j,
+	       ScaLAPACK_Index64 start, ScaLAPACK_Index64 end,
+	       int action,
+	       ScaLAPACK_Index64 *ptrsizebuff,
+	       complex **pptrbuff, complex *ptrblock,
+	       ScaLAPACK_Index64 m, ScaLAPACK_Index64 n,
+	       const MDESC_CORE *ma,
+	       ScaLAPACK_Index64 ia, ScaLAPACK_Index64 ja,
+	       ScaLAPACK_Index64 templateheight0,
+	       ScaLAPACK_Index64 templatewidth0,
+	       const MDESC_CORE *mb,
+	       ScaLAPACK_Index64 ib, ScaLAPACK_Index64 jb,
+	       ScaLAPACK_Index64 templateheight1,
+	       ScaLAPACK_Index64 templatewidth1)
+{
+  complex *ptrstart;
+  ScaLAPACK_Index64 offset, nbline, intervalsize;
+  size_t copy_bytes;
+
+  assert(start < end);
+  assert(j >= 0 && j < n);
+
+  nbline = insidemat_core(uplo, diag, start, j, m, n, &offset);
+  if (nbline <= 0)
+    return;
+  start += offset;
+  if (start >= end)
+    return;
+  intervalsize = end - start;
+  if (intervalsize > nbline)
+    intervalsize = nbline;
+
+  {
+    ScaLAPACK_Index64 tmp;
+    if (!ScaLAPACK_Index64Add(*ptrsizebuff, intervalsize, &tmp)) {
+      fprintf(stderr, "xxTRMR2D_CORE:interval element count overflow\n");
+      exit(1);
+    }
+    *ptrsizebuff = tmp;
+  }
+
+  switch (action) {
+  case SENDBUFF:
+    ptrstart = ptrblock + localindice_core(start + ia, j + ja,
+					   templateheight0, templatewidth0, ma);
+    if (!ScaLAPACK_Index64ToSizeT(intervalsize, &copy_bytes) ||
+	!ScaLAPACK_SizeTMul(copy_bytes, sizeof(complex), &copy_bytes)) {
+      fprintf(stderr, "xxTRMR2D_CORE:interval byte count overflow\n");
+      exit(1);
+    }
+    memcpy((char *) (*pptrbuff), (char *) ptrstart, copy_bytes);
+    (*pptrbuff) += intervalsize;
+    break;
+  case RECVBUFF:
+    ptrstart = ptrblock + localindice_core(start + ib, j + jb,
+					   templateheight1, templatewidth1, mb);
+    if (!ScaLAPACK_Index64ToSizeT(intervalsize, &copy_bytes) ||
+	!ScaLAPACK_SizeTMul(copy_bytes, sizeof(complex), &copy_bytes)) {
+      fprintf(stderr, "xxTRMR2D_CORE:interval byte count overflow\n");
+      exit(1);
+    }
+    memcpy((char *) ptrstart, (char *) (*pptrbuff), copy_bytes);
+    (*pptrbuff) += intervalsize;
+    break;
+  case SIZEBUFF:
+    break;
+  default:
+    fprintf(stderr, "action is %d outside scope [0..2]\n", action);
+    exit(1);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* scanD0_core — triangular scan with widened dimensions              */
+/* ------------------------------------------------------------------ */
+
+static void
+scanD0_core(const char *uplo, const char *diag,
+	    int action,
+	    complex *ptrbuff, ScaLAPACK_Index64 *ptrsizebuff,
+	    ScaLAPACK_Index64 m, ScaLAPACK_Index64 n,
+	    const MDESC_CORE *ma,
+	    ScaLAPACK_Index64 ia, ScaLAPACK_Index64 ja,
+	    int p0, int q0,
+	    const MDESC_CORE *mb,
+	    ScaLAPACK_Index64 ib, ScaLAPACK_Index64 jb,
+	    int p1, int q1,
+	    IDESC_TR_CORE *v_inter, ScaLAPACK_Index64 vinter_nb,
+	    IDESC_TR_CORE *h_inter, ScaLAPACK_Index64 hinter_nb,
+	    complex *ptrblock)
+{
+  ScaLAPACK_Index64 templateheight1, templatewidth1;
+  ScaLAPACK_Index64 templateheight0, templatewidth0;
+  ScaLAPACK_Index64 h, v;
+
+  templateheight1 = (ScaLAPACK_Index64)p1 * mb->mb;
+  templateheight0 = (ScaLAPACK_Index64)p0 * ma->mb;
+  templatewidth1  = (ScaLAPACK_Index64)q1 * mb->nb;
+  templatewidth0  = (ScaLAPACK_Index64)q0 * ma->nb;
+
+  (*ptrsizebuff) = 0;
+  for (h = 0; h < hinter_nb; h++)
+    for (v = 0; v < vinter_nb; v++) {
+      ScaLAPACK_Index64 j;
+      for (j = 0; j < h_inter[h].len; j++)
+	intersect_core(uplo, diag, j + h_inter[h].gstart,
+		       v_inter[v].gstart,
+		       v_inter[v].gstart + v_inter[v].len,
+		       action, ptrsizebuff, &ptrbuff, ptrblock,
+		       m, n,
+		       ma, ia, ja, templateheight0, templatewidth0,
+		       mb, ib, jb, templateheight1, templatewidth1);
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Cpctrmr2d_core — full triangular redistribution with Index64 dims  */
+/* ------------------------------------------------------------------ */
+
+void
+Cpctrmr2d_core(char *uplo, char *diag,
+	       ScaLAPACK_Index64 m, ScaLAPACK_Index64 n,
+	       complex *ptrmyblock,
+	       ScaLAPACK_Index64 ia, ScaLAPACK_Index64 ja,
+	       MDESC_CORE *ma,
+	       complex *ptrmynewblock,
+	       ScaLAPACK_Index64 ib, ScaLAPACK_Index64 jb,
+	       MDESC_CORE *mb,
+	       int globcontext)
+{
+  complex *ptrsendbuff = NULL, *ptrrecvbuff = NULL, *ptrNULL = 0;
+  complex *recvptr;
+  MDESC_CORE newa, newb;
+  size_t alloc_count, alloc_bytes;
+  Int   mypnum_b, nprow_b, npcol_b, dummy_b;
+  Int   p0_b, q0_b, myprow0_b, mypcol0_b;
+  Int   p1_b, q1_b, myprow1_b, mypcol1_b;
+  int   mypnum, myprow0, mypcol0, myprow1, mypcol1, nprocs;
+  int   p0, q0, p1, q1;
+  Int   gcontext;
+  ScaLAPACK_Index64 *param64;
+  ScaLAPACK_Index64 param_span64;
+  Int  *proc0, *proc1;
+  int   proc0_span, proc1_span;
+  IDESC_TR_CORE *h_inter, *v_inter;
+  ScaLAPACK_Index64 hinter_nb, vinter_nb;
+  ScaLAPACK_Index64 sendsize = 0, recvsize;
+  int   i;
+
+  if (m == 0 || n == 0)
+    return;
+  ia -= 1;
+  ja -= 1;
+  ib -= 1;
+  jb -= 1;
+
+  /* Get global grid info */
+  Cblacs_gridinfo((Int)globcontext, &nprow_b, &npcol_b, &dummy_b, &mypnum_b);
+  gcontext = (Int)globcontext;
+  nprocs = (int)nprow_b * (int)npcol_b;
+  mypnum = (int)mypnum_b;
+
+  if ((int)nprow_b != 1) {
+    gridreshape(&gcontext);
+    Cblacs_gridinfo(gcontext, &dummy_b, &dummy_b, &dummy_b, &mypnum_b);
+    mypnum = (int)mypnum_b;
+  }
+
+  /* Get source grid info */
+  Cblacs_gridinfo((Int)ma->ctxt, &p0_b, &q0_b, &myprow0_b, &mypcol0_b);
+  p0 = (int)p0_b; q0 = (int)q0_b;
+  myprow0 = (int)myprow0_b; mypcol0 = (int)mypcol0_b;
+  if (myprow0 >= p0 || mypcol0 >= q0)
+    myprow0 = mypcol0 = -1;
+  assert((myprow0 < p0 && mypcol0 < q0) || (myprow0 == -1 && mypcol0 == -1));
+
+  /* Get destination grid info */
+  Cblacs_gridinfo((Int)mb->ctxt, &p1_b, &q1_b, &myprow1_b, &mypcol1_b);
+  p1 = (int)p1_b; q1 = (int)q1_b;
+  myprow1 = (int)myprow1_b; mypcol1 = (int)mypcol1_b;
+  if (myprow1 >= p1 || mypcol1 >= q1)
+    myprow1 = mypcol1 = -1;
+  assert((myprow1 < p1 && mypcol1 < q1) || (myprow1 == -1 && mypcol1 == -1));
+
+  /* ----- Allocate and fill param64 sync array ----- */
+  param_span64 = (ScaLAPACK_Index64)NBPARAM_CORE + 2 * (ScaLAPACK_Index64)nprocs;
+  if (!ScaLAPACK_Index64ToSizeT(param_span64, &alloc_count) ||
+      !ScaLAPACK_SizeTMul(alloc_count, sizeof(ScaLAPACK_Index64), &alloc_bytes)) {
+    fprintf(stderr, "xxTRMR2D_CORE:parameter workspace overflow\n");
+    exit(1);
+  }
+  param64 = (ScaLAPACK_Index64 *) mr2d_malloc(alloc_bytes);
+  for (i = 0; i < (int)param_span64; i++)
+    param64[i] = MAGIC_MAX_I8;
+
+  if (myprow0 >= 0) {
+    param64[myprow0 * q0 + mypcol0 + NBPARAM_CORE] = (ScaLAPACK_Index64)mypnum;
+    param64[0]  = (ScaLAPACK_Index64)p0;
+    param64[1]  = (ScaLAPACK_Index64)q0;
+    param64[4]  = ma->m;
+    param64[5]  = ma->n;
+    param64[6]  = ma->mb;
+    param64[7]  = ma->nb;
+    param64[8]  = (ScaLAPACK_Index64)ma->rsrc;
+    param64[9]  = (ScaLAPACK_Index64)ma->csrc;
+    param64[10] = ia;
+    param64[11] = ja;
+  }
+  if (myprow1 >= 0) {
+    param64[myprow1 * q1 + mypcol1 + NBPARAM_CORE + nprocs] = (ScaLAPACK_Index64)mypnum;
+    param64[2]  = (ScaLAPACK_Index64)p1;
+    param64[3]  = (ScaLAPACK_Index64)q1;
+    param64[12] = mb->m;
+    param64[13] = mb->n;
+    param64[14] = mb->mb;
+    param64[15] = mb->nb;
+    param64[16] = (ScaLAPACK_Index64)mb->rsrc;
+    param64[17] = (ScaLAPACK_Index64)mb->csrc;
+    param64[18] = ib;
+    param64[19] = jb;
+  }
+
+  redist_sync_params_i8((int)gcontext, param64, (int)param_span64);
+
+  /* ----- Extract synced parameters ----- */
+  newa = *ma;
+  newb = *mb;
+  ma = &newa;
+  mb = &newb;
+
+  if (myprow0 == -1) {
+    p0 = (int)param64[0];  q0 = (int)param64[1];
+    ma->m    = param64[4];  ma->n    = param64[5];
+    ma->mb   = param64[6];  ma->nb   = param64[7];
+    ma->rsrc = (int)param64[8];  ma->csrc = (int)param64[9];
+    ia = param64[10]; ja = param64[11];
+  }
+  if (myprow1 == -1) {
+    p1 = (int)param64[2];  q1 = (int)param64[3];
+    mb->m    = param64[12]; mb->n    = param64[13];
+    mb->mb   = param64[14]; mb->nb   = param64[15];
+    mb->rsrc = (int)param64[16]; mb->csrc = (int)param64[17];
+    ib = param64[18]; jb = param64[19];
+  }
+
+  /* Extract proc0/proc1 as Int arrays */
+  proc0_span = p0 * q0;
+  proc1_span = p1 * q1;
+  if (!ScaLAPACK_SizeTMul((size_t)(proc0_span + proc1_span), sizeof(Int),
+			  &alloc_bytes)) {
+    fprintf(stderr, "xxTRMR2D_CORE:proc workspace overflow\n");
+    exit(1);
+  }
+  proc0 = (Int *) mr2d_malloc(alloc_bytes);
+  proc1 = proc0 + proc0_span;
+  for (i = 0; i < proc0_span; i++)
+    proc0[i] = (Int)param64[NBPARAM_CORE + i];
+  for (i = 0; i < proc1_span; i++)
+    proc1[i] = (Int)param64[NBPARAM_CORE + nprocs + i];
+
+  /* Verify all params were synced */
+  for (i = 0; i < NBPARAM_CORE; i++) {
+    if (param64[i] == MAGIC_MAX_I8) {
+      fprintf(stderr, "xxTRMR2D_CORE:something wrong in the parameters\n");
+      exit(1);
+    }
+  }
+#ifndef NDEBUG
+  for (i = 0; i < proc0_span; i++)
+    assert(proc0[i] >= 0 && proc0[i] < nprocs);
+  for (i = 0; i < proc1_span; i++)
+    assert(proc1[i] >= 0 && proc1[i] < nprocs);
+#endif
+
+  /* Validate parameters */
+  paramcheck_core(ma, ia, ja, m, n, p0, q0, (int)gcontext);
+  paramcheck_core(mb, ib, jb, m, n, p1, q1, (int)gcontext);
+
+  /* Change origin so that ia < mb, ja < nb, etc. */
+  {
+    ScaLAPACK_Index64 decal;
+    size_t shift_bytes;
+    ScaLAPACK_Index64 shift64;
+
+    ia = changeorigin_core(myprow0, ma->rsrc, p0,
+			   ma->mb, ia, &decal, &ma->rsrc);
+    if (!ScaLAPACK_Index64ToSizeT(decal, &shift_bytes) ||
+	!ScaLAPACK_SizeTMul(shift_bytes, sizeof(*ptrmyblock), &shift_bytes)) {
+      fprintf(stderr, "xxTRMR2D_CORE:local block pointer overflow\n");
+      exit(1);
+    }
+    ptrmyblock = (complex *) ((char *) ptrmyblock + shift_bytes);
+
+    ja = changeorigin_core(mypcol0, ma->csrc, q0,
+			   ma->nb, ja, &decal, &ma->csrc);
+    if (!ScaLAPACK_Index64Mul(decal, ma->lld, &shift64) ||
+	!ScaLAPACK_Index64ToSizeT(shift64, &shift_bytes) ||
+	!ScaLAPACK_SizeTMul(shift_bytes, sizeof(*ptrmyblock), &shift_bytes)) {
+      fprintf(stderr, "xxTRMR2D_CORE:local block pointer overflow\n");
+      exit(1);
+    }
+    ptrmyblock = (complex *) ((char *) ptrmyblock + shift_bytes);
+
+    ma->m = ia + m;
+    ma->n = ja + n;
+
+    ib = changeorigin_core(myprow1, mb->rsrc, p1,
+			   mb->mb, ib, &decal, &mb->rsrc);
+    if (!ScaLAPACK_Index64ToSizeT(decal, &shift_bytes) ||
+	!ScaLAPACK_SizeTMul(shift_bytes, sizeof(*ptrmynewblock), &shift_bytes)) {
+      fprintf(stderr, "xxTRMR2D_CORE:local destination pointer overflow\n");
+      exit(1);
+    }
+    ptrmynewblock = (complex *) ((char *) ptrmynewblock + shift_bytes);
+
+    jb = changeorigin_core(mypcol1, mb->csrc, q1,
+			   mb->nb, jb, &decal, &mb->csrc);
+    if (!ScaLAPACK_Index64Mul(decal, mb->lld, &shift64) ||
+	!ScaLAPACK_Index64ToSizeT(shift64, &shift_bytes) ||
+	!ScaLAPACK_SizeTMul(shift_bytes, sizeof(*ptrmynewblock), &shift_bytes)) {
+      fprintf(stderr, "xxTRMR2D_CORE:local destination pointer overflow\n");
+      exit(1);
+    }
+    ptrmynewblock = (complex *) ((char *) ptrmynewblock + shift_bytes);
+
+    mb->m = ib + m;
+    mb->n = jb + n;
+
+    if (p0 == 1) ma->mb = ma->m;
+    if (q0 == 1) ma->nb = ma->n;
+    if (p1 == 1) mb->mb = mb->m;
+    if (q1 == 1) mb->nb = mb->n;
+
+#ifndef NDEBUG
+    paramcheck_core(ma, ia, ja, m, n, p0, q0, (int)gcontext);
+    paramcheck_core(mb, ib, jb, m, n, p1, q1, (int)gcontext);
+#endif
+  }
+
+  /* Allocate send/recv buffers */
+  if (myprow0 >= 0 && mypcol0 >= 0)
+    setmemory_core(&ptrsendbuff, memoryblocksize_core(ma));
+  if (myprow1 >= 0 && mypcol1 >= 0)
+    setmemory_core(&ptrrecvbuff, memoryblocksize_core(mb));
+
+  /* Allocate IDESC_TR_CORE interval arrays (worst-case size) */
+  {
+    ScaLAPACK_Index64 tw0, tw1, hint_count, vint_count;
+    tw0 = (ScaLAPACK_Index64)q0 * ma->nb;
+    if (tw0 > 0)
+      hint_count = ((ma->n - 1) / tw0 + 1) * ma->nb;
+    else
+      hint_count = 0;
+    if (!ScaLAPACK_Index64ToSizeT(hint_count, &alloc_count) ||
+	!ScaLAPACK_SizeTMul(alloc_count, sizeof(IDESC_TR_CORE), &alloc_bytes)) {
+      fprintf(stderr, "xxTRMR2D_CORE:horizontal interval workspace overflow\n");
+      exit(1);
+    }
+    h_inter = (IDESC_TR_CORE *) mr2d_malloc(alloc_bytes);
+
+    tw1 = (ScaLAPACK_Index64)p0 * ma->mb;
+    if (tw1 > 0)
+      vint_count = ((ma->m - 1) / tw1 + 1) * ma->mb;
+    else
+      vint_count = 0;
+    if (!ScaLAPACK_Index64ToSizeT(vint_count, &alloc_count) ||
+	!ScaLAPACK_SizeTMul(alloc_count, sizeof(IDESC_TR_CORE), &alloc_bytes)) {
+      fprintf(stderr, "xxTRMR2D_CORE:vertical interval workspace overflow\n");
+      exit(1);
+    }
+    v_inter = (IDESC_TR_CORE *) mr2d_malloc(alloc_bytes);
+  }
+
+  /* Communication loop */
+  recvptr = ptrrecvbuff;
+  {
+    Int   tot, myrang, step, sens;
+    Int  *sender, *recver;
+    Int   mesending, merecving;
+    Int   ii, jj;
+    tot = max(proc0_span, proc1_span);
+    init_chenille((Int)mypnum, (Int)nprocs,
+		  (Int)proc0_span, proc0, (Int)proc1_span, proc1,
+		  &sender, &recver, &myrang);
+    if (myrang == -1)
+      goto after_comm;
+    mesending = myprow0 >= 0;
+    assert(sender[myrang] >= 0 || !mesending);
+    assert(!mesending || proc0[sender[myrang]] == (Int)mypnum);
+    merecving = myprow1 >= 0;
+    assert(recver[myrang] >= 0 || !merecving);
+    assert(!merecving || proc1[recver[myrang]] == (Int)mypnum);
+    step = tot - 1 - myrang;
+    do {
+      for (sens = 0; sens < 2; sens++) {
+	if (mesending && recver[step] >= 0 && (sens == 0)) {
+	  ii = recver[step] / q1;
+	  jj = recver[step] % q1;
+	  vinter_nb = scan_intervals_tr_core('r', ia, ib, m, ma, mb,
+					     p0, p1, myprow0, (int)ii, v_inter);
+	  hinter_nb = scan_intervals_tr_core('c', ja, jb, n, ma, mb,
+					     q0, q1, mypcol0, (int)jj, h_inter);
+	  scanD0_core(uplo, diag, SENDBUFF, ptrsendbuff, &sendsize,
+		      m, n, ma, ia, ja, p0, q0, mb, ib, jb, p1, q1,
+		      v_inter, vinter_nb, h_inter, hinter_nb,
+		      ptrmyblock);
+	}
+	if (mesending && recver[step] >= 0 && (sens == myrang > step)) {
+	  ii = recver[step] / q1;
+	  jj = recver[step] % q1;
+	  if (sendsize > 0 && (step != myrang || !merecving)) {
+	    Int ss = i64_to_blacs_count(sendsize);
+	    Ccgesd2d(gcontext, ss, (Int)1, ptrsendbuff, ss,
+		     (Int)0, proc1[ii * q1 + jj]);
+	  }
+	}
+	if (merecving && sender[step] >= 0 && (sens == myrang <= step)) {
+	  ii = sender[step] / q0;
+	  jj = sender[step] % q0;
+	  vinter_nb = scan_intervals_tr_core('r', ib, ia, m, mb, ma,
+					     p1, p0, myprow1, (int)ii, v_inter);
+	  hinter_nb = scan_intervals_tr_core('c', jb, ja, n, mb, ma,
+					     q1, q0, mypcol1, (int)jj, h_inter);
+	  scanD0_core(uplo, diag, SIZEBUFF, ptrNULL, &recvsize,
+		      m, n, ma, ia, ja, p0, q0, mb, ib, jb, p1, q1,
+		      v_inter, vinter_nb, h_inter, hinter_nb, ptrNULL);
+	  if (recvsize > 0) {
+	    if (step == myrang && mesending) {
+	      Clacpy_core(recvsize, 1,
+			  ptrsendbuff, recvsize,
+			  ptrrecvbuff, recvsize);
+	    } else {
+	      Int rs = i64_to_blacs_count(recvsize);
+	      Ccgerv2d(gcontext, rs, (Int)1, ptrrecvbuff, rs,
+		       (Int)0, proc0[ii * q0 + jj]);
+	    }
+	  }
+	}
+	if (merecving && sender[step] >= 0 && sens == 1) {
+	  scanD0_core(uplo, diag, RECVBUFF, ptrrecvbuff, &recvsize,
+		      m, n, ma, ia, ja, p0, q0, mb, ib, jb, p1, q1,
+		      v_inter, vinter_nb, h_inter, hinter_nb, ptrmynewblock);
+	}
+      }
+      step -= 1;
+      if (step < 0)
+	step = tot - 1;
+    } while (step != tot - 1 - myrang);
+after_comm:
+    free(sender);
+  }
+
+  /* Cleanup */
+  if (myprow1 >= 0 && mypcol1 >= 0)
+    free(ptrrecvbuff);
+  if (myprow0 >= 0 && mypcol0 >= 0)
+    free(ptrsendbuff);
+  if ((int)nprow_b != 1)
+    Cblacs_gridexit(gcontext);
+  free(v_inter);
+  free(h_inter);
+  free(proc0);
+  free(param64);
+}
+
+/* ------------------------------------------------------------------ */
+/* I8 Fortran entry point                                             */
+/* ------------------------------------------------------------------ */
+
+void
+fortran_mr2dnew_i8(char *uplo, char *diag,
+		   int64_t *m, int64_t *n,
+		   complex *A, int64_t *ia, int64_t *ja, int64_t desc_A[9],
+		   complex *B, int64_t *ib, int64_t *jb, int64_t desc_B[9],
+		   int64_t *gcontext)
+{
+  MDESC_CORE core_a, core_b;
+  int gc;
+
+  if (!unpack_desc_i8(desc_A, &core_a)) {
+    fprintf(stderr, "PCTRMR2D_I8:bad source descriptor (narrowing overflow)\n");
+    exit(1);
+  }
+  if (!unpack_desc_i8(desc_B, &core_b)) {
+    fprintf(stderr, "PCTRMR2D_I8:bad destination descriptor (narrowing overflow)\n");
+    exit(1);
+  }
+
+  if (*gcontext < INT_MIN || *gcontext > INT_MAX) {
+    fprintf(stderr, "PCTRMR2D_I8:bad global context (narrowing overflow)\n");
+    exit(1);
+  }
+  gc = (int)*gcontext;
+
+  Cpctrmr2d_core(uplo, diag, *m, *n, A, *ia, *ja, &core_a,
+		 B, *ib, *jb, &core_b, gc);
 }

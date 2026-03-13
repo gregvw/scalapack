@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <ctype.h>
 
 /* MPI datatype for ScaLAPACK_Index64 (= int64_t) */
 #ifdef MPI_INT64_T
@@ -338,4 +339,116 @@ redist_sync_params_i8(int gcontext, ScaLAPACK_Index64 *param64, int nparam)
 
     MPI_Allreduce(MPI_IN_PLACE, param64, nparam,
                   REDIST_MPI_I64, MPI_MIN, comm);
+}
+
+/* ------------------------------------------------------------------ */
+/* scan_intervals_tr_core — trmr-specific interval scanner            */
+/*                                                                    */
+/* Like scan_intervals_core but stores gstart (global position in the */
+/* submatrix extent) instead of lstart (local memory offset).         */
+/* Used by scanD0_core in the triangular redistribution files.        */
+/* ------------------------------------------------------------------ */
+
+ScaLAPACK_Index64
+scan_intervals_tr_core(char type,
+                       ScaLAPACK_Index64 ja, ScaLAPACK_Index64 jb,
+                       ScaLAPACK_Index64 n,
+                       const MDESC_CORE *ma, const MDESC_CORE *mb,
+                       int q0, int q1, int col0, int col1,
+                       IDESC_TR_CORE *result)
+{
+    ScaLAPACK_Index64 offset, j0, j1, templatewidth0, templatewidth1;
+    ScaLAPACK_Index64 nbcol0, nbcol1;
+    ScaLAPACK_Index64 end0, end1;
+
+    assert(type == 'c' || type == 'r');
+
+    nbcol0 = (type == 'c' ? ma->nb : ma->mb);
+    nbcol1 = (type == 'c' ? mb->nb : mb->mb);
+    templatewidth0 = i64_mul((ScaLAPACK_Index64)q0, nbcol0);
+    templatewidth1 = i64_mul((ScaLAPACK_Index64)q1, nbcol1);
+
+    {
+        int sp0 = (type == 'c' ? ma->csrc : ma->rsrc);
+        int sp1 = (type == 'c' ? mb->csrc : mb->rsrc);
+        ScaLAPACK_Index64 shifted0 = i64_mul(
+            (ScaLAPACK_Index64)SHIFT(col0, sp0, q0), nbcol0);
+        ScaLAPACK_Index64 shifted1 = i64_mul(
+            (ScaLAPACK_Index64)SHIFT(col1, sp1, q1), nbcol1);
+        j0 = i64_sub(shifted0, ja);
+        j1 = i64_sub(shifted1, jb);
+    }
+
+    offset = 0;
+
+    assert(j0 + nbcol0 > 0);
+    assert(j1 + nbcol1 > 0);
+
+    while ((j0 < n) && (j1 < n)) {
+        ScaLAPACK_Index64 start, end;
+        end0 = i64_add(j0, nbcol0);
+        end1 = i64_add(j1, nbcol1);
+
+        if (end0 <= j1) {
+            j0 = i64_add(j0, templatewidth0);
+            continue;
+        }
+        if (end1 <= j0) {
+            j1 = i64_add(j1, templatewidth1);
+            continue;
+        }
+
+        /* raw intersection */
+        start = j0 > j1 ? j0 : j1;
+        if (start < 0) start = 0;
+
+        /* gstart = global position in the submatrix */
+        result[offset].gstart = start;
+
+        end = end0 < end1 ? end0 : end1;
+        if (end0 == end)
+            j0 = i64_add(j0, templatewidth0);
+        if (end1 == end)
+            j1 = i64_add(j1, templatewidth1);
+
+        /* clamp to submatrix extent */
+        if (end > n) end = n;
+        assert(end > start);
+
+        result[offset].len = i64_sub(end, start);
+        offset = i64_add(offset, 1);
+    }
+    return offset;
+}
+
+/* ------------------------------------------------------------------ */
+/* insidemat_core — triangle element count for a single column        */
+/* ------------------------------------------------------------------ */
+
+ScaLAPACK_Index64
+insidemat_core(const char *uplo, const char *diag,
+               ScaLAPACK_Index64 i, ScaLAPACK_Index64 j,
+               ScaLAPACK_Index64 m, ScaLAPACK_Index64 n,
+               ScaLAPACK_Index64 *offset)
+{
+    assert(j >= 0 && j < n);
+    assert(i >= 0);
+
+    if (toupper(*uplo) == 'U') {
+        ScaLAPACK_Index64 nbline, virtualnbline;
+        ScaLAPACK_Index64 mn_diff = m > n ? m - n : 0;
+        *offset = 0;
+        virtualnbline = mn_diff + j + (toupper(*diag) == 'N' ? 1 : 0);
+        nbline = virtualnbline < m ? virtualnbline : m;
+        return nbline - i;
+    } else {
+        ScaLAPACK_Index64 firstline, virtualline, off;
+        ScaLAPACK_Index64 diagcol = n > m ? n - m : 0;
+        virtualline = j - diagcol + (toupper(*diag) == 'U' ? 1 : 0);
+        firstline = virtualline > 0 ? virtualline : 0;
+        off = firstline > i ? firstline - i : 0;
+        *offset = off;
+        i += off;
+        return m - i;
+    }
 }

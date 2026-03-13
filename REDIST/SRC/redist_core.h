@@ -1,5 +1,5 @@
 /*
- * redist_core.h — Internal core descriptor for PxGEMR2D
+ * redist_core.h — Internal core descriptors for PxGEMR2D / PxTRMR2D
  *
  * MDESC_CORE is the single internal representation used by the
  * redistribution core.  All dimension fields are ScaLAPACK_Index64;
@@ -115,6 +115,18 @@ unpack_desc_i8(const int64_t desc[9], MDESC_CORE *out)
     return 1;
 }
 
+/*
+ * Interval descriptor for triangular redistribution (trmr).
+ *
+ * Uses gstart (global start within the submatrix extent) instead of
+ * lstart (local memory offset) because scanD0 works in global
+ * coordinates and converts to local indices via localindice_core.
+ */
+typedef struct {
+    ScaLAPACK_Index64  gstart;     /* global start position in submatrix  */
+    ScaLAPACK_Index64  len;        /* length of this interval             */
+} IDESC_TR_CORE;
+
 /* ------------------------------------------------------------------ */
 /* Core helper function declarations (implemented in pgemraux_core.c) */
 /* ------------------------------------------------------------------ */
@@ -169,6 +181,28 @@ scan_intervals_core(char type,
 extern void
 redist_sync_params_i8(int gcontext,
                       ScaLAPACK_Index64 *param64, int nparam);
+
+/* Scan two block-cyclic distributions for triangular redistribution.
+ * Like scan_intervals_core but stores global start (gstart) instead
+ * of local start (lstart).  Used by scanD0_core in trmr files. */
+extern ScaLAPACK_Index64
+scan_intervals_tr_core(char type,
+                       ScaLAPACK_Index64 ja, ScaLAPACK_Index64 jb,
+                       ScaLAPACK_Index64 n,
+                       const MDESC_CORE *ma, const MDESC_CORE *mb,
+                       int q0, int q1, int col0, int col1,
+                       IDESC_TR_CORE *result);
+
+/* Number of elements in a triangular column.
+ * Returns the count of elements in column j of a trapezoid
+ * (upper or lower, unit or non-unit diagonal) starting from row i.
+ * *offset is set to the number of rows to skip before the first
+ * triangle element (used by intersect_core). */
+extern ScaLAPACK_Index64
+insidemat_core(const char *uplo, const char *diag,
+               ScaLAPACK_Index64 i, ScaLAPACK_Index64 j,
+               ScaLAPACK_Index64 m, ScaLAPACK_Index64 n,
+               ScaLAPACK_Index64 *offset);
 
 #define NBPARAM_CORE     20
 #define MAGIC_MAX_I8     INT64_C(100000000000000000) /* 10^17 */
