@@ -263,6 +263,7 @@ extern void Cpitrmr2d_core( char* uplo, char* diag, ScaLAPACK_Index64 m, ScaLAPA
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 #define DESCLEN 9
 void
