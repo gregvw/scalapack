@@ -27,6 +27,14 @@ target_link_libraries(xdtrmr scalapack MPI::MPI_Fortran )
 target_link_libraries(xctrmr scalapack MPI::MPI_Fortran )
 target_link_libraries(xztrmr scalapack MPI::MPI_Fortran )
 
+# I8 redistribution test
+add_executable(xdgemr_i8 test_pdgemr2d_i8.c)
+target_link_libraries(xdgemr_i8 scalapack MPI::MPI_C)
+add_test(NAME xdgemr_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS}
+                 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/xdgemr_i8)
+
 #add_test(xigemr ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ./xigemr)
 #add_test(xsgemr ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ./xsgemr)
 #add_test(xdgemr ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ./xdgemr)

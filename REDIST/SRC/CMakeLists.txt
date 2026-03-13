@@ -1,5 +1,5 @@
-set (ALLAUX  
-   pgemraux.c)
+set (ALLAUX
+   pgemraux.c pgemraux_core.c)
 
 set (IMRSRC  
    pigemr.c pigemr2.c pitrmr.c pitrmr2.c)
