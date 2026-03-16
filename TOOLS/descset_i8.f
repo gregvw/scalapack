@@ -21,7 +21,8 @@
 *  8 input arguments M, N, MB, NB, IRSRC, ICSRC, ICTXT, LLD.
 *
 *  This is the INTEGER*8 version of DESCSET.  No validation is
-*  performed.  The descriptor type is set to BLOCK_CYCLIC_2D_I8 = 501.
+*  performed.  The descriptor type is set to BLOCK_CYCLIC_2D_I8 = 1,
+*  the same semantic tag as legacy 2D block-cyclic descriptors.
 *
 *  Arguments
 *  =========

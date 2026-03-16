@@ -53,8 +53,8 @@ extern void pdtrmr2d_i8(char *uplo, char *diag,
                          int64_t desc_B[9],
                          int64_t *gcontext);
 
-/* BLOCK_CYCLIC_2D_I8 descriptor type tag */
-#define BLOCK_CYCLIC_2D_I8 501
+/* BLOCK_CYCLIC_2D_I8 descriptor type tag — semantic value, same as legacy */
+#define BLOCK_CYCLIC_2D_I8 1
 
 /* Descriptor field indices */
 #define DTYPE_ 0

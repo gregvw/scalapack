@@ -22,7 +22,9 @@
 *
 *  This is the INTEGER*8 version of DESCINIT, supporting matrix
 *  dimensions larger than 2^31-1.  The descriptor type is set to
-*  BLOCK_CYCLIC_2D_I8 = 501 to distinguish from legacy descriptors.
+*  BLOCK_CYCLIC_2D_I8 = 1, the same semantic tag as legacy 2D
+*  block-cyclic descriptors.  Width is determined by the entry-point
+*  name (_I8 suffix), not by the DTYPE value.
 *
 *  Arguments
 *  =========

@@ -16,8 +16,10 @@
 #include "scalapack-types.h"
 #include <limits.h>
 
-/* I8 descriptor type tag — matches SL_i8_params.inc BLOCK_CYCLIC_2D_I8 */
-#define BLOCK_CYCLIC_2D_I8 501
+/* I8 descriptor type tag — matches SL_i8_params.inc BLOCK_CYCLIC_2D_I8.
+ * Uses the same semantic value (1 = 2D block-cyclic) as legacy descriptors.
+ * Descriptor width is determined by the entry-point name, not by DTYPE. */
+#define BLOCK_CYCLIC_2D_I8 1
 
 /*
  * Internal core descriptor.
@@ -32,7 +34,7 @@
  *   desctype, ctxt, rsrc, csrc
  */
 typedef struct {
-    int                desctype;   /* descriptor type (1 or 501)        */
+    int                desctype;   /* descriptor type (1=2D block-cyclic) */
     int                ctxt;       /* BLACS context handle               */
     ScaLAPACK_Index64  m;          /* global number of rows              */
     ScaLAPACK_Index64  n;          /* global number of columns           */

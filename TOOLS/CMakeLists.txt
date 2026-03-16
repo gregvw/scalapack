@@ -9,7 +9,8 @@ set (ATOOLS
 
 set (ATOOLS_I8
          numroc_i8.f    descinit_i8.f  descset_i8.f   infog2l_i8.f
-         infog1l_i8.f   indxl2g_i8.f   indxg2p_i8.f   indxg2l_i8.f)
+         infog1l_i8.f   indxl2g_i8.f   indxg2p_i8.f   indxg2l_i8.f
+         chk1mat_i8.f   pchkxmat_i8.f  desc_convert_i8.f)
 
 set (ITOOLS
          picol2row.f  pirow2col.f  pilaprnt.f   pitreecomb.f  pifillpad.f 
@@ -43,6 +44,11 @@ set (ZTOOLS
 set(tools
      ${ATOOLS} ${ATOOLS_I8} ${ITOOLS} ${STOOLS} ${DTOOLS} ${CTOOLS} ${ZTOOLS})
      
-set(tools-C 
-    reshape.c  SL_gridreshape.c )
+set(tools-C
+    reshape.c  SL_gridreshape.c  globchk_i8.c )
+
+# Standalone I8 tools test (no MPI required)
+add_executable(xi8tools test_i8_tools.f)
+target_link_libraries(xi8tools scalapack)
+add_test(NAME xi8tools COMMAND xi8tools)
      

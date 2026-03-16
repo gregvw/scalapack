@@ -22,7 +22,7 @@
       INTEGER            RSRC, CSRC, RSRC4, CSRC4
       INTEGER            ROCSRC, ROCSRC4
       INTEGER            PROC, PROC4
-      INTEGER            NFAIL, NTEST
+      INTEGER            NFAIL, NTEST, INFO, NTEST_C
       LOGICAL            OK
 *     ..
 *     .. External Functions (I8) ..
@@ -37,6 +37,7 @@
 *     ..
 *     .. External Subroutines ..
       EXTERNAL           DESCSET_I8, INFOG2L_I8, INFOG1L_I8
+      EXTERNAL           CHK1MAT_I8, DESC_CONVERT_I8
       EXTERNAL           DESCSET, INFOG2L, INFOG1L
 *     ..
 *
@@ -325,6 +326,158 @@
          NFAIL = NFAIL + 1
       END IF
 *
+*
+      NTEST_C = NTEST
+      WRITE(*,'(A)') '======================================'
+      WRITE(*,'(A)') 'Part C: CHK1MAT_I8 and DESC_CONVERT_I8'
+      WRITE(*,'(A)') '======================================'
+*
+*     ============================================================
+*     Test C1: CHK1MAT_I8 accepts a valid large descriptor
+*     ============================================================
+*
+*     Build a valid I8 descriptor: M=3e9, N=2.5e9, MB=NB=64, src=(0,0)
+*     Use a mock context (42) with NPROW=2, NPCOL=2.
+*     CHK1MAT_I8 calls BLACS_GRIDINFO which will return -1 for a
+*     mock context, so we test the DTYPE check path instead.
+*
+*     C1a: valid descriptor with DTYPE=1 should pass
+*
+      CALL DESCSET_I8( DESC8, 3000000000_8, 2500000000_8,
+     $                 64_8, 64_8, 0, 0, 42,
+     $                 NUMROC_I8( 3000000000_8, 64_8, 0, 0, 2 ) )
+*
+*     CHK1MAT_I8 will call BLACS_GRIDINFO(42,...) which returns
+*     NPROW=-1.  The routine checks DTYPE first, so a wrong DTYPE
+*     would be caught before the grid query.  With correct DTYPE=1,
+*     the -1 grid will trigger the RSRC/CSRC or LLD check.
+*     We verify that DTYPE is not flagged as the error.
+*
+      INFO = 0
+      CALL CHK1MAT_I8( 3000000000_8, 1, 2500000000_8, 2,
+     $                 1_8, 1_8, DESC8, 5, INFO )
+*
+*     With a mock context, INFO may be nonzero due to grid checks,
+*     but it must NOT be the DTYPE error (which would be -501 or
+*     -(5*100+1) = -501).
+*
+      NTEST = NTEST + 1
+      IF( INFO .EQ. -501 ) THEN
+         WRITE(*,*) 'FAIL C1a: CHK1MAT_I8 rejected DTYPE=1'
+         NFAIL = NFAIL + 1
+      END IF
+*
+*     C1b: bad DTYPE should be caught
+*
+      DESC8( 1 ) = 999
+      INFO = 0
+      CALL CHK1MAT_I8( 3000000000_8, 1, 2500000000_8, 2,
+     $                 1_8, 1_8, DESC8, 5, INFO )
+      NTEST = NTEST + 1
+      IF( INFO .EQ. 0 ) THEN
+         WRITE(*,*) 'FAIL C1b: CHK1MAT_I8 accepted bad DTYPE=999'
+         NFAIL = NFAIL + 1
+      END IF
+*
+*     C1c: negative MA should be caught
+*
+      CALL DESCSET_I8( DESC8, 3000000000_8, 2500000000_8,
+     $                 64_8, 64_8, 0, 0, 42,
+     $                 NUMROC_I8( 3000000000_8, 64_8, 0, 0, 2 ) )
+      INFO = 0
+      CALL CHK1MAT_I8( -1_8, 1, 2500000000_8, 2,
+     $                 1_8, 1_8, DESC8, 5, INFO )
+      NTEST = NTEST + 1
+      IF( INFO .EQ. 0 ) THEN
+         WRITE(*,*) 'FAIL C1c: CHK1MAT_I8 accepted negative MA'
+         NFAIL = NFAIL + 1
+      END IF
+*
+*     C1d: IA < 1 should be caught
+*
+      INFO = 0
+      CALL CHK1MAT_I8( 3000000000_8, 1, 2500000000_8, 2,
+     $                 0_8, 1_8, DESC8, 5, INFO )
+      NTEST = NTEST + 1
+      IF( INFO .EQ. 0 ) THEN
+         WRITE(*,*) 'FAIL C1d: CHK1MAT_I8 accepted IA=0'
+         NFAIL = NFAIL + 1
+      END IF
+*
+*     C1e: MB < 1 in descriptor should be caught
+*
+      CALL DESCSET_I8( DESC8, 3000000000_8, 2500000000_8,
+     $                 0_8, 64_8, 0, 0, 42, 1_8 )
+      INFO = 0
+      CALL CHK1MAT_I8( 3000000000_8, 1, 2500000000_8, 2,
+     $                 1_8, 1_8, DESC8, 5, INFO )
+      NTEST = NTEST + 1
+      IF( INFO .EQ. 0 ) THEN
+         WRITE(*,*) 'FAIL C1e: CHK1MAT_I8 accepted MB=0'
+         NFAIL = NFAIL + 1
+      END IF
+*
+*     C1f: null matrix (MA=0) should relax most checks
+*
+      CALL DESCSET_I8( DESC8, 3000000000_8, 2500000000_8,
+     $                 64_8, 64_8, 0, 0, 42,
+     $                 NUMROC_I8( 3000000000_8, 64_8, 0, 0, 2 ) )
+      INFO = 0
+      CALL CHK1MAT_I8( 0_8, 1, 2500000000_8, 2,
+     $                 1_8, 1_8, DESC8, 5, INFO )
+      NTEST = NTEST + 1
+*     INFO may be nonzero due to mock grid, but DTYPE must not be
+*     flagged for a null matrix with valid descriptor.
+      IF( INFO .EQ. -501 ) THEN
+         WRITE(*,*) 'FAIL C1f: CHK1MAT_I8 rejected null matrix'
+         NFAIL = NFAIL + 1
+      END IF
+*
+*     ============================================================
+*     Test C2: DESC_CONVERT_I8 — 2D to 1D horizontal
+*     ============================================================
+*
+*     Build a 2D I8 descriptor on a 1xP grid (NPROW=1, required for
+*     horizontal conversion).  DESC_CONVERT_I8 calls BLACS_GRIDINFO
+*     so we need a mock that returns NPROW=1.  Since we can't set up
+*     a real grid without MPI, we test the 501->501 (1D->1D) path
+*     which does not call BLACS_GRIDINFO.
+*
+*     C2a: 1D horizontal to 1D horizontal (identity conversion)
+*     We can't test 2D->1D without a real BLACS context, so we
+*     exercise the 1D->1D path which skips BLACS_GRIDINFO.
+*
+      DESC8( 1 ) = 501
+      DESC8( 2 ) = 42
+      DESC8( 3 ) = 5000000000_8
+      DESC8( 4 ) = 128_8
+      DESC8( 5 ) = 0
+      DESC8( 6 ) = 5000000000_8
+      DESC8( 7 ) = 0
+      DESC8( 8 ) = 0
+      DESC8( 9 ) = 0
+*
+      CALL CHECK_DESC_CONVERT_I8( DESC8, 501, 5000000000_8, 128_8,
+     $                            NTEST, NFAIL )
+*
+*     C2b: 1D vertical to 1D vertical
+*
+      DESC8( 1 ) = 502
+      DESC8( 2 ) = 42
+      DESC8( 3 ) = 4000000000_8
+      DESC8( 4 ) = 256_8
+      DESC8( 5 ) = 0
+      DESC8( 6 ) = 4000000000_8
+      DESC8( 7 ) = 0
+      DESC8( 8 ) = 0
+      DESC8( 9 ) = 0
+*
+      CALL CHECK_DESC_CONVERT_I8( DESC8, 502, 4000000000_8, 256_8,
+     $                            NTEST, NFAIL )
+*
+      WRITE(*,'(A,I3,A)') 'Part C: ', NTEST - NTEST_C,
+     $                    ' helper tests'
+*
 *     ============================================================
 *     Summary
 *     ============================================================
@@ -493,6 +646,78 @@
      $              ' myroc=', MYROC
          WRITE(*,*) '  legacy: LINDX=', LINDX4, ' ROCSRC=', ROCSRC4
          WRITE(*,*) '  I8:     LINDX=', LINDX8, ' ROCSRC=', ROCSRC8
+         NFAIL = NFAIL + 1
+      END IF
+*
+      END
+*
+      SUBROUTINE CHECK_DESC_CONVERT_I8( DESC_IN, OTYPE, EXPN, EXPNB,
+     $                                  NTEST, NFAIL )
+      IMPLICIT NONE
+*
+*     Test DESC_CONVERT_I8 for 1D-to-1D identity conversion.
+*     DESC_IN is a 1D descriptor (type 501 or 502).
+*     OTYPE is the requested output type (501 or 502).
+*     EXPN is the expected N (for 501) or M (for 502) in the output.
+*     EXPNB is the expected NB (for 501) or MB (for 502).
+*
+      INTEGER*8          DESC_IN( 9 ), EXPN, EXPNB
+      INTEGER            OTYPE, NTEST, NFAIL
+*     ..
+      INTEGER*8          DESC_OUT( 9 )
+      INTEGER            INFO, K
+      EXTERNAL           DESC_CONVERT_I8
+*
+*     Prepare output: set type, zero rest
+*
+      DO K = 1, 9
+         DESC_OUT( K ) = 0
+      END DO
+      DESC_OUT( 1 ) = OTYPE
+*
+      INFO = 0
+      CALL DESC_CONVERT_I8( DESC_IN, DESC_OUT, INFO )
+*
+      NTEST = NTEST + 1
+      IF( INFO .NE. 0 ) THEN
+         WRITE(*,*) 'FAIL DESC_CONVERT_I8: INFO =', INFO,
+     $              ' for type', OTYPE
+         NFAIL = NFAIL + 1
+         RETURN
+      END IF
+*
+*     Check output type preserved
+*
+      NTEST = NTEST + 1
+      IF( DESC_OUT( 1 ) .NE. OTYPE ) THEN
+         WRITE(*,*) 'FAIL DESC_CONVERT_I8: output type =',
+     $              DESC_OUT( 1 ), ' expected', OTYPE
+         NFAIL = NFAIL + 1
+      END IF
+*
+*     Check context preserved
+*
+      NTEST = NTEST + 1
+      IF( DESC_OUT( 2 ) .NE. DESC_IN( 2 ) ) THEN
+         WRITE(*,*) 'FAIL DESC_CONVERT_I8: CTXT mismatch'
+         NFAIL = NFAIL + 1
+      END IF
+*
+*     Check N/M field (field 3)
+*
+      NTEST = NTEST + 1
+      IF( DESC_OUT( 3 ) .NE. EXPN ) THEN
+         WRITE(*,*) 'FAIL DESC_CONVERT_I8: N/M =',
+     $              DESC_OUT( 3 ), ' expected', EXPN
+         NFAIL = NFAIL + 1
+      END IF
+*
+*     Check NB/MB field (field 4)
+*
+      NTEST = NTEST + 1
+      IF( DESC_OUT( 4 ) .NE. EXPNB ) THEN
+         WRITE(*,*) 'FAIL DESC_CONVERT_I8: NB/MB =',
+     $              DESC_OUT( 4 ), ' expected', EXPNB
          NFAIL = NFAIL + 1
       END IF
 *
