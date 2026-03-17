@@ -50,7 +50,7 @@ pblas_i8_narrow_desc(const int64_t desc_i8[9], Int desc_out[9])
 static inline void
 pblas_i8_abort(Int ctxt, const char *routine)
 {
-    PB_Cabort(ctxt, routine, -2);
+    PB_Cabort(ctxt, (char *)routine, -2);
 }
 
 #endif /* PBLAS_I8_UTILS_H */
