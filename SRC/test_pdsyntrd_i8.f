@@ -107,7 +107,7 @@
       CHARACTER*(*)      LABEL
       INTEGER            NTEST, NFAIL
 *
-      INTEGER*8          LR, LC, LLD8, I8, J8, GI, GJ, LWORK8
+      INTEGER*8          LR, LC, LCE, LLD8, I8, J8, GI, GJ, LWORK8
       INTEGER*8          DESCA8( 9 )
       INTEGER            DESCA4( 9 ), INFO, ERRS, NB4, N4, LWORK4
       DOUBLE PRECISION, ALLOCATABLE :: A(:), ACOPY(:),
@@ -125,8 +125,9 @@
       NB4 = INT( NB8 )
       N4  = INT( N8 )
 *
-      LR = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
-      LC = NUMROC_I8( N8, NB8, MYCOL, 0, NPCOL )
+      LR  = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LC  = NUMROC_I8( N8, NB8, MYCOL, 0, NPCOL )
+      LCE = NUMROC_I8( N8-1, NB8, MYCOL, 0, NPCOL )
       LLD8 = MAX( LR, 1_8 )
 *
 *     Build I8 descriptor
@@ -223,7 +224,7 @@
       END DO
 *
       NTEST = NTEST + 1
-      DO I8 = 1, LC
+      DO I8 = 1, LCE
          IF( E( I8 ) .NE. EREF( I8 ) ) THEN
             IF( ERRS .LT. 3 )
      $         WRITE(*,*) 'FAIL ', LABEL, ' E: i=', I8,
