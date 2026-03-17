@@ -59,7 +59,7 @@
      $                   BLACS_GRIDINIT, BLACS_ABORT,
      $                   CHK1MAT_I8, DESCSET_I8, DSYTRD,
      $                   DGAMN2D, PCHK1MAT_I8, PDELSET_I8,
-     $                   PDLAMR1D_I8, PDLATRD, PDSYR2K, PDSYTD2,
+     $                   PDLAMR1D_I8, PDLATRD_I8, PDSYR2K, PDSYTD2,
      $                   PDSYTTRD, PDTRMR2D_I8,
      $                   PB_TOPGET, PB_TOPSET, PXERBLA
 *     ..
@@ -290,9 +290,9 @@
                I4 = INT( IA + K8 - 1 )
                J4 = INT( JA + K8 - 1 )
 *
-               CALL PDLATRD( UPLO, K4+JB-1, JB, A, INT( IA ),
-     $              INT( JA ), DESCA4, D, E, TAU, WORK, 1, 1,
-     $              DESCW4, WORK( IPW ) )
+               CALL PDLATRD_I8( UPLO, K8+JB-1, JB, A, IA,
+     $              JA, DESCA, D, E, TAU, WORK, 1_8, 1_8,
+     $              DESCW, WORK( IPW ) )
 *
                CALL PDSYR2K( UPLO, 'No transpose', K4-1, JB,
      $              -ONE, A, INT( IA ), J4, DESCA4,
@@ -328,9 +328,9 @@
                J4 = INT( JA + K8 - 1 )
                K4 = INT( K8 )
 *
-               CALL PDLATRD( UPLO, INT( N-K8+1 ), NB, A, I4, J4,
-     $              DESCA4, D, E, TAU, WORK, K4, 1, DESCW4,
-     $              WORK( IPW ) )
+               CALL PDLATRD_I8( UPLO, N-K8+1, NB, A, IA+K8-1,
+     $              JA+K8-1, DESCA, D, E, TAU, WORK, K8, 1_8,
+     $              DESCW, WORK( IPW ) )
 *
                CALL PDSYR2K( UPLO, 'No transpose', INT( N-K8-NB+1 ),
      $              NB, -ONE, A, I4+NB, J4, DESCA4, WORK, K4+NB, 1,
