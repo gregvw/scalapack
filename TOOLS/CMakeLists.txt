@@ -12,7 +12,8 @@ set (ATOOLS_I8
          infog1l_i8.f   indxl2g_i8.f   indxg2p_i8.f   indxg2l_i8.f
          chk1mat_i8.f   pchkxmat_i8.f  desc_convert_i8.f
          pdelset_i8.f   pselset_i8.f   pcelset_i8.f   pzelset_i8.f
-         narrow_desc8.f)
+         narrow_desc8.f
+         pdelget_i8.f)
 
 set (ITOOLS
          picol2row.f  pirow2col.f  pilaprnt.f   pitreecomb.f  pifillpad.f 

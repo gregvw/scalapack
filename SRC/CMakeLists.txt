@@ -150,7 +150,8 @@ set (I8SRC
    pdsyntrd_i8.f  pssyntrd_i8.f
    pchentrd_i8.f  pzhentrd_i8.f
    pdlarfg_i8.f   pslarfg_i8.f   pclarfg_i8.f   pzlarfg_i8.f
-   pclacgv_i8.f   pzlacgv_i8.f)
+   pclacgv_i8.f   pzlacgv_i8.f
+   pdlatrd_i8.f)
 
 # I8 SRC test targets
 add_executable(xdsyntrd_i8 test_pdsyntrd_i8.f)
