@@ -290,7 +290,7 @@
       IF( MYROW .EQ. 0 ) THEN
          DO J8 = 1, NQ_A
             GIDX = INDXL2G_I8( J8, NBA, MYCOL, ICSRC, NPCOL )
-            A( J8 ) = CMPLX( REAL( GIDX ), 0.0 )
+            A( J8 ) = CMPLX( REAL( GIDX ), -REAL( GIDX ) )
          END DO
       END IF
 *
@@ -305,7 +305,8 @@
       ERRS = 0
       DO J8 = 1, NQ_B
          GIDX = INDXL2G_I8( J8, NBB, MYCOL, ICSRC, NPCOL )
-         IF( REAL( B( J8 ) ) .NE. REAL( GIDX ) ) THEN
+         IF( REAL( B( J8 ) ) .NE. REAL( GIDX ) .OR.
+     $       AIMAG( B( J8 ) ) .NE. -REAL( GIDX ) ) THEN
             IF( ERRS .LT. 3 )
      $         WRITE(*,*) 'FAIL ', LABEL, ': proc(', MYROW, ',',
      $                     MYCOL, ') got=', B(J8)
@@ -364,7 +365,7 @@
       IF( MYROW .EQ. 0 ) THEN
          DO J8 = 1, NQ_A
             GIDX = INDXL2G_I8( J8, NBA, MYCOL, ICSRC, NPCOL )
-            A( J8 ) = DCMPLX( DBLE( GIDX ), 0.0D0 )
+            A( J8 ) = DCMPLX( DBLE( GIDX ), -DBLE( GIDX ) )
          END DO
       END IF
 *
@@ -379,7 +380,8 @@
       ERRS = 0
       DO J8 = 1, NQ_B
          GIDX = INDXL2G_I8( J8, NBB, MYCOL, ICSRC, NPCOL )
-         IF( DBLE( B( J8 ) ) .NE. DBLE( GIDX ) ) THEN
+         IF( DBLE( B( J8 ) ) .NE. DBLE( GIDX ) .OR.
+     $       DIMAG( B( J8 ) ) .NE. -DBLE( GIDX ) ) THEN
             IF( ERRS .LT. 3 )
      $         WRITE(*,*) 'FAIL ', LABEL, ': proc(', MYROW, ',',
      $                     MYCOL, ') got=', B(J8)
