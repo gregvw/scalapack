@@ -142,7 +142,8 @@ set (ZLASRC
    zlamsh.f  zlaref.f  zlanv2.f zlahqr2.f pzheevr.f)
    
 set (I8SRC
-   pdlamr1d_i8.f  pslamr1d_i8.f  pclamr1d_i8.f  pzlamr1d_i8.f)
+   pdlamr1d_i8.f  pslamr1d_i8.f  pclamr1d_i8.f  pzlamr1d_i8.f
+   pdlamve_i8.f   pslamve_i8.f)
 
 set(src
       ${ALLAUX} ${SCLAUX} ${DZLAUX}
@@ -154,5 +155,11 @@ target_link_libraries(xdlamr1d_i8 scalapack ${MPI_Fortran_LIBRARIES})
 add_test(NAME xdlamr1d_i8
          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
                  ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xdlamr1d_i8>)
+
+add_executable(xdlamve_i8 test_pdlamve_i8.f)
+target_link_libraries(xdlamve_i8 scalapack ${MPI_Fortran_LIBRARIES})
+add_test(NAME xdlamve_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xdlamve_i8>)
 set(src-C 
       ${ALLAUX-C} )
