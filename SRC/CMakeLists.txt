@@ -141,8 +141,18 @@ set (ZLASRC
    zdbtf2.f  zdbtrf.f  zdttrf.f zdttrsv.f  zpttrsv.f zsteqr2.f ztrmvt.f 
    zlamsh.f  zlaref.f  zlanv2.f zlahqr2.f pzheevr.f)
    
-set(src 
+set (I8SRC
+   pdlamr1d_i8.f  pslamr1d_i8.f  pclamr1d_i8.f  pzlamr1d_i8.f)
+
+set(src
       ${ALLAUX} ${SCLAUX} ${DZLAUX}
-      ${SLASRC} ${CLASRC} ${DLASRC} ${ZLASRC} )
+      ${SLASRC} ${CLASRC} ${DLASRC} ${ZLASRC} ${I8SRC} )
+
+# I8 SRC test targets
+add_executable(xdlamr1d_i8 test_pdlamr1d_i8.f)
+target_link_libraries(xdlamr1d_i8 scalapack ${MPI_Fortran_LIBRARIES})
+add_test(NAME xdlamr1d_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xdlamr1d_i8>)
 set(src-C 
       ${ALLAUX-C} )
