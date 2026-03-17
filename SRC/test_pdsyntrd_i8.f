@@ -56,17 +56,23 @@
       IF( IAM .EQ. 0 )
      $   WRITE(*,'(A)') 'test_pdsyntrd_i8: 2x2 grid'
 *
-*     Test 1: N=30, NB=4
-      CALL RUN_CMP( 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $              IAM, 'L,N=30,NB=4', NTEST, NFAIL )
+*     === DOUBLE PRECISION (PDSYNTRD_I8) ===
 *
-*     Test 2: N=50, NB=8
-      CALL RUN_CMP( 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $              IAM, 'L,N=50,NB=8', NTEST, NFAIL )
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PDSYNTRD_I8 (D) ---'
+      CALL RUN_D( 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'D:N=30,NB=4 ', NTEST, NFAIL )
+      CALL RUN_D( 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'D:N=50,NB=8 ', NTEST, NFAIL )
+      CALL RUN_D( 16_8, 16_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'D:N=16,NB=16', NTEST, NFAIL )
 *
-*     Test 3: N=16, NB=16 (single block, exercises serial path)
-      CALL RUN_CMP( 16_8, 16_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $              IAM, 'L,N=16,NB=16', NTEST, NFAIL )
+*     === REAL (PSSYNTRD_I8) ===
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PSSYNTRD_I8 (S) ---'
+      CALL RUN_S( 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'S:N=30,NB=4 ', NTEST, NFAIL )
+      CALL RUN_S( 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'S:N=50,NB=8 ', NTEST, NFAIL )
 *
 *     Summary
 *
@@ -94,11 +100,11 @@
       END
 *
 *     ================================================================
-*     RUN_CMP — compare PDSYNTRD_I8 vs legacy PDSYNTRD
+*     RUN_D — compare PDSYNTRD_I8 vs legacy PDSYNTRD
 *     ================================================================
 *
-      SUBROUTINE RUN_CMP( N8, NB8, ICTXT, NPROW, NPCOL, MYROW,
-     $                     MYCOL, IAM, LABEL, NTEST, NFAIL )
+      SUBROUTINE RUN_D( N8, NB8, ICTXT, NPROW, NPCOL, MYROW,
+     $                   MYCOL, IAM, LABEL, NTEST, NFAIL )
       IMPLICIT NONE
       INCLUDE 'SL_i8_params.inc'
 *
@@ -229,6 +235,151 @@
             IF( ERRS .LT. 3 )
      $         WRITE(*,*) 'FAIL ', LABEL, ' E: i=', I8,
      $                     ' I8=', E(I8), ' ref=', EREF(I8)
+            ERRS = ERRS + 1
+         END IF
+      END DO
+*
+      NTEST = NTEST + 1
+      DO I8 = 1, LCE
+         IF( TAU( I8 ) .NE. TAUREF( I8 ) ) THEN
+            IF( ERRS .LT. 3 )
+     $         WRITE(*,*) 'FAIL ', LABEL, ' TAU: i=', I8,
+     $                     ' I8=', TAU(I8), ' ref=', TAUREF(I8)
+            ERRS = ERRS + 1
+         END IF
+      END DO
+      NFAIL = NFAIL + ERRS
+*
+      IF( IAM .EQ. 0 ) THEN
+         IF( ERRS .EQ. 0 ) THEN
+            WRITE(*,'(A,A,A)') '  ', LABEL, ': PASSED'
+         ELSE
+            WRITE(*,'(A,A,A,I6,A)') '  ', LABEL, ': FAILED (',
+     $                               ERRS, ' errors)'
+         END IF
+      END IF
+*
+      DEALLOCATE( A, ACOPY, D, E, TAU, DREF, EREF, TAUREF )
+      END
+*
+*     ================================================================
+*     RUN_S — compare PSSYNTRD_I8 vs legacy PSSYNTRD
+*     ================================================================
+*
+      SUBROUTINE RUN_S( N8, NB8, ICTXT, NPROW, NPCOL, MYROW,
+     $                   MYCOL, IAM, LABEL, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+*
+      INTEGER*8          N8, NB8
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      CHARACTER*(*)      LABEL
+      INTEGER            NTEST, NFAIL
+*
+      INTEGER*8          LR, LC, LCE, LLD8, I8, J8, GI, GJ, LWORK8
+      INTEGER*8          DESCA8( 9 )
+      INTEGER            DESCA4( 9 ), INFO, ERRS, NB4, N4, LWORK4
+      REAL, ALLOCATABLE :: A(:), ACOPY(:),
+     $                   D(:), E(:), TAU(:), WORK(:),
+     $                   DREF(:), EREF(:), TAUREF(:), WREF(:)
+*
+      INTEGER*8          NUMROC_I8, INDXL2G_I8
+      EXTERNAL           NUMROC_I8, INDXL2G_I8
+      INTEGER            NUMROC
+      EXTERNAL           NUMROC
+      EXTERNAL           DESCINIT_I8, DESCINIT,
+     $                   PSSYNTRD_I8, PSSYNTRD
+      INTRINSIC          REAL, MAX, INT, ABS
+*
+      NB4 = INT( NB8 )
+      N4  = INT( N8 )
+      LR  = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LC  = NUMROC_I8( N8, NB8, MYCOL, 0, NPCOL )
+      LCE = NUMROC_I8( N8-1, NB8, MYCOL, 0, NPCOL )
+      LLD8 = MAX( LR, 1_8 )
+*
+      INFO = 0
+      CALL DESCINIT_I8( DESCA8, N8, N8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT( DESCA4, N4, N4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+*
+      ALLOCATE( A( MAX( LLD8*LC, 1_8 ) ) )
+      ALLOCATE( ACOPY( MAX( LLD8*LC, 1_8 ) ) )
+      ALLOCATE( D( N8 ), E( N8 ), TAU( N8 ) )
+      ALLOCATE( DREF( N8 ), EREF( N8 ), TAUREF( N8 ) )
+*
+      DO J8 = 1, LC
+         GJ = INDXL2G_I8( J8, NB8, MYCOL, 0, NPCOL )
+         DO I8 = 1, LR
+            GI = INDXL2G_I8( I8, NB8, MYROW, 0, NPROW )
+            IF( GI .EQ. GJ ) THEN
+               A( (J8-1)*LLD8 + I8 ) = 2.0 * REAL( N8 )
+            ELSE
+               A( (J8-1)*LLD8 + I8 ) = REAL( N8 - ABS( GI - GJ ) )
+            END IF
+         END DO
+      END DO
+      DO I8 = 1, MAX( LLD8*LC, 1_8 )
+         ACOPY( I8 ) = A( I8 )
+      END DO
+*
+*     I8 run
+      LWORK8 = -1
+      ALLOCATE( WORK( 1 ) )
+      CALL PSSYNTRD_I8( 'L', N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
+     $                   WORK, LWORK8, INFO )
+      LWORK8 = INT( WORK( 1 ), 8 )
+      DEALLOCATE( WORK )
+      ALLOCATE( WORK( LWORK8 ) )
+      INFO = 0
+      CALL PSSYNTRD_I8( 'L', N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
+     $                   WORK, LWORK8, INFO )
+      DEALLOCATE( WORK )
+*
+      NTEST = NTEST + 1
+      IF( INFO .NE. 0 ) THEN
+         IF( IAM .EQ. 0 )
+     $      WRITE(*,*) 'FAIL ', LABEL, ': I8 INFO =', INFO
+         NFAIL = NFAIL + 1
+      END IF
+*
+*     Legacy run
+      LWORK4 = -1
+      ALLOCATE( WREF( 1 ) )
+      CALL PSSYNTRD( 'L', N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
+     $               TAUREF, WREF, LWORK4, INFO )
+      LWORK4 = INT( WREF( 1 ) )
+      DEALLOCATE( WREF )
+      ALLOCATE( WREF( LWORK4 ) )
+      INFO = 0
+      CALL PSSYNTRD( 'L', N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
+     $               TAUREF, WREF, LWORK4, INFO )
+      DEALLOCATE( WREF )
+*
+*     Compare D, E, TAU (locally-owned portions)
+      ERRS = 0
+      NTEST = NTEST + 1
+      DO I8 = 1, LC
+         IF( D( I8 ) .NE. DREF( I8 ) ) THEN
+            IF( ERRS .LT. 3 )
+     $         WRITE(*,*) 'FAIL ', LABEL, ' D: i=', I8
+            ERRS = ERRS + 1
+         END IF
+      END DO
+      NTEST = NTEST + 1
+      DO I8 = 1, LCE
+         IF( E( I8 ) .NE. EREF( I8 ) ) THEN
+            IF( ERRS .LT. 3 )
+     $         WRITE(*,*) 'FAIL ', LABEL, ' E: i=', I8
+            ERRS = ERRS + 1
+         END IF
+      END DO
+      NTEST = NTEST + 1
+      DO I8 = 1, LCE
+         IF( TAU( I8 ) .NE. TAUREF( I8 ) ) THEN
+            IF( ERRS .LT. 3 )
+     $         WRITE(*,*) 'FAIL ', LABEL, ' TAU: i=', I8
             ERRS = ERRS + 1
          END IF
       END DO

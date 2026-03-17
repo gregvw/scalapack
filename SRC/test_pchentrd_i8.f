@@ -207,6 +207,14 @@
             ERRS = ERRS + 1
          END IF
       END DO
+      NTEST = NTEST + 1
+      DO I8 = 1, LCE
+         IF( TAU( I8 ) .NE. TAUREF( I8 ) ) THEN
+            IF( ERRS .LT. 3 )
+     $         WRITE(*,*) 'FAIL ', LABEL, ' TAU: i=', I8
+            ERRS = ERRS + 1
+         END IF
+      END DO
       NFAIL = NFAIL + ERRS
 *
       IF( IAM .EQ. 0 ) THEN
@@ -343,6 +351,14 @@
          IF( E( I8 ) .NE. EREF( I8 ) ) THEN
             IF( ERRS .LT. 3 )
      $         WRITE(*,*) 'FAIL ', LABEL, ' E: i=', I8
+            ERRS = ERRS + 1
+         END IF
+      END DO
+      NTEST = NTEST + 1
+      DO I8 = 1, LCE
+         IF( TAU( I8 ) .NE. TAUREF( I8 ) ) THEN
+            IF( ERRS .LT. 3 )
+     $         WRITE(*,*) 'FAIL ', LABEL, ' TAU: i=', I8
             ERRS = ERRS + 1
          END IF
       END DO

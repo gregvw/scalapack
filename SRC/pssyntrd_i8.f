@@ -47,7 +47,7 @@
 *     .. Narrowed locals for PBLAS/LAPACK bridge ..
       INTEGER            N4, NPS4, DESCA4( 9 ), DESCB4( 9 ),
      $                   DESCW4( 9 ), NP4, NQ4, K4, JB4, I4, J4
-      REAL   SLLWORK
+      DOUBLE PRECISION   DLLWORK
 *     ..
 *     .. Local Arrays ..
       INTEGER*8          DESCB( DLEN_ ), DESCW( DLEN_ ),
@@ -58,7 +58,7 @@
       EXTERNAL           BLACS_GET, BLACS_GRIDEXIT, BLACS_GRIDINFO,
      $                   BLACS_GRIDINIT, BLACS_ABORT,
      $                   CHK1MAT_I8, DESCSET_I8, SSYTRD,
-     $                   SGAMN2D, PCHK1MAT_I8, PSELSET_I8,
+     $                   DGAMN2D, PCHK1MAT_I8, PSELSET_I8,
      $                   PSLAMR1D_I8, PSLATRD, PSSYR2K, PSSYTD2,
      $                   PSSYTTRD, PSTRMR2D_I8,
      $                   PB_TOPGET, PB_TOPSET, PXERBLA
@@ -108,7 +108,7 @@
      $                  INT( 2*ANB, 8 ) )
             TTLWMIN = 2*( ANB+1 )*( 4*NPS8+2 ) + ( NPS8+4 )*NPS8
 *
-            WORK( 1 ) = REAL( TTLWMIN )
+            WORK( 1 ) = REAL( DBLE( TTLWMIN ) )
             LQUERY = ( LWORK.EQ.-1 )
             IF( .NOT.UPPER .AND. .NOT.LSAME( UPLO, 'L' ) ) THEN
                INFO = -1
@@ -151,12 +151,12 @@
       ONEPMIN = N*N + 3*N + 1
       LLWORK = LWORK
 *
-*     Global minimum workspace via SGAMN2D (I8-safe via DOUBLE)
+*     Global minimum workspace via DGAMN2D (I8-safe via DOUBLE)
 *
-      SLLWORK = REAL( LLWORK )
-      CALL SGAMN2D( ICTXT, 'A', ' ', 1, 1, SLLWORK, 1, 1, -1,
+      DLLWORK = DBLE( LLWORK )
+      CALL DGAMN2D( ICTXT, 'A', ' ', 1, 1, DLLWORK, 1, 1, -1,
      $              -1, -1, -1 )
-      LLWORK = INT( SLLWORK, 8 )
+      LLWORK = INT( DLLWORK, 8 )
 *
 *     Use the serial or tailored path if possible
 *
@@ -356,27 +356,10 @@
 *
       END IF
 *
-      WORK( 1 ) = REAL( TTLWMIN )
+      WORK( 1 ) = REAL( DBLE( TTLWMIN ) )
 *
       RETURN
 *
 *     End of PSSYNTRD_I8
-*
-      END
-*
-*     ================================================================
-*     NARROW_DESC8 — copy INTEGER*8 descriptor to INTEGER
-*     ================================================================
-*
-      SUBROUTINE NARROW_DESC8( DESC8, DESC4 )
-      IMPLICIT NONE
-      INTEGER*8          DESC8( 9 )
-      INTEGER            DESC4( 9 )
-      INTEGER            K
-      INTRINSIC          INT
-*
-      DO 10 K = 1, 9
-         DESC4( K ) = INT( DESC8( K ) )
-   10 CONTINUE
 *
       END

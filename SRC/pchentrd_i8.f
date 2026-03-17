@@ -45,7 +45,7 @@
 *     .. Narrowed locals for PBLAS/LAPACK bridge ..
       INTEGER            N4, NPS4, DESCA4( 9 ), DESCB4( 9 ),
      $                   DESCW4( 9 ), NP4, K4, JB4, I4, J4
-      REAL               SLLWORK, SLLRWORK
+      DOUBLE PRECISION   DLLWORK, DLLRWORK
 *     ..
 *     .. Local Arrays ..
       INTEGER*8          DESCB( DLEN_ ), DESCW( DLEN_ ),
@@ -56,7 +56,7 @@
       EXTERNAL           BLACS_GET, BLACS_GRIDEXIT, BLACS_GRIDINFO,
      $                   BLACS_GRIDINIT, BLACS_ABORT,
      $                   CHK1MAT_I8, DESCSET_I8, CHETRD,
-     $                   SGAMN2D, PCHK1MAT_I8, PCELSET_I8,
+     $                   DGAMN2D, PCHK1MAT_I8, PCELSET_I8,
      $                   PCLAMR1D_I8, PSLAMR1D_I8,
      $                   PCLATRD, PCHER2K, PCHETD2, PCHETTRD,
      $                   PCTRMR2D_I8, PSTRMR2D_I8,
@@ -105,8 +105,8 @@
             LRWMIN = 1
             TTLRWMIN = 2*NPS8
 *
-            WORK( 1 ) = CMPLX( REAL( TTLWMIN ) )
-            RWORK( 1 ) = REAL( TTLRWMIN )
+            WORK( 1 ) = CMPLX( REAL( DBLE( TTLWMIN ) ) )
+            RWORK( 1 ) = REAL( DBLE( TTLRWMIN ) )
             LQUERY = ( LWORK.EQ.-1 .OR. LRWORK.EQ.-1 )
             IF( .NOT.UPPER .AND. .NOT.LSAME( UPLO, 'L' ) ) THEN
                INFO = -1
@@ -154,17 +154,17 @@
 *
       ONEPMIN = N*N + 3*N + 1
       LLWORK = LWORK
-      SLLWORK = REAL( LLWORK )
-      CALL SGAMN2D( ICTXT, 'A', ' ', 1, 1, SLLWORK, 1, 1, -1,
+      DLLWORK = DBLE( LLWORK )
+      CALL DGAMN2D( ICTXT, 'A', ' ', 1, 1, DLLWORK, 1, 1, -1,
      $              -1, -1, -1 )
-      LLWORK = INT( SLLWORK, 8 )
+      LLWORK = INT( DLLWORK, 8 )
 *
       ONEPRMIN = 2*N
       LLRWORK = LRWORK
-      SLLRWORK = REAL( LLRWORK )
-      CALL SGAMN2D( ICTXT, 'A', ' ', 1, 1, SLLRWORK, 1, 1, -1,
+      DLLRWORK = DBLE( LLRWORK )
+      CALL DGAMN2D( ICTXT, 'A', ' ', 1, 1, DLLRWORK, 1, 1, -1,
      $              -1, -1, -1 )
-      LLRWORK = INT( SLLRWORK, 8 )
+      LLRWORK = INT( DLLRWORK, 8 )
 *
       NPROWB = 0
       IF( ( N.LT.MINSZ .OR. SQNPC.EQ.1 ) .AND.
@@ -345,8 +345,8 @@
 *
       END IF
 *
-      WORK( 1 ) = CMPLX( REAL( TTLWMIN ) )
-      RWORK( 1 ) = REAL( TTLRWMIN )
+      WORK( 1 ) = CMPLX( REAL( DBLE( TTLWMIN ) ) )
+      RWORK( 1 ) = REAL( DBLE( TTLRWMIN ) )
 *
       RETURN
 *
