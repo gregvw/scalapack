@@ -17,3 +17,7 @@ BLACS/TESTING/xFbtest
 SLmake.inc
 .DS_Store
 
+Testing/
+build/
+build-*/
+build_*/
