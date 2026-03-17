@@ -146,7 +146,8 @@ set (I8SRC
    pdlacp2_i8.f   pslacp2_i8.f   pclacp2_i8.f   pzlacp2_i8.f
    pdlacpy_i8.f   pslacpy_i8.f   pclacpy_i8.f   pzlacpy_i8.f
    pdlamr1d_i8.f  pslamr1d_i8.f  pclamr1d_i8.f  pzlamr1d_i8.f
-   pdlamve_i8.f   pslamve_i8.f)
+   pdlamve_i8.f   pslamve_i8.f
+   pdsyntrd_i8.f)
 
 set(src
       ${ALLAUX} ${SCLAUX} ${DZLAUX}
