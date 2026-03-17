@@ -46,21 +46,22 @@ with thin LP64 and I8 entry-point wrappers.
 - Pro: Single source of truth, less code.
 - Con: Requires touching existing PBLAS C code, higher risk of regressions.
 
-**Recommendation:** Start with Option A for PxAXPY and PxSCAL to establish the pattern
-and validate the I8 PBLAS entry-point convention. The stage gate after step 2 determines
-whether to continue with Option A or switch to Option B before scaling to larger kernels.
+**Stage gate resolved: Option A confirmed.**
+
+PxAXPY_I8 and PxSCAL_I8 established the pattern. Each `_i8.c` wrapper is ~30 lines:
+checked narrowing of int64_t args, delegation to the legacy PBLAS entry point, shared
+helper in `pblas_i8_utils.h`. This is not real duplication — no algorithm logic is
+copied. Reconsider shared-core only if later kernels force substantial logic into the
+wrappers.
 
 ## Implementation order
 
- 1. PxAXPY_I8 (all 4 types) — establish PBLAS I8 C entry-point pattern
- 2. PxSCAL_I8 (all 4 types)
-
-**--- Stage gate: decide duplication vs shared-core before proceeding ---**
-
+ 1. PxAXPY_I8 (all 4 types) — DONE
+ 2. PxSCAL_I8 (all 4 types) — DONE
  3. PxNRM2_I8 (4 types: PDNRM2, PSNRM2, PSCNRM2, PDZNRM2)
- 4. PxLARFG_I8 (all 4 types) — first Fortran auxiliary using native I8 PBLAS
- 5. PxLACGV_I8 (2 types: PCLACGV, PZLACGV) — complex vector conjugation
- 6. PxDOT_I8 / PxDOTC_I8 (4 types)
+ 4. PxDOT_I8 / PxDOTC_I8 (4 types)
+ 5. PxLARFG_I8 (all 4 types) — first Fortran auxiliary using native I8 PBLAS
+ 6. PxLACGV_I8 (2 types: PCLACGV, PZLACGV) — complex vector conjugation
  7. PxGEMV_I8 (all 4 types)
  8. PxSYMV_I8 / PxHEMV_I8 (4 types)
  9. PxLATRD_I8 (all 4 types) — first fully native I8 inner kernel

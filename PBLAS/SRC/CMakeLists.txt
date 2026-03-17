@@ -64,7 +64,9 @@ set (PZBLAS3  pzgeadd_.c pzgemm_.c pzhemm_.c  pzher2k_.c pzherk_.c  pzsymm_.c
 
 set (PBLAS_I8
       pdaxpy_i8.c psaxpy_i8.c pcaxpy_i8.c pzaxpy_i8.c
-      pdscal_i8.c psscal_i8.c pcscal_i8.c pzscal_i8.c)
+      pdscal_i8.c psscal_i8.c pcscal_i8.c pzscal_i8.c
+      pdnrm2_i8.c psnrm2_i8.c pscnrm2_i8.c pdznrm2_i8.c
+      pddot_i8.c  psdot_i8.c  pcdotc_i8.c  pzdotc_i8.c)
 
 set (pblas
       ${PIBLAS1}
