@@ -147,7 +147,8 @@ set (I8SRC
    pdlacpy_i8.f   pslacpy_i8.f   pclacpy_i8.f   pzlacpy_i8.f
    pdlamr1d_i8.f  pslamr1d_i8.f  pclamr1d_i8.f  pzlamr1d_i8.f
    pdlamve_i8.f   pslamve_i8.f
-   pdsyntrd_i8.f  pssyntrd_i8.f)
+   pdsyntrd_i8.f  pssyntrd_i8.f
+   pchentrd_i8.f  pzhentrd_i8.f)
 
 # I8 SRC test targets
 add_executable(xdsyntrd_i8 test_pdsyntrd_i8.f)
@@ -156,6 +157,13 @@ target_link_libraries(xdsyntrd_i8 scalapack ${MPI_Fortran_LIBRARIES}
 add_test(NAME xdsyntrd_i8
          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
                  ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xdsyntrd_i8>)
+
+add_executable(xchentrd_i8 test_pchentrd_i8.f)
+target_link_libraries(xchentrd_i8 scalapack ${MPI_Fortran_LIBRARIES}
+                      ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+add_test(NAME xchentrd_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xchentrd_i8>)
 
 set(src
       ${ALLAUX} ${SCLAUX} ${DZLAUX}
