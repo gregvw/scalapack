@@ -1,11 +1,21 @@
 # Phase 5 Plan: Native I8 PBLAS Slice
 
+## Prerequisites satisfied
+
+Before starting this phase, the following were validated:
+
+- GLOBCHK_I8 uses GLOBCHK_MPI_APIINT (ILP64-safe MPI datatype selection)
+- Complex PxLAMR1D_I8 tests validate imaginary parts (imag = -real pattern)
+- All four bridge drivers (PDSYNTRD_I8, PSSYNTRD_I8, PCHENTRD_I8, PZHENTRD_I8)
+  produce bit-identical results to legacy on macOS arm64 and x86_64 Linux
+- 107 tests passing on Linux
+
 ## Context
 
-Phase 4 delivered the full bridge reduction-driver family (PDSYNTRD_I8, PSSYNTRD_I8,
-PCHENTRD_I8, PZHENTRD_I8) validated on macOS arm64 and x86_64 Linux. These drivers use
-checked narrowing at PBLAS/LAPACK call boundaries. The bridge proves the vertical _I8
-strategy works but leaves ~13K lines of PBLAS as the remaining narrowing bottleneck.
+Phase 4 delivered the full bridge reduction-driver family validated on both platforms.
+These drivers use checked narrowing at PBLAS/LAPACK call boundaries. The bridge proves
+the vertical _I8 strategy works but leaves ~13K lines of PBLAS as the remaining
+narrowing bottleneck.
 
 ## First-wave native-I8 PBLAS set
 
@@ -37,35 +47,36 @@ with thin LP64 and I8 entry-point wrappers.
 - Con: Requires touching existing PBLAS C code, higher risk of regressions.
 
 **Recommendation:** Start with Option A for PxAXPY and PxSCAL to establish the pattern
-and validate the I8 PBLAS entry-point convention. Then decide whether the pattern is
-clean enough to scale, or whether Option B is worth the refactor risk.
-
-## Supporting Fortran auxiliaries
-
-These are needed alongside the PBLAS kernels:
-
-- PxLARFG_I8 (4 variants) — Householder reflector generation, calls PxNRM2 + PxSCAL
-- PxLACGV_I8 (2 variants, complex only) — vector conjugation
+and validate the I8 PBLAS entry-point convention. The stage gate after step 2 determines
+whether to continue with Option A or switch to Option B before scaling to larger kernels.
 
 ## Implementation order
 
-1. PxAXPY_I8 (all 4 types) — establish PBLAS I8 C entry-point pattern
-2. PxSCAL_I8 (all 4 types)
-3. PxNRM2_I8 (4 types: PDNRM2, PSNRM2, PSCNRM2, PDZNRM2)
-4. PxLARFG_I8 (all 4 types) — first Fortran auxiliary using native I8 PBLAS
-5. PxDOT_I8 / PxDOTC_I8 (4 types)
-6. PxGEMV_I8 (all 4 types)
-7. PxSYMV_I8 / PxHEMV_I8 (4 types)
-8. PxLATRD_I8 (all 4 types) — first fully native I8 kernel
-9. Update bridge drivers to remove PxLATRD narrowing
+ 1. PxAXPY_I8 (all 4 types) — establish PBLAS I8 C entry-point pattern
+ 2. PxSCAL_I8 (all 4 types)
+
+**--- Stage gate: decide duplication vs shared-core before proceeding ---**
+
+ 3. PxNRM2_I8 (4 types: PDNRM2, PSNRM2, PSCNRM2, PDZNRM2)
+ 4. PxLARFG_I8 (all 4 types) — first Fortran auxiliary using native I8 PBLAS
+ 5. PxLACGV_I8 (2 types: PCLACGV, PZLACGV) — complex vector conjugation
+ 6. PxDOT_I8 / PxDOTC_I8 (4 types)
+ 7. PxGEMV_I8 (all 4 types)
+ 8. PxSYMV_I8 / PxHEMV_I8 (4 types)
+ 9. PxLATRD_I8 (all 4 types) — first fully native I8 inner kernel
+10. Update bridge drivers to use native PxLATRD_I8
 
 ## Acceptance criteria
 
-- All existing tests (103+ on Linux) continue to pass.
+- All existing tests (107+ on Linux) continue to pass.
 - Each new PBLAS _I8 routine has a focused test comparing against its legacy counterpart.
-- PxLATRD_I8 is bit-identical to legacy PxLATRD for 32-bit-sized inputs.
-- At least one bridge driver (PDSYNTRD_I8) is updated to call PxLATRD_I8 natively,
-  removing one narrowing boundary.
+- PxLATRD_I8 is bit-identical to legacy PxLATRD for 32-bit-sized inputs in all four types.
+- At least one bridge driver family (all four PxSYNTRD_I8 / PxHENTRD_I8) is updated to
+  call PxLATRD_I8 natively.
+- The main blocked-iteration loop in each updated driver has zero hot-path narrowing for
+  PxLATRD; only PxSYR2K/PxHER2K and the final PxSYTD2/PxHETD2 call remain as narrowed
+  boundaries.
+- The remaining narrowing points are documented explicitly in driver source comments.
 
 ## What this phase does NOT include
 
