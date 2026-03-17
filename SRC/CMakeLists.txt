@@ -142,6 +142,9 @@ set (ZLASRC
    zlamsh.f  zlaref.f  zlanv2.f zlahqr2.f pzheevr.f)
    
 set (I8SRC
+   dlamov_i8.f    slamov_i8.f    clamov_i8.f    zlamov_i8.f
+   pdlacp2_i8.f   pslacp2_i8.f   pclacp2_i8.f   pzlacp2_i8.f
+   pdlacpy_i8.f   pslacpy_i8.f   pclacpy_i8.f   pzlacpy_i8.f
    pdlamr1d_i8.f  pslamr1d_i8.f  pclamr1d_i8.f  pzlamr1d_i8.f
    pdlamve_i8.f   pslamve_i8.f)
 

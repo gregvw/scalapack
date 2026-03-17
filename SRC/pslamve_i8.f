@@ -18,18 +18,14 @@
 *
 *     .. Parameters ..
       INCLUDE 'SL_i8_params.inc'
-      INTEGER*8          INTMAX
-      PARAMETER          ( INTMAX = 2147483647 )
 *     ..
 *     .. Local Scalars ..
       LOGICAL            UPPER, LOWER, FULL
       INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, NPROCS
-      INTEGER            M4, N4, IA4, JA4, IB4, JB4
-      INTEGER            DESCA4( 9 ), DESCB4( 9 )
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           BLACS_GRIDINFO, BLACS_ABORT, PXERBLA,
-     $                   SLAMOV, PSGEMR2D_I8, PSLACPY, NARROW_DESC
+      EXTERNAL           BLACS_GRIDINFO, SLAMOV_I8,
+     $                   PSGEMR2D_I8, PSLACPY_I8
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
@@ -52,42 +48,18 @@
 *
       NPROCS = NPROW * NPCOL
 *
-      IF( NPROCS.EQ.1 .OR. .NOT. FULL ) THEN
-*
-         IF( M.GT.INTMAX .OR. N.GT.INTMAX .OR.
-     $       IA.GT.INTMAX .OR. JA.GT.INTMAX .OR.
-     $       IB.GT.INTMAX .OR. JB.GT.INTMAX .OR.
-     $       DESCA( LLD_ ).GT.INTMAX .OR.
-     $       DESCB( LLD_ ).GT.INTMAX ) THEN
-            CALL PXERBLA( ICTXT, 'PSLAMVE_I8', -2 )
-            CALL BLACS_ABORT( ICTXT, 1 )
-         END IF
-*
-         M4  = INT( M )
-         N4  = INT( N )
-         IA4 = INT( IA )
-         JA4 = INT( JA )
-         IB4 = INT( IB )
-         JB4 = INT( JB )
-         CALL NARROW_DESC( DESCA, DESCA4 )
-         CALL NARROW_DESC( DESCB, DESCB4 )
-*
-         IF( NPROCS.EQ.1 ) THEN
-            CALL SLAMOV( UPLO, M4, N4,
-     $           A((JA4-1)*DESCA4(9)+IA4), DESCA4(9),
-     $           B((JB4-1)*DESCB4(9)+IB4), DESCB4(9) )
-         ELSE
-            CALL PSGEMR2D_I8( M, N, A, IA, JA, DESCA,
-     $           DWORK, IB, JB, DESCB, INT( ICTXT, 8 ) )
-            CALL PSLACPY( UPLO, M4, N4, DWORK, IB4, JB4, DESCB4,
-     $           B, IB4, JB4, DESCB4 )
-         END IF
-*
-      ELSE
-*
+      IF( NPROCS.EQ.1 ) THEN
+         CALL SLAMOV_I8( UPLO, M, N,
+     $        A( (JA-1)*DESCA(LLD_)+IA ), DESCA( LLD_ ),
+     $        B( (JB-1)*DESCB(LLD_)+IB ), DESCB( LLD_ ) )
+      ELSE IF( FULL ) THEN
          CALL PSGEMR2D_I8( M, N, A, IA, JA, DESCA,
      $        B, IB, JB, DESCB, INT( ICTXT, 8 ) )
-*
+      ELSE
+         CALL PSGEMR2D_I8( M, N, A, IA, JA, DESCA,
+     $        DWORK, IB, JB, DESCB, INT( ICTXT, 8 ) )
+         CALL PSLACPY_I8( UPLO, M, N, DWORK, IB, JB, DESCB,
+     $        B, IB, JB, DESCB )
       END IF
 *
       RETURN
