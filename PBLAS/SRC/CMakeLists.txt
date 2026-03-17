@@ -58,10 +58,18 @@ set (PZBLAS3  pzgeadd_.c pzgemm_.c pzhemm_.c  pzher2k_.c pzherk_.c  pzsymm_.c
 
 #---------------------------------------------------------------------------
 
-set (pblas 
+#---------------------------------------------------------------------------
+#  I8 PBLAS entry points (bridge narrowing to legacy internals).
+#---------------------------------------------------------------------------
+
+set (PBLAS_I8
+      pdaxpy_i8.c psaxpy_i8.c pcaxpy_i8.c pzaxpy_i8.c)
+
+set (pblas
       ${PIBLAS1}
       ${PSBLAS1} ${PCBLAS1} ${PDBLAS1} ${PZBLAS1}
       ${PSBLAS2} ${PCBLAS2} ${PDBLAS2} ${PZBLAS2}
-      ${PSBLAS3} ${PCBLAS3} ${PDBLAS3} ${PZBLAS3})
+      ${PSBLAS3} ${PCBLAS3} ${PDBLAS3} ${PZBLAS3}
+      ${PBLAS_I8})
 
 set (pblas-F ${APPBLAS} )
