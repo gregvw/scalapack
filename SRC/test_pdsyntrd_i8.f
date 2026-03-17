@@ -206,11 +206,14 @@
      $               TAUREF, WREF, LWORK4, INFO )
       DEALLOCATE( WREF )
 *
-*     === Compare D, E element-by-element (should be bit-identical) ===
+*     === Compare D, E over the locally-owned portion only ===
+*     D, E, TAU are distributed 1D vectors with the same column
+*     distribution as A.  Only the first LC elements are valid on
+*     this process; the rest are uninitialized.
 *
       ERRS = 0
       NTEST = NTEST + 1
-      DO I8 = 1, N8
+      DO I8 = 1, LC
          IF( D( I8 ) .NE. DREF( I8 ) ) THEN
             IF( ERRS .LT. 3 )
      $         WRITE(*,*) 'FAIL ', LABEL, ' D: i=', I8,
@@ -220,7 +223,7 @@
       END DO
 *
       NTEST = NTEST + 1
-      DO I8 = 1, N8 - 1
+      DO I8 = 1, LC
          IF( E( I8 ) .NE. EREF( I8 ) ) THEN
             IF( ERRS .LT. 3 )
      $         WRITE(*,*) 'FAIL ', LABEL, ' E: i=', I8,
