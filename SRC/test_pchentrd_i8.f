@@ -137,6 +137,17 @@
       ALLOCATE( D( N8 ), E( N8 ), TAU( N8 ) )
       ALLOCATE( DREF( N8 ), EREF( N8 ), TAUREF( N8 ) )
 *
+*     Zero-init output arrays so untouched elements compare equal
+*
+      DO I8 = 1, N8
+         D( I8 ) = 0.0
+         E( I8 ) = 0.0
+         TAU( I8 ) = CMPLX( 0.0, 0.0 )
+         DREF( I8 ) = 0.0
+         EREF( I8 ) = 0.0
+         TAUREF( I8 ) = CMPLX( 0.0, 0.0 )
+      END DO
+*
 *     Hermitian matrix: A(i,j) = (N-|i-j|) + i*(i-j), diag real
 *
       DO J8 = 1, LC
@@ -288,6 +299,15 @@
       ALLOCATE( ACOPY( MAX( LLD8*LC, 1_8 ) ) )
       ALLOCATE( D( N8 ), E( N8 ), TAU( N8 ) )
       ALLOCATE( DREF( N8 ), EREF( N8 ), TAUREF( N8 ) )
+*
+      DO I8 = 1, N8
+         D( I8 ) = 0.0D0
+         E( I8 ) = 0.0D0
+         TAU( I8 ) = DCMPLX( 0.0D0, 0.0D0 )
+         DREF( I8 ) = 0.0D0
+         EREF( I8 ) = 0.0D0
+         TAUREF( I8 ) = DCMPLX( 0.0D0, 0.0D0 )
+      END DO
 *
       DO J8 = 1, LC
          GJ = INDXL2G_I8( J8, NB8, MYCOL, 0, NPCOL )
