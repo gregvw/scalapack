@@ -57,7 +57,7 @@
 *
       NFAIL_G = NFAIL
       CALL IGAMX2D( ICTXT, 'All', ' ', 1, 1, NFAIL_G, 1,
-     $              NTEST, NTEST, -1, -1, -1 )
+     $              NFAIL_G, NFAIL_G, -1, -1, -1 )
 *
       IF( IAM .EQ. 0 ) THEN
          WRITE(*,'(A)') '======================================'

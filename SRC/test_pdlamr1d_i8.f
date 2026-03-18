@@ -83,7 +83,7 @@
 *     ==== Summary (reduce NFAIL across all processes) ====
 *
       CALL IGAMX2D( ICTXT, 'All', ' ', 1, 1, NFAIL, 1,
-     $              NTEST, NTEST, -1, -1, -1 )
+     $              NFAIL, NFAIL, -1, -1, -1 )
 *
       IF( IAM .EQ. 0 ) THEN
          WRITE(*,'(A)') '======================================'

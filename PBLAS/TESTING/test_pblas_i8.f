@@ -70,11 +70,23 @@
       CALL TEST_CHEMV( 30_8, 4_8, ICTXT, NPROW, NPCOL,
      $                 MYROW, MYCOL, IAM, NTEST, NFAIL )
 *
+*     === PDNRM2 ===
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- Level 1: NRM2 ---'
+      CALL TEST_DNRM2( 100_8, 4_8, ICTXT, NPROW, NPCOL,
+     $                  MYROW, MYCOL, IAM, NTEST, NFAIL )
+*
+*     === PCDOTC (complex conjugate dot) ===
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- Level 1: CDOTC ---'
+      CALL TEST_CDOTC( 80_8, 4_8, ICTXT, NPROW, NPCOL,
+     $                  MYROW, MYCOL, IAM, NTEST, NFAIL )
+*
 *     Summary
 *
       NFAIL_G = NFAIL
       CALL IGAMX2D( ICTXT, 'All', ' ', 1, 1, NFAIL_G, 1,
-     $              NTEST, NTEST, -1, -1, -1 )
+     $              NFAIL_G, NFAIL_G, -1, -1, -1 )
 *
       IF( IAM .EQ. 0 ) THEN
          WRITE(*,'(A)') '======================================'
@@ -524,4 +536,109 @@
       END IF
 *
       DEALLOCATE( A, X, Y, YREF )
+      END
+*
+*     ================================================================
+*     TEST_DNRM2 — PDNRM2_I8 vs legacy
+*     ================================================================
+*
+      SUBROUTINE TEST_DNRM2( N8, NB8, ICTXT, NPROW, NPCOL,
+     $                        MYROW, MYCOL, IAM, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+      INTEGER*8          N8, NB8
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      INTEGER            NTEST, NFAIL
+      INTEGER*8          LR, LLD8, DESCA8( 9 ), I8
+      INTEGER            DESCA4( 9 ), INFO, N4, NB4
+      DOUBLE PRECISION, ALLOCATABLE :: X(:)
+      DOUBLE PRECISION   NRM8, NRM4
+      INTEGER*8          NUMROC_I8
+      EXTERNAL           NUMROC_I8
+      INTEGER            NUMROC
+      EXTERNAL           NUMROC
+      EXTERNAL           DESCINIT_I8, DESCINIT, PDNRM2_I8, PDNRM2
+      INTRINSIC          DBLE, MAX, INT
+*
+      N4 = INT( N8 )
+      NB4 = INT( NB8 )
+      LR = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LLD8 = MAX( LR, 1_8 )
+      INFO = 0
+      CALL DESCINIT_I8( DESCA8, N8, 1_8, NB8, 1_8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT( DESCA4, N4, 1, NB4, 1, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+      ALLOCATE( X( MAX( LR, 1_8 ) ) )
+      DO I8 = 1, LR
+         X( I8 ) = 1.0D0
+      END DO
+*
+      CALL PDNRM2_I8( N8, NRM8, X, 1_8, 1_8, DESCA8, 1_8 )
+      CALL PDNRM2( N4, NRM4, X, 1, 1, DESCA4, 1 )
+*
+      NTEST = NTEST + 1
+      IF( NRM8 .NE. NRM4 ) THEN
+         NFAIL = NFAIL + 1
+         IF( IAM .EQ. 0 )
+     $      WRITE(*,'(A)') '  PDNRM2_I8: FAILED'
+      ELSE
+         IF( IAM .EQ. 0 ) WRITE(*,'(A)') '  PDNRM2_I8: PASSED'
+      END IF
+      DEALLOCATE( X )
+      END
+*
+*     ================================================================
+*     TEST_CDOTC — PCDOTC_I8 vs legacy (complex conjugate dot)
+*     ================================================================
+*
+      SUBROUTINE TEST_CDOTC( N8, NB8, ICTXT, NPROW, NPCOL,
+     $                        MYROW, MYCOL, IAM, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+      INTEGER*8          N8, NB8
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      INTEGER            NTEST, NFAIL
+      INTEGER*8          LR, LLD8, DESCA8( 9 ), I8
+      INTEGER            DESCA4( 9 ), INFO, N4, NB4
+      COMPLEX, ALLOCATABLE :: X(:), Y(:)
+      COMPLEX            DOT8, DOT4
+      INTEGER*8          NUMROC_I8
+      EXTERNAL           NUMROC_I8
+      INTEGER            NUMROC
+      EXTERNAL           NUMROC
+      EXTERNAL           DESCINIT_I8, DESCINIT, PCDOTC_I8, PCDOTC
+      INTRINSIC          CMPLX, REAL, AIMAG, MAX, INT
+*
+      N4 = INT( N8 )
+      NB4 = INT( NB8 )
+      LR = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LLD8 = MAX( LR, 1_8 )
+      INFO = 0
+      CALL DESCINIT_I8( DESCA8, N8, 1_8, NB8, 1_8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT( DESCA4, N4, 1, NB4, 1, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+      ALLOCATE( X( MAX( LR, 1_8 ) ) )
+      ALLOCATE( Y( MAX( LR, 1_8 ) ) )
+      DO I8 = 1, LR
+         X( I8 ) = CMPLX( 1.0, 0.5 )
+         Y( I8 ) = CMPLX( 2.0, -1.0 )
+      END DO
+*
+      CALL PCDOTC_I8( N8, DOT8, X, 1_8, 1_8, DESCA8, 1_8,
+     $                Y, 1_8, 1_8, DESCA8, 1_8 )
+      CALL PCDOTC( N4, DOT4, X, 1, 1, DESCA4, 1,
+     $             Y, 1, 1, DESCA4, 1 )
+*
+      NTEST = NTEST + 1
+      IF( REAL( DOT8 ) .NE. REAL( DOT4 ) .OR.
+     $    AIMAG( DOT8 ) .NE. AIMAG( DOT4 ) ) THEN
+         NFAIL = NFAIL + 1
+         IF( IAM .EQ. 0 )
+     $      WRITE(*,'(A)') '  PCDOTC_I8: FAILED'
+      ELSE
+         IF( IAM .EQ. 0 ) WRITE(*,'(A)') '  PCDOTC_I8: PASSED'
+      END IF
+      DEALLOCATE( X, Y )
       END
