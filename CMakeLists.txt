@@ -4,6 +4,8 @@ project(SCALAPACK VERSION 2.2.2 LANGUAGES C Fortran)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_EXTENSIONS OFF)
 include(CheckCSourceCompiles)
+include(CheckCCompilerFlag)
+include(CheckFortranCompilerFlag)
 
 # Add the CMake directory for custon CMake modules
 set(CMAKE_MODULE_PATH "${SCALAPACK_SOURCE_DIR}/CMAKE" ${CMAKE_MODULE_PATH})
@@ -120,6 +122,82 @@ invertBoolean("BUILD_STATIC_LIBS" ${BUILD_SHARED_LIBS})
 if ((${BUILD_SHARED_LIBS} EQUAL ON) AND NOT CMAKE_POSITION_INDEPENDENT_CODE)
   set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif ()
+option(SCALAPACK_ENABLE_SANITIZERS
+       "Enable ASan/UBSan for C code in Debug builds"
+       OFF)
+option(SCALAPACK_ENABLE_FORTRAN_RUNTIME_CHECKS
+       "Enable extra GNU Fortran runtime checks in Debug builds"
+       OFF)
+set(SCALAPACK_SANITIZERS "address;undefined" CACHE STRING
+    "Semicolon-separated sanitizer list for Debug builds")
+
+if(SCALAPACK_ENABLE_SANITIZERS)
+  if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(WARNING
+            "SCALAPACK_ENABLE_SANITIZERS is most useful with Debug builds.")
+  endif()
+
+  string(REPLACE ";" "," _scalapack_sanitizer_list "${SCALAPACK_SANITIZERS}")
+  foreach(_scalapack_sanitizer IN LISTS SCALAPACK_SANITIZERS)
+    string(MAKE_C_IDENTIFIER "${_scalapack_sanitizer}" _scalapack_sanitizer_ident)
+    check_c_compiler_flag("-fsanitize=${_scalapack_sanitizer}"
+                          "SCALAPACK_HAVE_C_SANITIZER_${_scalapack_sanitizer_ident}")
+    if(NOT SCALAPACK_HAVE_C_SANITIZER_${_scalapack_sanitizer_ident})
+      message(FATAL_ERROR
+              "Requested C sanitizer flag is not supported: -fsanitize=${_scalapack_sanitizer}")
+    endif()
+  endforeach()
+
+  add_compile_options(
+    $<$<AND:$<COMPILE_LANGUAGE:C>,$<CONFIG:Debug>>:-O1>
+    $<$<AND:$<COMPILE_LANGUAGE:C>,$<CONFIG:Debug>>:-g>
+    $<$<AND:$<COMPILE_LANGUAGE:C>,$<CONFIG:Debug>>:-fno-omit-frame-pointer>
+    $<$<AND:$<COMPILE_LANGUAGE:C>,$<CONFIG:Debug>>:-fsanitize=${_scalapack_sanitizer_list}>
+  )
+  add_link_options(
+    $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+    $<$<CONFIG:Debug>:-fsanitize=${_scalapack_sanitizer_list}>
+  )
+endif()
+
+if(SCALAPACK_ENABLE_FORTRAN_RUNTIME_CHECKS)
+  if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+    check_fortran_compiler_flag("-fcheck=all" SCALAPACK_HAVE_FORTRAN_FCHECK_ALL)
+    check_fortran_compiler_flag("-fbacktrace" SCALAPACK_HAVE_FORTRAN_FBACKTRACE)
+    check_fortran_compiler_flag("-ffpe-trap=invalid,zero,overflow"
+                                SCALAPACK_HAVE_FORTRAN_FFPE_TRAP)
+    check_fortran_compiler_flag("-finit-real=snan" SCALAPACK_HAVE_FORTRAN_FINIT_REAL_SNAN)
+
+    add_compile_options(
+      $<$<AND:$<COMPILE_LANGUAGE:Fortran>,$<CONFIG:Debug>>:-O1>
+      $<$<AND:$<COMPILE_LANGUAGE:Fortran>,$<CONFIG:Debug>>:-g>
+    )
+
+    if(SCALAPACK_HAVE_FORTRAN_FCHECK_ALL)
+      add_compile_options(
+        $<$<AND:$<COMPILE_LANGUAGE:Fortran>,$<CONFIG:Debug>>:-fcheck=all>
+      )
+    endif()
+    if(SCALAPACK_HAVE_FORTRAN_FBACKTRACE)
+      add_compile_options(
+        $<$<AND:$<COMPILE_LANGUAGE:Fortran>,$<CONFIG:Debug>>:-fbacktrace>
+      )
+    endif()
+    if(SCALAPACK_HAVE_FORTRAN_FFPE_TRAP)
+      add_compile_options(
+        $<$<AND:$<COMPILE_LANGUAGE:Fortran>,$<CONFIG:Debug>>:-ffpe-trap=invalid,zero,overflow>
+      )
+    endif()
+    if(SCALAPACK_HAVE_FORTRAN_FINIT_REAL_SNAN)
+      add_compile_options(
+        $<$<AND:$<COMPILE_LANGUAGE:Fortran>,$<CONFIG:Debug>>:-finit-real=snan>
+      )
+    endif()
+  else()
+    message(WARNING
+            "SCALAPACK_ENABLE_FORTRAN_RUNTIME_CHECKS currently only adds GNU Fortran flags.")
+  endif()
+endif()
 
 # --------------------------------------------------
 # Check for any necessary platform specific compiler flags
