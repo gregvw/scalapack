@@ -58,26 +58,43 @@ wrappers.
 
  1. PxAXPY_I8 (all 4 types) — DONE
  2. PxSCAL_I8 (all 4 types) — DONE
- 3. PxNRM2_I8 (4 types: PDNRM2, PSNRM2, PSCNRM2, PDZNRM2)
- 4. PxDOT_I8 / PxDOTC_I8 (4 types)
- 5. PxLARFG_I8 (all 4 types) — first Fortran auxiliary using native I8 PBLAS
- 6. PxLACGV_I8 (2 types: PCLACGV, PZLACGV) — complex vector conjugation
- 7. PxGEMV_I8 (all 4 types)
- 8. PxSYMV_I8 / PxHEMV_I8 (4 types)
- 9. PxLATRD_I8 (all 4 types) — first fully native I8 inner kernel
-10. Update bridge drivers to use native PxLATRD_I8
+ 3. PxNRM2_I8 (4 types) — DONE
+ 4. PxDOT_I8 / PxDOTC_I8 (4 types) — DONE
+ 5. PxLARFG_I8 (all 4 types) + PCSSCAL_I8, PZDSCAL_I8 — DONE
+ 6. PxLACGV_I8 (2 types) — DONE
+ 7. PxGEMV_I8 (all 4 types) — DONE
+ 8. PxSYMV_I8 / PxHEMV_I8 (4 types) — DONE
+ 9. PxLATRD_I8 (all 4 types) + PxELGET_I8 (4 types) — DONE
+10. Update all four bridge drivers to native PxLATRD_I8 — DONE
 
-## Acceptance criteria
+## Acceptance criteria — status
 
-- All existing tests (107+ on Linux) continue to pass.
-- Each new PBLAS _I8 routine has a focused test comparing against its legacy counterpart.
-- PxLATRD_I8 is bit-identical to legacy PxLATRD for 32-bit-sized inputs in all four types.
-- At least one bridge driver family (all four PxSYNTRD_I8 / PxHENTRD_I8) is updated to
-  call PxLATRD_I8 natively.
-- The main blocked-iteration loop in each updated driver has zero hot-path narrowing for
-  PxLATRD; only PxSYR2K/PxHER2K and the final PxSYTD2/PxHETD2 call remain as narrowed
-  boundaries.
-- The remaining narrowing points are documented explicitly in driver source comments.
+- [x] All existing tests (103 on Linux) continue to pass.
+- [ ] Each new PBLAS _I8 routine has a focused test comparing against its legacy counterpart.
+      (Driver-level bit-identical tests exist; dedicated per-kernel tests not yet added.)
+- [x] PxLATRD_I8 is bit-identical to legacy PxLATRD for 32-bit-sized inputs in all four types
+      (verified indirectly through driver tests).
+- [x] All four bridge drivers updated to call native PxLATRD_I8.
+- [x] The main blocked-iteration loop has zero hot-path narrowing for PxLATRD.
+      Remaining narrowed boundaries: PxSYR2K/PxHER2K (1/iter), PxSYTD2/PxHETD2 (once).
+- [x] Remaining narrowing documented in driver source comments.
+
+## Phase 5 summary
+
+PBLAS I8 entry points delivered: 26 C wrappers
+  Level 1: PxAXPY, PxSCAL, PCSSCAL, PZDSCAL, PxNRM2, PxDOT/DOTC (18)
+  Level 2: PxGEMV, PxSYMV/HEMV (8)
+
+Fortran I8 auxiliaries delivered: 14
+  PxLARFG (4), PxLACGV (2), PxLATRD (4), PxELGET (4)
+
+Bridge drivers with native hot-path: 4
+  PDSYNTRD_I8, PSSYNTRD_I8, PCHENTRD_I8, PZHENTRD_I8
+
+Key design decisions recorded:
+  - Option A (thin wrappers) confirmed at stage gate
+  - pblas_i8_utils.h uses SCALAPACK_FORTRAN_INT_BYTES for ILP64-safe range checks
+  - JP8 initialized to avoid inherited UB from legacy code
 
 ## What this phase does NOT include
 
