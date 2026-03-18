@@ -26,6 +26,7 @@ remains in the four reduction drivers.
 - **Tailored parallel I8 wrappers:** PxSYTTRD_I8 (2), PxHETTRD_I8 (2)
 - **Banded/tridiagonal I8 wrappers:** 56 routines (DB, DT, GB, PB, PT families, all 4 types)
 - **Eigenvalue solvers:** PxSYEV_I8 (2), PxHEEV_I8 (2)
+- **Eigensolver support:** PxLASCL_I8 (4), PxLASET_I8 (4), PxORMTR_I8 (2), PxUNMTR_I8 (2)
 - **Reduction drivers:** PDSYNTRD_I8, PSSYNTRD_I8, PCHENTRD_I8, PZHENTRD_I8
   - All paths (blocked, serial, tailored): fully I8-native (zero inline narrowing)
   - Bit-identical to legacy counterparts
