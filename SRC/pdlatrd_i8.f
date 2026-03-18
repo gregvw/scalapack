@@ -65,6 +65,7 @@
      $                 MYROW, INT( DESCA( CSRC_ ) ),
      $                 ICTXT, 1_8 )
 *
+      JP8 = 1
       IF( LSAME( UPLO, 'U' ) ) THEN
 *
          CALL INFOG2L_I8( N+IA-NB, N+JA-NB, DESCA, NPROW, NPCOL,

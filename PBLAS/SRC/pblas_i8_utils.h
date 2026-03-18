@@ -15,12 +15,28 @@
 #include <limits.h>
 
 /*
+ * Compile-time bounds for Int (= ScaLAPACK_ApiInt).
+ * In LP64 builds Int is int32_t; in ILP64 builds Int may be int64_t.
+ * Using sizeof rather than assuming INT_MIN/INT_MAX ensures the
+ * range check matches the actual type.
+ */
+#if SCALAPACK_FORTRAN_INT_BYTES == 8
+#  define PBLAS_I8_INT_MIN  INT64_MIN
+#  define PBLAS_I8_INT_MAX  INT64_MAX
+#elif SCALAPACK_FORTRAN_INT_BYTES == 4
+#  define PBLAS_I8_INT_MIN  ((int64_t)INT32_MIN)
+#  define PBLAS_I8_INT_MAX  ((int64_t)INT32_MAX)
+#else
+#  error "Unsupported SCALAPACK_FORTRAN_INT_BYTES value."
+#endif
+
+/*
  * Narrow a single int64_t to Int.  Returns 0 on overflow, 1 on success.
  */
 static inline int
 pblas_i8_narrow(int64_t val, Int *out)
 {
-    if (val < (int64_t)INT_MIN || val > (int64_t)INT_MAX) return 0;
+    if (val < PBLAS_I8_INT_MIN || val > PBLAS_I8_INT_MAX) return 0;
     *out = (Int)val;
     return 1;
 }

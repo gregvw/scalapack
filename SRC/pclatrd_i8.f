@@ -53,6 +53,7 @@
      $                 MYROW, INT( DESCA( CSRC_ ) ), ICTXT, 1_8 )
       AII = ZERO
       BETA = ZERO
+      JP8 = 1
 *
       IF( LSAME( UPLO, 'U' ) ) THEN
 *
