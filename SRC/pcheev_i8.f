@@ -34,6 +34,8 @@
 *
 *     .. Parameters ..
       INCLUDE 'SL_i8_params.inc'
+      INTEGER*8          INTMAX
+      PARAMETER          ( INTMAX = 2147483647 )
       REAL               ZERO, ONE
       PARAMETER          ( ZERO = 0.0E+0, ONE = 1.0E+0 )
       COMPLEX            CZERO, CONE
@@ -99,6 +101,16 @@
       ICTXT = INT( DESCA( CTXT_ ) )
       CALL BLACS_GRIDINFO( ICTXT, NPROW, NPCOL, MYROW, MYCOL )
       INFO = 0
+*
+*     Range check: reject if any public integer arg exceeds INTMAX.
+*     N is narrowed for PCLANHE, CSTEQR2, SCOPY, SSCAL calls.
+*
+      IF( N.GT.INTMAX .OR. IA.GT.INTMAX .OR. JA.GT.INTMAX .OR.
+     $    IZ.GT.INTMAX .OR. JZ.GT.INTMAX ) THEN
+         INFO = -1
+         CALL PXERBLA( ICTXT, 'PCHEEV_I8', 1 )
+         RETURN
+      END IF
 *
 *     Initialize pointers to some safe value
 *
@@ -172,7 +184,8 @@
             CALL PCHENTRD_I8( UPLO, N, A, IA, JA, DESCA,
      $                        RWORK( INDD ),
      $                        RWORK( INDE ), WORK( INDTAU ),
-     $                        WORK( INDWORK ), -1_8, IINFO )
+     $                        WORK( INDWORK ), -1_8,
+     $                        RWORK( INDRWORK ), -1_8, IINFO )
             SIZEPCHETRD = INT( ABS( WORK( 1 ) ), 8 )
 *
 *           COMPLEX work space for PCUNMTR_I8
@@ -348,7 +361,8 @@
 *
       CALL PCHENTRD_I8( UPLO, N, A, IA, JA, DESCA, RWORK( INDRD ),
      $                   RWORK( INDRE ), WORK( INDTAU ),
-     $                   WORK( INDWORK ), LLWORK, IINFO )
+     $                   WORK( INDWORK ), LLWORK,
+     $                   RWORK( INDRWORK ), LLRWORK, IINFO )
 *
 *     Copy the values of D, E to all processes.
 *

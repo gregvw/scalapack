@@ -32,6 +32,8 @@
 *
 *     .. Parameters ..
       INCLUDE 'SL_i8_params.inc'
+      INTEGER*8          INTMAX
+      PARAMETER          ( INTMAX = 2147483647 )
       REAL               FIVE, ONE, TEN, ZERO
       PARAMETER          ( ZERO = 0.0E+0, ONE = 1.0E+0,
      $                     TEN = 10.0E+0, FIVE = 5.0E+0 )
@@ -91,6 +93,16 @@
       ICTXT = INT( DESCA( CTXT_ ) )
       CALL BLACS_GRIDINFO( ICTXT, NPROW, NPCOL, MYROW, MYCOL )
       INFO = 0
+*
+*     Range check: reject if any public integer arg exceeds INTMAX.
+*     N is narrowed for PSLANSY, SSTEQR2, SCOPY, SSCAL calls.
+*
+      IF( N.GT.INTMAX .OR. IA.GT.INTMAX .OR. JA.GT.INTMAX .OR.
+     $    IZ.GT.INTMAX .OR. JZ.GT.INTMAX ) THEN
+         INFO = -1
+         CALL PXERBLA( ICTXT, 'PSSYEV_I8', 1 )
+         RETURN
+      END IF
 *
       WANTZ = LSAME( JOBZ, 'V' )
       IF( NPROW.EQ.-1 ) THEN

@@ -192,6 +192,13 @@ add_test(NAME xchentrd_i8
          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
                  ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xchentrd_i8>)
 
+add_executable(xsyev_i8 test_psyev_i8.f)
+target_link_libraries(xsyev_i8 scalapack ${MPI_Fortran_LIBRARIES}
+                      ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+add_test(NAME xsyev_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xsyev_i8>)
+
 set(src
       ${ALLAUX} ${SCLAUX} ${DZLAUX}
       ${SLASRC} ${CLASRC} ${DLASRC} ${ZLASRC} ${I8SRC} )
