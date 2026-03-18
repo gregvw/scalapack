@@ -70,7 +70,10 @@ set (PBLAS_I8
       pcsscal_i8.c pzdscal_i8.c
       pdgemv_i8.c  psgemv_i8.c  pcgemv_i8.c  pzgemv_i8.c
       pdsymv_i8.c  pssymv_i8.c  pchemv_i8.c  pzhemv_i8.c
-      pdsyr2k_i8.c pssyr2k_i8.c pcher2k_i8.c pzher2k_i8.c)
+      pdsyr2k_i8.c pssyr2k_i8.c pcher2k_i8.c pzher2k_i8.c
+      pdsyrk_i8.c  pssyrk_i8.c  pcherk_i8.c  pzherk_i8.c
+      pdtrsm_i8.c  pstrsm_i8.c  pctrsm_i8.c  pztrsm_i8.c
+      pdgemm_i8.c  psgemm_i8.c  pcgemm_i8.c  pzgemm_i8.c)
 
 set (pblas
       ${PIBLAS1}
