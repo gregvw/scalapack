@@ -10,10 +10,9 @@
 *  narrowing at PBLAS and serial LAPACK call boundaries.
 *
 *  BRIDGE IMPLEMENTATION NOTE:
-*  PDLATRD, PDSYR2K, PDSYTD2, PDSYTTRD, and DSYTRD are called via
-*  narrowed INTEGER arguments.  This routine aborts cleanly if any
-*  PBLAS/LAPACK-facing quantity exceeds default INTEGER range.
-*  Once native I8 PBLAS exists, these boundaries can be removed.
+*  PDSYTTRD and DSYTRD are called via narrowed INTEGER arguments.
+*  This routine aborts cleanly if any PBLAS/LAPACK-facing quantity
+*  exceeds default INTEGER range.
 *
 *     .. Scalar Arguments ..
       CHARACTER          UPLO
@@ -59,8 +58,8 @@
      $                   BLACS_GRIDINIT, BLACS_ABORT,
      $                   CHK1MAT_I8, DESCSET_I8, DSYTRD,
      $                   DGAMN2D, PCHK1MAT_I8, PDELSET_I8,
-     $                   PDLAMR1D_I8, PDLATRD_I8, PDSYR2K_I8, PDSYTD2,
-     $                   PDSYTTRD, PDTRMR2D_I8,
+     $                   PDLAMR1D_I8, PDLATRD_I8, PDSYR2K_I8,
+     $                   PDSYTD2_I8, PDSYTTRD, PDTRMR2D_I8,
      $                   PB_TOPGET, PB_TOPSET, PXERBLA
 *     ..
 *     .. External Functions ..
@@ -304,9 +303,8 @@
 *
    10       CONTINUE
 *
-            CALL PDSYTD2( UPLO, MIN( N4, NB ), A, INT( IA ),
-     $           INT( JA ), DESCA4, D, E, TAU, WORK,
-     $           INT( MIN( LWORK, INTMAX ) ), IINFO )
+            CALL PDSYTD2_I8( UPLO, MIN( N, INT( NB, 8 ) ), A, IA,
+     $           JA, DESCA, D, E, TAU, WORK, LWORK, IINFO )
 *
          ELSE
 *
@@ -337,9 +335,9 @@
 *
    20       CONTINUE
 *
-            CALL PDSYTD2( UPLO, KK, A, INT( IA+K8-1 ),
-     $                    INT( JA+K8-1 ), DESCA4, D, E, TAU,
-     $                    WORK, INT( MIN( LWORK, INTMAX ) ), IINFO )
+            CALL PDSYTD2_I8( UPLO, INT( KK, 8 ), A, IA+K8-1,
+     $                     JA+K8-1, DESCA, D, E, TAU,
+     $                     WORK, LWORK, IINFO )
          END IF
 *
          CALL PB_TOPSET( ICTXT, 'Combine', 'Columnwise', COLCTOP )

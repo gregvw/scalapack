@@ -19,7 +19,7 @@ The blocked reduction loop is fully I8-native across all four driver families.
   - Level 1: PxAXPY, PxSCAL, PCSSCAL, PZDSCAL, PxNRM2, PxDOT/DOTC (18)
   - Level 2: PxGEMV, PxSYMV/HEMV (8)
   - Level 3: PxSYR2K/HER2K (4)
-- **Fortran I8 auxiliaries:** PxLARFG (4), PxLACGV (2), PxLATRD (4)
+- **Fortran I8 auxiliaries:** PxLARFG (4), PxLACGV (2), PxLATRD (4), PxSYTD2_I8 (2), PxHETD2_I8 (2)
 - **Reduction drivers:** PDSYNTRD_I8, PSSYNTRD_I8, PCHENTRD_I8, PZHENTRD_I8
   - Blocked loop: fully I8-native (zero narrowing)
   - Bit-identical to legacy counterparts
@@ -33,7 +33,6 @@ These execute once per reduction call, not per iteration:
 
 | Call | When | Frequency |
 |------|------|-----------|
-| PxSYTD2 / PxHETD2 | Last block of blocked path | Once per reduction |
 | xSYTRD / xHETRD | Serial LAPACK path | Once, small-N only |
 | PxSYTTRD / PxHETTRD | Tailored parallel path | Once, large-workspace only |
 

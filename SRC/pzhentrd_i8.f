@@ -58,7 +58,7 @@
      $                   CHK1MAT_I8, DESCSET_I8, ZHETRD,
      $                   DGAMN2D, PCHK1MAT_I8, PZELSET_I8,
      $                   PZLAMR1D_I8, PDLAMR1D_I8,
-     $                   PZLATRD_I8, PZHER2K_I8, PZHETD2, PZHETTRD,
+     $                   PZLATRD_I8, PZHER2K_I8, PZHETD2_I8, PZHETTRD,
      $                   PZTRMR2D_I8, PDTRMR2D_I8,
      $                   PB_TOPGET, PB_TOPSET, PXERBLA,
      $                   NARROW_DESC8
@@ -295,9 +295,8 @@
 *
    10       CONTINUE
 *
-            CALL PZHETD2( UPLO, MIN( N4, NB ), A, INT( IA ),
-     $           INT( JA ), DESCA4, D, E, TAU, WORK,
-     $           INT( MIN( LWORK, INTMAX ) ), IINFO )
+            CALL PZHETD2_I8( UPLO, MIN( N, INT( NB, 8 ) ), A, IA,
+     $           JA, DESCA, D, E, TAU, WORK, LWORK, IINFO )
 *
          ELSE
 *
@@ -326,9 +325,9 @@
 *
    20       CONTINUE
 *
-            CALL PZHETD2( UPLO, KK, A, INT( IA+K8-1 ),
-     $                    INT( JA+K8-1 ), DESCA4, D, E, TAU,
-     $                    WORK, INT( MIN( LWORK, INTMAX ) ), IINFO )
+            CALL PZHETD2_I8( UPLO, INT( KK, 8 ), A, IA+K8-1,
+     $                     JA+K8-1, DESCA, D, E, TAU,
+     $                     WORK, LWORK, IINFO )
          END IF
 *
          CALL PB_TOPSET( ICTXT, 'Combine', 'Columnwise', COLCTOP )
