@@ -28,11 +28,13 @@ remains in the four reduction drivers.
 - **Eigenvalue solvers:** PxSYEV_I8 (2), PxHEEV_I8 (2)
 - **Eigensolver support:** PxLASCL_I8 (4), PxLASET_I8 (4), PxORMTR_I8 (2), PxUNMTR_I8 (2)
 - **Cholesky solvers:** PxPOTRF_I8 (4), PxPOTRS_I8 (4), PxPOSV_I8 (4)
+- **LU solvers:** PxGETRF_I8 (4), PxGETRS_I8 (4), PxGESV_I8 (4)
+- **LU support:** PxLASWP_I8 (4), PxLAPIV_I8 (4)
 - **Reduction drivers:** PDSYNTRD_I8, PSSYNTRD_I8, PCHENTRD_I8, PZHENTRD_I8
   - All paths (blocked, serial, tailored): fully I8-native (zero inline narrowing)
   - Bit-identical to legacy counterparts
 
-11 ctest targets, all passing on macOS arm64 and x86_64 Linux.
+12 ctest targets, all passing on macOS arm64 and x86_64 Linux.
 
 ### Test coverage
 

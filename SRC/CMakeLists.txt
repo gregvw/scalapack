@@ -179,7 +179,13 @@ set (I8SRC
    # Cholesky solver I8 drivers
    pdpotrf_i8.f   pspotrf_i8.f   pcpotrf_i8.f   pzpotrf_i8.f
    pdpotrs_i8.f   pspotrs_i8.f   pcpotrs_i8.f   pzpotrs_i8.f
-   pdposv_i8.f    psposv_i8.f    pcposv_i8.f    pzposv_i8.f)
+   pdposv_i8.f    psposv_i8.f    pcposv_i8.f    pzposv_i8.f
+   # LU solver I8 drivers + support
+   pdlaswp_i8.f   pslaswp_i8.f   pclaswp_i8.f   pzlaswp_i8.f
+   pdlapiv_i8.f   pslapiv_i8.f   pclapiv_i8.f   pzlapiv_i8.f
+   pdgetrf_i8.f   psgetrf_i8.f   pcgetrf_i8.f   pzgetrf_i8.f
+   pdgetrs_i8.f   psgetrs_i8.f   pcgetrs_i8.f   pzgetrs_i8.f
+   pdgesv_i8.f    psgesv_i8.f    pcgesv_i8.f    pzgesv_i8.f)
 
 # I8 SRC test targets
 add_executable(xdsyntrd_i8 test_pdsyntrd_i8.f)
@@ -195,6 +201,13 @@ target_link_libraries(xchentrd_i8 scalapack ${MPI_Fortran_LIBRARIES}
 add_test(NAME xchentrd_i8
          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
                  ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xchentrd_i8>)
+
+add_executable(xgesv_i8 test_pgesv_i8.f)
+target_link_libraries(xgesv_i8 scalapack ${MPI_Fortran_LIBRARIES}
+                      ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+add_test(NAME xgesv_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xgesv_i8>)
 
 add_executable(xposv_i8 test_pposv_i8.f)
 target_link_libraries(xposv_i8 scalapack ${MPI_Fortran_LIBRARIES}
