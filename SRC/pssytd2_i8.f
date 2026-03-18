@@ -37,10 +37,8 @@
       INTRINSIC          INT, MIN
 *     ..
 *
-*     Quick return
 *
       INFO = 0
-      IF( N.LE.0 ) RETURN
 *
 *     Range checks (defensive — N <= NB at call site)
 *

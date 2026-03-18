@@ -40,11 +40,6 @@
       INTRINSIC          INT
 *     ..
 *
-*     Quick return if possible
-*
-      IF( M.LE.0 .OR. N.LE.0 )
-     $   RETURN
-*
 *     Range-check I8 scalar arguments
 *
       ICTXT = INT( DESCA( CTXT_ ) )

@@ -35,7 +35,6 @@
 *     ..
 *
       INFO = 0
-      IF( M.LE.0 .OR. N.LE.0 ) RETURN
 *
       IF( M.GT.INTMAX .OR. N.GT.INTMAX .OR.
      $    IA.GT.INTMAX .OR. JA.GT.INTMAX .OR.

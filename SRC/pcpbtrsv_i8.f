@@ -36,10 +36,8 @@
       INTRINSIC          INT
 *     ..
 *
-*     Quick return
 *
       INFO = 0
-      IF( N.LE.0 ) RETURN
 *
 *     Range checks
 *

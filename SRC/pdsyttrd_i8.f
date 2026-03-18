@@ -33,7 +33,6 @@
 *     ..
 *
       INFO = 0
-      IF( N.LE.0 ) RETURN
 *
       IF( N.GT.INTMAX .OR. IA.GT.INTMAX .OR. JA.GT.INTMAX ) THEN
          INFO = -1

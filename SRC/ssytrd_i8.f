@@ -31,7 +31,6 @@
 *     ..
 *
       INFO = 0
-      IF( N.LE.0 ) RETURN
 *
       IF( N.GT.INTMAX .OR. LDA.GT.INTMAX ) THEN
          INFO = -1
