@@ -274,14 +274,9 @@ static2 Int block2buff( IDESC *vi, Int vinb, IDESC *hi, Int hinb, float *ptra, M
 static2 void buff2block( IDESC *vi, Int vinb, IDESC *hi, Int hinb, float *buff, float *ptrb, MDESC *mb );
 static2 void gridreshape( Int *ctxtp );
 void
-Cpsgemr2do(m, n,
-	   ptrmyblock, ia, ja, ma,
-	   ptrmynewblock, ib, jb, mb)
-  float *ptrmyblock, *ptrmynewblock;
-/* pointers to the memory location of the matrix and the redistributed matrix */
-  MDESC *ma;
-  MDESC *mb;
-  Int   ia, ja, ib, jb, m, n;
+Cpsgemr2do(Int m, Int n,
+	   float *ptrmyblock, Int ia, Int ja, MDESC *ma,
+	   float *ptrmynewblock, Int ib, Int jb, MDESC *mb)
 {
   Int   dummy, nprocs;
   Int   gcontext;

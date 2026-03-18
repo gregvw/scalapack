@@ -321,9 +321,7 @@ Cpdgemr2d(Int m, Int n,
 		 (int)globcontext);
 }
 static2 void
-init_chenille(mypnum, nprocs, n0, proc0, n1, proc1, psend, precv, myrang)
-  Int   nprocs, mypnum, n0, n1;
-  Int  *proc0, *proc1, **psend, **precv, *myrang;
+init_chenille(Int mypnum, Int nprocs, Int n0, Int *proc0, Int n1, Int *proc1, Int **psend, Int **precv, Int *myrang)
 {
   Int   ns, nr, i, tot;
   size_t alloc_count, alloc_bytes;
@@ -401,11 +399,7 @@ Int _m,_n,_lda,_ldb; \
     } \
 } (void)0
 static2 Int
-block2buff(vi, vinb, hi, hinb, ptra, ma, buff)
-  Int   hinb, vinb;
-  IDESC *hi, *vi;
-  MDESC *ma;
-  double *buff, *ptra;
+block2buff(IDESC *vi, Int vinb, IDESC *hi, Int hinb, double *ptra, MDESC *ma, double *buff)
 {
   Int   h, v, sizebuff, block_elems;
   size_t row_offset_elems;
@@ -433,11 +427,7 @@ block2buff(vi, vinb, hi, hinb, ptra, ma, buff)
   return sizebuff;
 }
 static2 void
-buff2block(vi, vinb, hi, hinb, buff, ptrb, mb)
-  Int   hinb, vinb;
-  IDESC *hi, *vi;
-  MDESC *mb;
-  double *buff, *ptrb;
+buff2block(IDESC *vi, Int vinb, IDESC *hi, Int hinb, double *buff, double *ptrb, MDESC *mb)
 {
   Int   h, v, sizebuff, block_elems;
   size_t row_offset_elems;
