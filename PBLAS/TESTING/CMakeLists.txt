@@ -77,3 +77,10 @@ add_test(zpb3tst ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ./zpb3
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU" AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 10)
     set( CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -std=legacy" )  # local to this directory
 endif()
+
+# I8 PBLAS kernel tests
+add_executable(xpblas_i8 test_pblas_i8.f)
+target_link_libraries(xpblas_i8 scalapack ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} MPI::MPI_Fortran)
+add_test(NAME xpblas_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xpblas_i8>)
