@@ -186,7 +186,7 @@
      $                        RWORK( INDRE ), WORK( INDTAU ),
      $                        WORK( INDWORK ), -1_8,
      $                        RWORK( INDRWORK ), -1_8, IINFO )
-            SIZEPZHETRD = INT( ABS( WORK( 1 ) ) )
+            SIZEPZHETRD = INT( ABS( WORK( 1 ) ), 8 )
 *
 *           COMPLEX*16 work space for PZUNMTR_I8
 *
@@ -194,7 +194,7 @@
                CALL PZUNMTR_I8( 'L', UPLO, 'N', N, N, A, IA, JA,
      $                          DESCA, WORK( INDTAU ), Z, IZ, JZ,
      $                          DESCZ, WORK( INDWORK ), -1_8, IINFO )
-               SIZEPZUNMTR = INT( ABS( WORK( 1 ) ) )
+               SIZEPZUNMTR = INT( ABS( WORK( 1 ) ), 8 )
             ELSE
                SIZEPZUNMTR = 0
             END IF
