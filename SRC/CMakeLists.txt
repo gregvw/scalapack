@@ -169,7 +169,9 @@ set (I8SRC
    pdpbtrsv_i8.f  pspbtrsv_i8.f  pcpbtrsv_i8.f  pzpbtrsv_i8.f
    pdpttrf_i8.f   pspttrf_i8.f   pcpttrf_i8.f   pzpttrf_i8.f
    pdpttrs_i8.f   pspttrs_i8.f   pcpttrs_i8.f   pzpttrs_i8.f
-   pdpttrsv_i8.f  pspttrsv_i8.f  pcpttrsv_i8.f  pzpttrsv_i8.f)
+   pdpttrsv_i8.f  pspttrsv_i8.f  pcpttrsv_i8.f  pzpttrsv_i8.f
+   # Eigenvalue solver I8 wrappers
+   pdsyev_i8.f    pssyev_i8.f    pcheev_i8.f    pzheev_i8.f)
 
 # I8 SRC test targets
 add_executable(xdsyntrd_i8 test_pdsyntrd_i8.f)
