@@ -1,22 +1,21 @@
-      SUBROUTINE PDSYTD2_I8( UPLO, N, A, IA, JA, DESCA, D, E, TAU,
-     $                       WORK, LWORK, INFO )
+      SUBROUTINE PCPTTRS_I8( UPLO, N, NRHS, D, E, JA, DESCA, B, IB,
+     $                       DESCB, AF, LAF, WORK, LWORK, INFO )
       IMPLICIT NONE
 *
 *  -- ScaLAPACK auxiliary routine --
-*     INTEGER*8 thin wrapper around PDSYTD2.
+*     INTEGER*8 thin wrapper around PCPTTRS.
 *
 *  Accepts I8 arguments and narrows them for the legacy routine.
-*  N is always bounded by NB at the call site, so no overflow is
-*  possible in practice; the range checks are purely defensive.
 *
 *     .. Scalar Arguments ..
       CHARACTER          UPLO
-      INTEGER*8          N, IA, JA, LWORK
+      INTEGER*8          N, NRHS, JA, IB, LAF, LWORK
       INTEGER            INFO
 *     ..
 *     .. Array Arguments ..
-      INTEGER*8          DESCA( * )
-      DOUBLE PRECISION   A( * ), D( * ), E( * ), TAU( * ), WORK( * )
+      INTEGER*8          DESCA( * ), DESCB( * )
+      COMPLEX            AF( * ), B( * ), E( * ), WORK( * )
+      REAL               D( * )
 *     ..
 *
 *  =====================================================================
@@ -27,14 +26,14 @@
       PARAMETER          ( INTMAX = 2147483647 )
 *     ..
 *     .. Local Scalars ..
-      INTEGER            N4, IA4, JA4, LWORK4
-      INTEGER            DESCA4( 9 )
+      INTEGER            N4, NRHS4, JA4, IB4, LAF4, LWORK4
+      INTEGER            DESCA4( 9 ), DESCB4( 9 )
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           NARROW_DESC8, PDSYTD2
+      EXTERNAL           NARROW_DESC8, PCPTTRS
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          INT, MIN
+      INTRINSIC          INT
 *     ..
 *
 *     Quick return
@@ -42,18 +41,22 @@
       INFO = 0
       IF( N.LE.0 ) RETURN
 *
-*     Range checks (defensive — N <= NB at call site)
+*     Range checks
 *
-      IF( N.GT.INTMAX .OR. IA.GT.INTMAX .OR. JA.GT.INTMAX ) THEN
+      IF( N.GT.INTMAX .OR. NRHS.GT.INTMAX .OR.
+     $    JA.GT.INTMAX .OR. IB.GT.INTMAX .OR.
+     $    LAF.GT.INTMAX ) THEN
          INFO = -1
          RETURN
       END IF
 *
 *     Narrow scalars
 *
-      N4  = INT( N )
-      IA4 = INT( IA )
-      JA4 = INT( JA )
+      N4    = INT( N )
+      NRHS4 = INT( NRHS )
+      JA4   = INT( JA )
+      IB4   = INT( IB )
+      LAF4  = INT( LAF )
 *
 *     Handle workspace query
 *
@@ -66,17 +69,18 @@
          LWORK4 = INT( LWORK )
       END IF
 *
-*     Narrow descriptor
+*     Narrow descriptors
 *
       CALL NARROW_DESC8( DESCA, DESCA4 )
+      CALL NARROW_DESC8( DESCB, DESCB4 )
 *
 *     Call legacy routine
 *
-      CALL PDSYTD2( UPLO, N4, A, IA4, JA4, DESCA4, D, E, TAU,
-     $              WORK, LWORK4, INFO )
+      CALL PCPTTRS( UPLO, N4, NRHS4, D, E, JA4, DESCA4, B, IB4,
+     $              DESCB4, AF, LAF4, WORK, LWORK4, INFO )
 *
       RETURN
 *
-*     End of PDSYTD2_I8
+*     End of PCPTTRS_I8
 *
       END

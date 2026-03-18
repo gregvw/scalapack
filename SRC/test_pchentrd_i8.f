@@ -41,19 +41,27 @@
 *
 *     === COMPLEX (PCHENTRD_I8) ===
 *
-      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PCHENTRD_I8 (C) ---'
-      CALL RUN_C( 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $            IAM, 'C:N=30,NB=4 ', NTEST, NFAIL )
-      CALL RUN_C( 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $            IAM, 'C:N=50,NB=8 ', NTEST, NFAIL )
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PCHENTRD_I8 (C) L ---'
+      CALL RUN_C( 'L', 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'C:L,N=30,NB=4 ', NTEST, NFAIL )
+      CALL RUN_C( 'L', 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'C:L,N=50,NB=8 ', NTEST, NFAIL )
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PCHENTRD_I8 (C) U ---'
+      CALL RUN_C( 'U', 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'C:U,N=30,NB=4 ', NTEST, NFAIL )
 *
 *     === DOUBLE COMPLEX (PZHENTRD_I8) ===
 *
-      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PZHENTRD_I8 (Z) ---'
-      CALL RUN_Z( 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $            IAM, 'Z:N=30,NB=4 ', NTEST, NFAIL )
-      CALL RUN_Z( 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $            IAM, 'Z:N=50,NB=8 ', NTEST, NFAIL )
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PZHENTRD_I8 (Z) L ---'
+      CALL RUN_Z( 'L', 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'Z:L,N=30,NB=4 ', NTEST, NFAIL )
+      CALL RUN_Z( 'L', 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'Z:L,N=50,NB=8 ', NTEST, NFAIL )
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PZHENTRD_I8 (Z) U ---'
+      CALL RUN_Z( 'U', 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'Z:U,N=30,NB=4 ', NTEST, NFAIL )
 *
       NFAIL_G = NFAIL
       CALL IGAMX2D( ICTXT, 'All', ' ', 1, 1, NFAIL_G, 1,
@@ -82,11 +90,12 @@
 *     RUN_C — compare PCHENTRD_I8 vs legacy PCHENTRD
 *     ================================================================
 *
-      SUBROUTINE RUN_C( N8, NB8, ICTXT, NPROW, NPCOL, MYROW,
+      SUBROUTINE RUN_C( UPLO, N8, NB8, ICTXT, NPROW, NPCOL, MYROW,
      $                   MYCOL, IAM, LABEL, NTEST, NFAIL )
       IMPLICIT NONE
       INCLUDE 'SL_i8_params.inc'
 *
+      CHARACTER          UPLO
       INTEGER*8          N8, NB8
       INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
       CHARACTER*(*)      LABEL
@@ -152,7 +161,7 @@
       LWORK8 = -1
       LRWORK8 = -1
       ALLOCATE( WORK( 1 ), RWORK( 1 ) )
-      CALL PCHENTRD_I8( 'L', N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
+      CALL PCHENTRD_I8( UPLO, N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
      $                   WORK, LWORK8, RWORK, LRWORK8, INFO )
       LWORK8 = INT( REAL( WORK( 1 ) ), 8 )
       LRWORK8 = INT( RWORK( 1 ), 8 )
@@ -160,7 +169,7 @@
       ALLOCATE( WORK( LWORK8 ), RWORK( MAX( LRWORK8, 1_8 ) ) )
 *
       INFO = 0
-      CALL PCHENTRD_I8( 'L', N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
+      CALL PCHENTRD_I8( UPLO, N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
      $                   WORK, LWORK8, RWORK, LRWORK8, INFO )
       DEALLOCATE( WORK, RWORK )
 *
@@ -176,7 +185,7 @@
       LWORK4 = -1
       LRWORK4 = -1
       ALLOCATE( WREF( 1 ), RWREF( 1 ) )
-      CALL PCHENTRD( 'L', N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
+      CALL PCHENTRD( UPLO, N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
      $               TAUREF, WREF, LWORK4, RWREF, LRWORK4, INFO )
       LWORK4 = INT( REAL( WREF( 1 ) ) )
       LRWORK4 = INT( RWREF( 1 ) )
@@ -184,7 +193,7 @@
       ALLOCATE( WREF( LWORK4 ), RWREF( MAX( LRWORK4, 1 ) ) )
 *
       INFO = 0
-      CALL PCHENTRD( 'L', N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
+      CALL PCHENTRD( UPLO, N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
      $               TAUREF, WREF, LWORK4, RWREF, LRWORK4, INFO )
       DEALLOCATE( WREF, RWREF )
 *
@@ -233,11 +242,12 @@
 *     RUN_Z — compare PZHENTRD_I8 vs legacy PZHENTRD
 *     ================================================================
 *
-      SUBROUTINE RUN_Z( N8, NB8, ICTXT, NPROW, NPCOL, MYROW,
+      SUBROUTINE RUN_Z( UPLO, N8, NB8, ICTXT, NPROW, NPCOL, MYROW,
      $                   MYCOL, IAM, LABEL, NTEST, NFAIL )
       IMPLICIT NONE
       INCLUDE 'SL_i8_params.inc'
 *
+      CHARACTER          UPLO
       INTEGER*8          N8, NB8
       INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
       CHARACTER*(*)      LABEL
@@ -301,7 +311,7 @@
       LWORK8 = -1
       LRWORK8 = -1
       ALLOCATE( WORK( 1 ), RWORK( 1 ) )
-      CALL PZHENTRD_I8( 'L', N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
+      CALL PZHENTRD_I8( UPLO, N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
      $                   WORK, LWORK8, RWORK, LRWORK8, INFO )
       LWORK8 = INT( DBLE( WORK( 1 ) ), 8 )
       LRWORK8 = INT( RWORK( 1 ), 8 )
@@ -309,7 +319,7 @@
       ALLOCATE( WORK( LWORK8 ), RWORK( MAX( LRWORK8, 1_8 ) ) )
 *
       INFO = 0
-      CALL PZHENTRD_I8( 'L', N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
+      CALL PZHENTRD_I8( UPLO, N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
      $                   WORK, LWORK8, RWORK, LRWORK8, INFO )
       DEALLOCATE( WORK, RWORK )
 *
@@ -325,7 +335,7 @@
       LWORK4 = -1
       LRWORK4 = -1
       ALLOCATE( WREF( 1 ), RWREF( 1 ) )
-      CALL PZHENTRD( 'L', N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
+      CALL PZHENTRD( UPLO, N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
      $               TAUREF, WREF, LWORK4, RWREF, LRWORK4, INFO )
       LWORK4 = INT( DBLE( WREF( 1 ) ) )
       LRWORK4 = INT( RWREF( 1 ) )
@@ -333,7 +343,7 @@
       ALLOCATE( WREF( LWORK4 ), RWREF( MAX( LRWORK4, 1 ) ) )
 *
       INFO = 0
-      CALL PZHENTRD( 'L', N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
+      CALL PZHENTRD( UPLO, N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
      $               TAUREF, WREF, LWORK4, RWREF, LRWORK4, INFO )
       DEALLOCATE( WREF, RWREF )
 *

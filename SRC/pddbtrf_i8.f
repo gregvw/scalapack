@@ -1,22 +1,19 @@
-      SUBROUTINE PDSYTD2_I8( UPLO, N, A, IA, JA, DESCA, D, E, TAU,
+      SUBROUTINE PDDBTRF_I8( N, BWL, BWU, A, JA, DESCA, AF, LAF,
      $                       WORK, LWORK, INFO )
       IMPLICIT NONE
 *
-*  -- ScaLAPACK auxiliary routine --
-*     INTEGER*8 thin wrapper around PDSYTD2.
+*  -- ScaLAPACK routine --
+*     INTEGER*8 thin wrapper around PDDBTRF.
 *
 *  Accepts I8 arguments and narrows them for the legacy routine.
-*  N is always bounded by NB at the call site, so no overflow is
-*  possible in practice; the range checks are purely defensive.
 *
 *     .. Scalar Arguments ..
-      CHARACTER          UPLO
-      INTEGER*8          N, IA, JA, LWORK
+      INTEGER*8          N, BWL, BWU, JA, LAF, LWORK
       INTEGER            INFO
 *     ..
 *     .. Array Arguments ..
       INTEGER*8          DESCA( * )
-      DOUBLE PRECISION   A( * ), D( * ), E( * ), TAU( * ), WORK( * )
+      DOUBLE PRECISION   A( * ), AF( * ), WORK( * )
 *     ..
 *
 *  =====================================================================
@@ -27,14 +24,14 @@
       PARAMETER          ( INTMAX = 2147483647 )
 *     ..
 *     .. Local Scalars ..
-      INTEGER            N4, IA4, JA4, LWORK4
+      INTEGER            N4, BWL4, BWU4, JA4, LAF4, LWORK4
       INTEGER            DESCA4( 9 )
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           NARROW_DESC8, PDSYTD2
+      EXTERNAL           NARROW_DESC8, PDDBTRF
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          INT, MIN
+      INTRINSIC          INT
 *     ..
 *
 *     Quick return
@@ -42,18 +39,21 @@
       INFO = 0
       IF( N.LE.0 ) RETURN
 *
-*     Range checks (defensive — N <= NB at call site)
+*     Range checks
 *
-      IF( N.GT.INTMAX .OR. IA.GT.INTMAX .OR. JA.GT.INTMAX ) THEN
+      IF( N.GT.INTMAX .OR. BWL.GT.INTMAX .OR. BWU.GT.INTMAX .OR.
+     $    JA.GT.INTMAX .OR. LAF.GT.INTMAX ) THEN
          INFO = -1
          RETURN
       END IF
 *
 *     Narrow scalars
 *
-      N4  = INT( N )
-      IA4 = INT( IA )
-      JA4 = INT( JA )
+      N4   = INT( N )
+      BWL4 = INT( BWL )
+      BWU4 = INT( BWU )
+      JA4  = INT( JA )
+      LAF4 = INT( LAF )
 *
 *     Handle workspace query
 *
@@ -72,11 +72,11 @@
 *
 *     Call legacy routine
 *
-      CALL PDSYTD2( UPLO, N4, A, IA4, JA4, DESCA4, D, E, TAU,
+      CALL PDDBTRF( N4, BWL4, BWU4, A, JA4, DESCA4, AF, LAF4,
      $              WORK, LWORK4, INFO )
 *
       RETURN
 *
-*     End of PDSYTD2_I8
+*     End of PDDBTRF_I8
 *
       END

@@ -58,21 +58,31 @@
 *
 *     === DOUBLE PRECISION (PDSYNTRD_I8) ===
 *
-      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PDSYNTRD_I8 (D) ---'
-      CALL RUN_D( 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $            IAM, 'D:N=30,NB=4 ', NTEST, NFAIL )
-      CALL RUN_D( 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $            IAM, 'D:N=50,NB=8 ', NTEST, NFAIL )
-      CALL RUN_D( 16_8, 16_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $            IAM, 'D:N=16,NB=16', NTEST, NFAIL )
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PDSYNTRD_I8 (D) L ---'
+      CALL RUN_D( 'L', 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'D:L,N=30,NB=4 ', NTEST, NFAIL )
+      CALL RUN_D( 'L', 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'D:L,N=50,NB=8 ', NTEST, NFAIL )
+      CALL RUN_D( 'L', 16_8, 16_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'D:L,N=16,NB=16', NTEST, NFAIL )
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PDSYNTRD_I8 (D) U ---'
+      CALL RUN_D( 'U', 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'D:U,N=30,NB=4 ', NTEST, NFAIL )
+      CALL RUN_D( 'U', 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'D:U,N=50,NB=8 ', NTEST, NFAIL )
 *
 *     === REAL (PSSYNTRD_I8) ===
 *
-      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PSSYNTRD_I8 (S) ---'
-      CALL RUN_S( 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $            IAM, 'S:N=30,NB=4 ', NTEST, NFAIL )
-      CALL RUN_S( 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
-     $            IAM, 'S:N=50,NB=8 ', NTEST, NFAIL )
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PSSYNTRD_I8 (S) L ---'
+      CALL RUN_S( 'L', 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'S:L,N=30,NB=4 ', NTEST, NFAIL )
+      CALL RUN_S( 'L', 50_8, 8_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'S:L,N=50,NB=8 ', NTEST, NFAIL )
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PSSYNTRD_I8 (S) U ---'
+      CALL RUN_S( 'U', 30_8, 4_8, ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $            IAM, 'S:U,N=30,NB=4 ', NTEST, NFAIL )
 *
 *     Summary
 *
@@ -103,11 +113,12 @@
 *     RUN_D — compare PDSYNTRD_I8 vs legacy PDSYNTRD
 *     ================================================================
 *
-      SUBROUTINE RUN_D( N8, NB8, ICTXT, NPROW, NPCOL, MYROW,
+      SUBROUTINE RUN_D( UPLO, N8, NB8, ICTXT, NPROW, NPCOL, MYROW,
      $                   MYCOL, IAM, LABEL, NTEST, NFAIL )
       IMPLICIT NONE
       INCLUDE 'SL_i8_params.inc'
 *
+      CHARACTER          UPLO
       INTEGER*8          N8, NB8
       INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
       CHARACTER*(*)      LABEL
@@ -179,7 +190,7 @@
 *     Workspace query
       LWORK8 = -1
       ALLOCATE( WORK( 1 ) )
-      CALL PDSYNTRD_I8( 'L', N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
+      CALL PDSYNTRD_I8( UPLO, N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
      $                   WORK, LWORK8, INFO )
       LWORK8 = INT( WORK( 1 ), 8 )
       DEALLOCATE( WORK )
@@ -187,7 +198,7 @@
 *
 *     Actual reduction
       INFO = 0
-      CALL PDSYNTRD_I8( 'L', N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
+      CALL PDSYNTRD_I8( UPLO, N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
      $                   WORK, LWORK8, INFO )
       DEALLOCATE( WORK )
 *
@@ -202,14 +213,14 @@
 *
       LWORK4 = -1
       ALLOCATE( WREF( 1 ) )
-      CALL PDSYNTRD( 'L', N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
+      CALL PDSYNTRD( UPLO, N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
      $               TAUREF, WREF, LWORK4, INFO )
       LWORK4 = INT( WREF( 1 ) )
       DEALLOCATE( WREF )
       ALLOCATE( WREF( LWORK4 ) )
 *
       INFO = 0
-      CALL PDSYNTRD( 'L', N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
+      CALL PDSYNTRD( UPLO, N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
      $               TAUREF, WREF, LWORK4, INFO )
       DEALLOCATE( WREF )
 *
@@ -266,11 +277,12 @@
 *     RUN_S — compare PSSYNTRD_I8 vs legacy PSSYNTRD
 *     ================================================================
 *
-      SUBROUTINE RUN_S( N8, NB8, ICTXT, NPROW, NPCOL, MYROW,
+      SUBROUTINE RUN_S( UPLO, N8, NB8, ICTXT, NPROW, NPCOL, MYROW,
      $                   MYCOL, IAM, LABEL, NTEST, NFAIL )
       IMPLICIT NONE
       INCLUDE 'SL_i8_params.inc'
 *
+      CHARACTER          UPLO
       INTEGER*8          N8, NB8
       INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
       CHARACTER*(*)      LABEL
@@ -327,13 +339,13 @@
 *     I8 run
       LWORK8 = -1
       ALLOCATE( WORK( 1 ) )
-      CALL PSSYNTRD_I8( 'L', N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
+      CALL PSSYNTRD_I8( UPLO, N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
      $                   WORK, LWORK8, INFO )
       LWORK8 = INT( WORK( 1 ), 8 )
       DEALLOCATE( WORK )
       ALLOCATE( WORK( LWORK8 ) )
       INFO = 0
-      CALL PSSYNTRD_I8( 'L', N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
+      CALL PSSYNTRD_I8( UPLO, N8, A, 1_8, 1_8, DESCA8, D, E, TAU,
      $                   WORK, LWORK8, INFO )
       DEALLOCATE( WORK )
 *
@@ -347,13 +359,13 @@
 *     Legacy run
       LWORK4 = -1
       ALLOCATE( WREF( 1 ) )
-      CALL PSSYNTRD( 'L', N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
+      CALL PSSYNTRD( UPLO, N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
      $               TAUREF, WREF, LWORK4, INFO )
       LWORK4 = INT( WREF( 1 ) )
       DEALLOCATE( WREF )
       ALLOCATE( WREF( LWORK4 ) )
       INFO = 0
-      CALL PSSYNTRD( 'L', N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
+      CALL PSSYNTRD( UPLO, N4, ACOPY, 1, 1, DESCA4, DREF, EREF,
      $               TAUREF, WREF, LWORK4, INFO )
       DEALLOCATE( WREF )
 *

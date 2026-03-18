@@ -42,9 +42,6 @@
      $                   IINFO, IROFFA, JB, KK, MINSZ,
      $                   MYCOL, MYCOLB, MYROW, MYROWB, NB, NPCOL,
      $                   NPCOLB, NPROW, NPROWB, SQNPC
-*     .. Narrowed locals for PBLAS/LAPACK bridge ..
-      INTEGER            N4, NPS4, DESCA4( 9 ), DESCB4( 9 ),
-     $                   NP4
       DOUBLE PRECISION   DLLWORK, DLLRWORK
 *     ..
 *     .. Local Arrays ..
@@ -55,13 +52,13 @@
 *     .. External Subroutines ..
       EXTERNAL           BLACS_GET, BLACS_GRIDEXIT, BLACS_GRIDINFO,
      $                   BLACS_GRIDINIT, BLACS_ABORT,
-     $                   CHK1MAT_I8, DESCSET_I8, CHETRD,
+     $                   CHK1MAT_I8, DESCSET_I8, CHETRD_I8,
      $                   DGAMN2D, PCHK1MAT_I8, PCELSET_I8,
      $                   PCLAMR1D_I8, PSLAMR1D_I8,
-     $                   PCLATRD_I8, PCHER2K_I8, PCHETD2_I8, PCHETTRD,
+     $                   PCLATRD_I8, PCHER2K_I8, PCHETD2_I8,
+     $                   PCHETTRD_I8,
      $                   PCTRMR2D_I8, PSTRMR2D_I8,
-     $                   PB_TOPGET, PB_TOPSET, PXERBLA,
-     $                   NARROW_DESC8
+     $                   PB_TOPGET, PB_TOPSET, PXERBLA
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
@@ -203,25 +200,16 @@
 *
          IF( NPROWB.GT.0 ) THEN
 *
-            IF( NPS8.GT.INTMAX .OR. N.GT.INTMAX .OR.
-     $          LLWORK.GT.INTMAX ) THEN
-               CALL PXERBLA( ICTXT, 'PCHENTRD_I8', -2 )
-               CALL BLACS_ABORT( ICTXT, 1 )
-            END IF
-            NPS4 = INT( NPS8 )
-            N4   = INT( N )
-            CALL NARROW_DESC8( DESCB, DESCB4 )
-*
             IF( NPROWB.EQ.1 ) THEN
-               CALL CHETRD( UPLO, N4, WORK( INDB ), NPS4,
-     $                      RWORK( INDRD ), RWORK( INDRE ),
-     $                      WORK( INDTAU ), WORK( INDW ),
-     $                      INT( LLWORK ), IINFO )
+               CALL CHETRD_I8( UPLO, N, WORK( INDB ), NPS8,
+     $                         RWORK( INDRD ), RWORK( INDRE ),
+     $                         WORK( INDTAU ), WORK( INDW ),
+     $                         LLWORK, IINFO )
             ELSE
-               CALL PCHETTRD( 'L', N4, WORK( INDB ), 1, 1, DESCB4,
-     $                        RWORK( INDRD ), RWORK( INDRE ),
-     $                        WORK( INDTAU ), WORK( INDW ),
-     $                        INT( LLWORK ), IINFO )
+               CALL PCHETTRD_I8( 'L', N, WORK( INDB ), 1_8, 1_8,
+     $                           DESCB, RWORK( INDRD ),
+     $                           RWORK( INDRE ), WORK( INDTAU ),
+     $                           WORK( INDW ), LLWORK, IINFO )
             END IF
          END IF
 *
@@ -252,10 +240,6 @@
             CALL PXERBLA( ICTXT, 'PCHENTRD_I8', -2 )
             CALL BLACS_ABORT( ICTXT, 1 )
          END IF
-*
-         N4  = INT( N )
-         NP4 = INT( NP )
-         CALL NARROW_DESC8( DESCA, DESCA4 )
 *
          CALL PB_TOPGET( ICTXT, 'Combine', 'Columnwise', COLCTOP )
          CALL PB_TOPGET( ICTXT, 'Combine', 'Rowwise', ROWCTOP )

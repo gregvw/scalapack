@@ -54,4 +54,11 @@ set(tools-C
 add_executable(xi8tools test_i8_tools.f)
 target_link_libraries(xi8tools scalapack)
 add_test(NAME xi8tools COMMAND xi8tools)
+
+# MPI-backed I8 tools test (DESC_CONVERT_I8 2D->1D, PCHK1MAT_I8, GLOBCHK_I8)
+add_executable(xi8tools_mpi test_i8_tools_mpi.f)
+target_link_libraries(xi8tools_mpi scalapack ${MPI_Fortran_LIBRARIES})
+add_test(NAME xi8tools_mpi
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xi8tools_mpi>)
      

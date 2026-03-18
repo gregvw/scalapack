@@ -59,8 +59,11 @@
 *
       IF( LWORK.EQ.-1 ) THEN
          LWORK4 = -1
+      ELSE IF( LWORK.GT.INTMAX ) THEN
+         INFO = -1
+         RETURN
       ELSE
-         LWORK4 = INT( MIN( LWORK, INTMAX ) )
+         LWORK4 = INT( LWORK )
       END IF
 *
 *     Narrow descriptor

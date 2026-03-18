@@ -152,7 +152,24 @@ set (I8SRC
    pdlarfg_i8.f   pslarfg_i8.f   pclarfg_i8.f   pzlarfg_i8.f
    pclacgv_i8.f   pzlacgv_i8.f
    pdlatrd_i8.f   pslatrd_i8.f   pclatrd_i8.f   pzlatrd_i8.f
-   pdsytd2_i8.f   pssytd2_i8.f   pchetd2_i8.f   pzhetd2_i8.f)
+   pdsytd2_i8.f   pssytd2_i8.f   pchetd2_i8.f   pzhetd2_i8.f
+   dsytrd_i8.f    ssytrd_i8.f    chetrd_i8.f    zhetrd_i8.f
+   pdsyttrd_i8.f  pssyttrd_i8.f  pchettrd_i8.f  pzhettrd_i8.f
+   # Banded/tridiagonal I8 wrappers (Phase 9)
+   pddbtrf_i8.f   psdbtrf_i8.f   pcdbtrf_i8.f   pzdbtrf_i8.f
+   pddbtrs_i8.f   psdbtrs_i8.f   pcdbtrs_i8.f   pzdbtrs_i8.f
+   pddbtrsv_i8.f  psdbtrsv_i8.f  pcdbtrsv_i8.f  pzdbtrsv_i8.f
+   pddttrf_i8.f   psdttrf_i8.f   pcdttrf_i8.f   pzdttrf_i8.f
+   pddttrs_i8.f   psdttrs_i8.f   pcdttrs_i8.f   pzdttrs_i8.f
+   pddttrsv_i8.f  psdttrsv_i8.f  pcdttrsv_i8.f  pzdttrsv_i8.f
+   pdgbtrf_i8.f   psgbtrf_i8.f   pcgbtrf_i8.f   pzgbtrf_i8.f
+   pdgbtrs_i8.f   psgbtrs_i8.f   pcgbtrs_i8.f   pzgbtrs_i8.f
+   pdpbtrf_i8.f   pspbtrf_i8.f   pcpbtrf_i8.f   pzpbtrf_i8.f
+   pdpbtrs_i8.f   pspbtrs_i8.f   pcpbtrs_i8.f   pzpbtrs_i8.f
+   pdpbtrsv_i8.f  pspbtrsv_i8.f  pcpbtrsv_i8.f  pzpbtrsv_i8.f
+   pdpttrf_i8.f   pspttrf_i8.f   pcpttrf_i8.f   pzpttrf_i8.f
+   pdpttrs_i8.f   pspttrs_i8.f   pcpttrs_i8.f   pzpttrs_i8.f
+   pdpttrsv_i8.f  pspttrsv_i8.f  pcpttrsv_i8.f  pzpttrsv_i8.f)
 
 # I8 SRC test targets
 add_executable(xdsyntrd_i8 test_pdsyntrd_i8.f)

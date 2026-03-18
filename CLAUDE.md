@@ -4,9 +4,11 @@ Starting with an initial commit (b935167ca4d244735abc04a3cd4f6d56699702a0) after
 ScaLAPACK, we have been refactoring the codebase to be compatible with 64-bit integers
 for MPI 4+. Planning and progress notes are in `docs/i8-refactor/`.
 
-## Current state (Phase 6 complete)
+## Current state (Phase 8 complete)
 
-The blocked reduction loop is fully I8-native across all four driver families.
+The tridiagonal reduction driver cone is fully I8-native.  All narrowing is
+encapsulated in dedicated _I8 wrapper files — zero inline INT() narrowing
+remains in the four reduction drivers.
 
 ### I8 surface
 
@@ -20,21 +22,19 @@ The blocked reduction loop is fully I8-native across all four driver families.
   - Level 2: PxGEMV, PxSYMV/HEMV (8)
   - Level 3: PxSYR2K/HER2K (4)
 - **Fortran I8 auxiliaries:** PxLARFG (4), PxLACGV (2), PxLATRD (4), PxSYTD2_I8 (2), PxHETD2_I8 (2)
+- **Serial LAPACK I8 wrappers:** xSYTRD_I8 (2), xHETRD_I8 (2)
+- **Tailored parallel I8 wrappers:** PxSYTTRD_I8 (2), PxHETTRD_I8 (2)
 - **Reduction drivers:** PDSYNTRD_I8, PSSYNTRD_I8, PCHENTRD_I8, PZHENTRD_I8
-  - Blocked loop: fully I8-native (zero narrowing)
+  - All paths (blocked, serial, tailored): fully I8-native (zero inline narrowing)
   - Bit-identical to legacy counterparts
 
-8 ctest targets, 104 tests passing on x86_64 Linux, all passing on macOS arm64.
-Zero ASan/UBSan errors in I8 code (clang-20 sanitizer build).
+9 ctest targets, all passing on macOS arm64 and x86_64 Linux.
 
-### Remaining narrowed boundaries
+### Test coverage
 
-These execute once per reduction call, not per iteration:
-
-| Call | When | Frequency |
-|------|------|-----------|
-| xSYTRD / xHETRD | Serial LAPACK path | Once, small-N only |
-| PxSYTTRD / PxHETTRD | Tailored parallel path | Once, large-workspace only |
+- Driver tests exercise both UPLO='L' (serial/tailored path) and UPLO='U' (blocked path)
+- PBLAS I8 kernel tests cover Level 1 (AXPY, SCAL, DOT, NRM2, DOTC), Level 2 (GEMV, SYMV, HEMV), Level 3 (SYR2K, HER2K)
+- All comparisons are bit-identical against legacy routines
 
 ## Design rules
 

@@ -9,10 +9,8 @@
 *  Uses I8 descriptors and dimensions throughout, with checked
 *  narrowing at PBLAS and serial LAPACK call boundaries.
 *
-*  BRIDGE IMPLEMENTATION NOTE:
-*  PSSYTTRD and SSYTRD are called via narrowed INTEGER arguments.
-*  This routine aborts cleanly if any PBLAS/LAPACK-facing quantity
-*  exceeds default INTEGER range.
+*  All narrowing is encapsulated in _I8 wrapper routines.
+*  No inline INTEGER narrowing remains in this driver.
 *
 *     .. Scalar Arguments ..
       CHARACTER          UPLO
@@ -43,9 +41,6 @@
      $                   IINFO, IROFFA, JB, KK, MINSZ,
      $                   MYCOL, MYCOLB, MYROW, MYROWB, NB, NPCOL,
      $                   NPCOLB, NPROW, NPROWB, SQNPC
-*     .. Narrowed locals for PBLAS/LAPACK bridge ..
-      INTEGER            N4, NPS4, DESCA4( 9 ), DESCB4( 9 ),
-     $                   NP4
       DOUBLE PRECISION   DLLWORK
 *     ..
 *     .. Local Arrays ..
@@ -56,10 +51,10 @@
 *     .. External Subroutines ..
       EXTERNAL           BLACS_GET, BLACS_GRIDEXIT, BLACS_GRIDINFO,
      $                   BLACS_GRIDINIT, BLACS_ABORT,
-     $                   CHK1MAT_I8, DESCSET_I8, SSYTRD,
+     $                   CHK1MAT_I8, DESCSET_I8, SSYTRD_I8,
      $                   DGAMN2D, PCHK1MAT_I8, PSELSET_I8,
      $                   PSLAMR1D_I8, PSLATRD_I8, PSSYR2K_I8,
-     $                   PSSYTD2_I8, PSSYTTRD, PSTRMR2D_I8,
+     $                   PSSYTD2_I8, PSSYTTRD_I8, PSTRMR2D_I8,
      $                   PB_TOPGET, PB_TOPSET, PXERBLA
 *     ..
 *     .. External Functions ..
@@ -200,30 +195,16 @@
 *
          IF( NPROWB.GT.0 ) THEN
 *
-*           Bridge narrowing: SSYTRD and PSSYTTRD take INTEGER
-*
-            IF( NPS8.GT.INTMAX .OR. N.GT.INTMAX .OR.
-     $          LLWORK.GT.INTMAX ) THEN
-               CALL PXERBLA( ICTXT, 'PSSYNTRD_I8', -2 )
-               CALL BLACS_ABORT( ICTXT, 1 )
-            END IF
-            NPS4 = INT( NPS8 )
-            N4   = INT( N )
-*
-*           Narrow DESCB for PSSYTTRD
-*
-            CALL NARROW_DESC8( DESCB, DESCB4 )
-*
             IF( NPROWB.EQ.1 ) THEN
-               CALL SSYTRD( UPLO, N4, WORK( INDB ), NPS4,
-     $                      WORK( INDD ), WORK( INDE ),
-     $                      WORK( INDTAU ), WORK( INDW ),
-     $                      INT( LLWORK ), IINFO )
+               CALL SSYTRD_I8( UPLO, N, WORK( INDB ), NPS8,
+     $                         WORK( INDD ), WORK( INDE ),
+     $                         WORK( INDTAU ), WORK( INDW ),
+     $                         LLWORK, IINFO )
             ELSE
-               CALL PSSYTTRD( 'L', N4, WORK( INDB ), 1, 1, DESCB4,
-     $                        WORK( INDD ), WORK( INDE ),
-     $                        WORK( INDTAU ), WORK( INDW ),
-     $                        INT( LLWORK ), IINFO )
+               CALL PSSYTTRD_I8( 'L', N, WORK( INDB ), 1_8, 1_8,
+     $                           DESCB, WORK( INDD ), WORK( INDE ),
+     $                           WORK( INDTAU ), WORK( INDW ),
+     $                           LLWORK, IINFO )
             END IF
          END IF
 *
@@ -255,13 +236,6 @@
             CALL PXERBLA( ICTXT, 'PSSYNTRD_I8', -2 )
             CALL BLACS_ABORT( ICTXT, 1 )
          END IF
-*
-         N4  = INT( N )
-         NP4 = INT( NP )
-*
-*        Narrow DESCA for PBLAS calls
-*
-         CALL NARROW_DESC8( DESCA, DESCA4 )
 *
          CALL PB_TOPGET( ICTXT, 'Combine', 'Columnwise', COLCTOP )
          CALL PB_TOPGET( ICTXT, 'Combine', 'Rowwise', ROWCTOP )
