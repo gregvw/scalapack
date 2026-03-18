@@ -44,7 +44,7 @@
      $                   NPCOLB, NPROW, NPROWB, SQNPC
 *     .. Narrowed locals for PBLAS/LAPACK bridge ..
       INTEGER            N4, NPS4, DESCA4( 9 ), DESCB4( 9 ),
-     $                   DESCW4( 9 ), NP4, K4, JB4, I4, J4
+     $                   DESCW4( 9 ), NP4, K4, I4, J4
       DOUBLE PRECISION   DLLWORK, DLLRWORK
 *     ..
 *     .. Local Arrays ..
