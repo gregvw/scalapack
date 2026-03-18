@@ -46,7 +46,7 @@
      $                   NPCOLB, NPROW, NPROWB, SQNPC
 *     .. Narrowed locals for PBLAS/LAPACK bridge ..
       INTEGER            N4, NPS4, DESCA4( 9 ), DESCB4( 9 ),
-     $                   DESCW4( 9 ), NP4, K4, I4, J4
+     $                   NP4
       DOUBLE PRECISION   DLLWORK
 *     ..
 *     .. Local Arrays ..
@@ -59,7 +59,7 @@
      $                   BLACS_GRIDINIT, BLACS_ABORT,
      $                   CHK1MAT_I8, DESCSET_I8, DSYTRD,
      $                   DGAMN2D, PCHK1MAT_I8, PDELSET_I8,
-     $                   PDLAMR1D_I8, PDLATRD_I8, PDSYR2K, PDSYTD2,
+     $                   PDLAMR1D_I8, PDLATRD_I8, PDSYR2K_I8, PDSYTD2,
      $                   PDSYTTRD, PDTRMR2D_I8,
      $                   PB_TOPGET, PB_TOPSET, PXERBLA
 *     ..
@@ -282,22 +282,18 @@
      $           INDXG2P_I8( JA+N-KK, INT( NB, 8 ), MYCOL,
      $           INT( DESCA( CSRC_ ) ), NPCOL ),
      $           ICTXT, MAX( 1_8, NP ) )
-            CALL NARROW_DESC8( DESCW, DESCW4 )
 *
             DO 10 K8 = N - KK + 1, INT( NB, 8 ) + 1, -INT( NB, 8 )
                JB = INT( MIN( N-K8+1, INT( NB, 8 ) ) )
-               K4 = INT( K8 )
-               I4 = INT( IA + K8 - 1 )
-               J4 = INT( JA + K8 - 1 )
 *
                CALL PDLATRD_I8( UPLO, K8+JB-1, JB, A, IA,
      $              JA, DESCA, D, E, TAU, WORK, 1_8, 1_8,
      $              DESCW, WORK( IPW ) )
 *
-               CALL PDSYR2K( UPLO, 'No transpose', K4-1, JB,
-     $              -ONE, A, INT( IA ), J4, DESCA4,
-     $              WORK, 1, 1, DESCW4, ONE, A, INT( IA ),
-     $              INT( JA ), DESCA4 )
+               CALL PDSYR2K_I8( UPLO, 'No transpose', K8-1,
+     $              INT( JB, 8 ), -ONE, A, IA, JA+K8-1, DESCA,
+     $              WORK, 1_8, 1_8, DESCW, ONE, A, IA,
+     $              JA, DESCA )
 *
                JX8 = MIN( INDXG2L_I8( JA+K8-1, INT( NB, 8 ), 0,
      $              IACOL, NPCOL ), NQ )
@@ -305,7 +301,6 @@
      $              E( JX8 ) )
 *
                DESCW( CSRC_ ) = MOD( DESCW( CSRC_ )+NPCOL-1, NPCOL )
-               CALL NARROW_DESC8( DESCW, DESCW4 )
 *
    10       CONTINUE
 *
@@ -321,20 +316,17 @@
             IF( KK.EQ.0 ) KK = NB
             CALL DESCSET_I8( DESCW, N, INT( NB, 8 ), INT( NB, 8 ),
      $           INT( NB, 8 ), IAROW, IACOL, ICTXT, MAX( 1_8, NP ) )
-            CALL NARROW_DESC8( DESCW, DESCW4 )
 *
             DO 20 K8 = 1, N - NB, INT( NB, 8 )
-               I4 = INT( IA + K8 - 1 )
-               J4 = INT( JA + K8 - 1 )
-               K4 = INT( K8 )
 *
                CALL PDLATRD_I8( UPLO, N-K8+1, NB, A, IA+K8-1,
      $              JA+K8-1, DESCA, D, E, TAU, WORK, K8, 1_8,
      $              DESCW, WORK( IPW ) )
 *
-               CALL PDSYR2K( UPLO, 'No transpose', INT( N-K8-NB+1 ),
-     $              NB, -ONE, A, I4+NB, J4, DESCA4, WORK, K4+NB, 1,
-     $              DESCW4, ONE, A, I4+NB, J4+NB, DESCA4 )
+               CALL PDSYR2K_I8( UPLO, 'No transpose', N-K8-NB+1,
+     $              INT( NB, 8 ), -ONE, A, IA+K8-1+NB, JA+K8-1,
+     $              DESCA, WORK, K8+NB, 1_8, DESCW, ONE,
+     $              A, IA+K8-1+NB, JA+K8-1+NB, DESCA )
 *
                JX8 = MIN( INDXG2L_I8( JA+K8+NB-2, INT( NB, 8 ), 0,
      $              IACOL, NPCOL ), NQ )
@@ -342,7 +334,6 @@
      $              E( JX8 ) )
 *
                DESCW( CSRC_ ) = MOD( DESCW( CSRC_ )+1, NPCOL )
-               CALL NARROW_DESC8( DESCW, DESCW4 )
 *
    20       CONTINUE
 *

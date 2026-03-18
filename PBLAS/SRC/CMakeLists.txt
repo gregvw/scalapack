@@ -69,7 +69,8 @@ set (PBLAS_I8
       pddot_i8.c  psdot_i8.c  pcdotc_i8.c  pzdotc_i8.c
       pcsscal_i8.c pzdscal_i8.c
       pdgemv_i8.c  psgemv_i8.c  pcgemv_i8.c  pzgemv_i8.c
-      pdsymv_i8.c  pssymv_i8.c  pchemv_i8.c  pzhemv_i8.c)
+      pdsymv_i8.c  pssymv_i8.c  pchemv_i8.c  pzhemv_i8.c
+      pdsyr2k_i8.c pssyr2k_i8.c pcher2k_i8.c pzher2k_i8.c)
 
 set (pblas
       ${PIBLAS1}
