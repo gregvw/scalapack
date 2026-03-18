@@ -18,16 +18,22 @@ The I8 surface includes:
   - Checked narrowing at PBLAS/LAPACK boundaries
   - Bit-identical to legacy counterparts
 
-7 ctest targets, 103+ tests passing on x86_64 Linux and macOS arm64.
+8 ctest targets, 103+ tests passing on x86_64 Linux and macOS arm64.
+Zero ASan/UBSan errors in I8 code (clang-20 sanitizer build).
 
-## What work remains (Phase 5)
+## Current state (Phase 5 complete)
 
-See `docs/i8-refactor/PHASE5-PLAN.md` for the native I8 PBLAS slice plan.
+See `docs/i8-refactor/PHASE5-NOTES.md` for full outcomes.
 
-Key decision pending: duplicate _I8 C files vs parameterize shared PBLAS cores.
+Native I8 PBLAS surface: 26 C entry points (thin wrappers via pblas_i8_utils.h).
+Fortran I8 auxiliaries: PxLARFG, PxLACGV, PxLATRD, PxELGET (14 files).
+All four bridge drivers use native PxLATRD_I8 on the hot path.
 
-First-wave PBLAS kernels (driven by PxLATRD dependency cone):
-PxAXPY, PxSCAL, PxNRM2, PxDOT/DOTC, PxGEMV, PxSYMV/HEMV
+## What work remains (Phase 6)
+
+Remaining narrowed boundaries in bridge drivers:
+- PxSYR2K / PxHER2K (level-3 PBLAS, once per blocked iteration)
+- PxSYTD2 / PxHETD2 (unblocked reduction, once per call)
 
 ## Design rules
 

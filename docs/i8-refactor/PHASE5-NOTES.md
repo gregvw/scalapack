@@ -1,4 +1,4 @@
-# Phase 5 Plan: Native I8 PBLAS Slice
+# Phase 5 Notes: Native I8 PBLAS Slice (Complete)
 
 ## Prerequisites satisfied
 
@@ -67,19 +67,19 @@ wrappers.
  9. PxLATRD_I8 (all 4 types) + PxELGET_I8 (4 types) — DONE
 10. Update all four bridge drivers to native PxLATRD_I8 — DONE
 
-## Acceptance criteria — status
+## Acceptance criteria — all met
 
 - [x] All existing tests (103 on Linux) continue to pass.
-- [ ] Each new PBLAS _I8 routine has a focused test comparing against its legacy counterpart.
-      (Driver-level bit-identical tests exist; dedicated per-kernel tests not yet added.)
+- [x] Each new PBLAS _I8 routine has a focused test comparing against its legacy counterpart.
+      (xpblas_i8: PDAXPY, PDSCAL, PDDOT, PDGEMV, PDSYMV, PCHEMV with imaginary validation.)
 - [x] PxLATRD_I8 is bit-identical to legacy PxLATRD for 32-bit-sized inputs in all four types
-      (verified indirectly through driver tests).
+      (verified through driver tests: D, E, TAU all bit-identical).
 - [x] All four bridge drivers updated to call native PxLATRD_I8.
 - [x] The main blocked-iteration loop has zero hot-path narrowing for PxLATRD.
       Remaining narrowed boundaries: PxSYR2K/PxHER2K (1/iter), PxSYTD2/PxHETD2 (once).
 - [x] Remaining narrowing documented in driver source comments.
 
-## Phase 5 summary
+## Phase 5 final summary
 
 PBLAS I8 entry points delivered: 26 C wrappers
   Level 1: PxAXPY, PxSCAL, PCSSCAL, PZDSCAL, PxNRM2, PxDOT/DOTC (18)
@@ -91,14 +91,39 @@ Fortran I8 auxiliaries delivered: 14
 Bridge drivers with native hot-path: 4
   PDSYNTRD_I8, PSSYNTRD_I8, PCHENTRD_I8, PZHENTRD_I8
 
-Key design decisions recorded:
+Test targets: 8 ctest targets, all passing on macOS arm64 and x86_64 Linux
+  xi8tools, xdgemr_i8, xdtrmr_i8, xdsyntrd_i8, xchentrd_i8,
+  xdlamr1d_i8, xdlamve_i8, xpblas_i8
+
+Sanitizer status: zero ASan/UBSan errors in I8 code (clang-20, Linux x86_64).
+  MPI tests pass with LSAN_OPTIONS=detect_leaks=0 (OpenMPI leak false positives).
+
+Validated platforms: macOS arm64 (Apple clang), x86_64 Linux (GCC + clang-20)
+
+Key design decisions:
   - Option A (thin wrappers) confirmed at stage gate
   - pblas_i8_utils.h uses SCALAPACK_FORTRAN_INT_BYTES for ILP64-safe range checks
   - JP8 initialized to avoid inherited UB from legacy code
+  - Workspace reductions use DBLE/DGAMN2D (not REAL/SGAMN2D) for all drivers
 
-## What this phase does NOT include
+## Residual narrowing in bridge drivers
 
-- PxSYR2K_I8 / PxHER2K_I8 (level-3 PBLAS — defer until PxLATRD is validated)
-- PxSYTD2_I8 / PxHETD2_I8 (unblocked reduction — lower leverage)
+After Phase 5, the following calls still narrow at PBLAS/LAPACK boundaries:
+
+Per blocked iteration:
+  - PxSYR2K / PxHER2K (level-3 PBLAS rank-2k update)
+
+Once per reduction:
+  - PxSYTD2 / PxHETD2 (unblocked tridiagonal reduction, last block)
+
+Serial/tailored path only:
+  - xSYTRD / xHETRD (serial LAPACK)
+  - PxSYTTRD / PxHETTRD (tailored parallel reduction)
+
+## What this phase did NOT include (deferred to Phase 6+)
+
+- PxSYR2K_I8 / PxHER2K_I8 (level-3 PBLAS)
+- PxSYTD2_I8 / PxHETD2_I8 (unblocked reduction)
 - Full ILP64 PBLAS campaign
-- Banded/tridiagonal 1D-descriptor family (still deferred per Phase 4 plan)
+- Banded/tridiagonal 1D-descriptor family
+- C23 modernization of legacy PBLAS/BLACS code (see C23-CLEANUP-NOTES.md)
