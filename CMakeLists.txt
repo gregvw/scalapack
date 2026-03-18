@@ -130,6 +130,42 @@ option(SCALAPACK_ENABLE_FORTRAN_RUNTIME_CHECKS
        OFF)
 set(SCALAPACK_SANITIZERS "address;undefined" CACHE STRING
     "Semicolon-separated sanitizer list for Debug builds")
+option(SCALAPACK_ENABLE_STRICT_C_WARNINGS
+       "Enable a curated Clang warning bundle for C sources"
+       OFF)
+set(SCALAPACK_STRICT_C_WARNING_FLAGS
+    "-Wall;-Wextra;-Wconversion;-Wsign-conversion;-Wshadow;-Wundef;-Wformat=2;-Wcast-qual;-Wwrite-strings;-Wstrict-prototypes;-Wmissing-prototypes;-Wimplicit-fallthrough;-Wnull-dereference;-Wdouble-promotion"
+    CACHE STRING
+    "Semicolon-separated C warning flags to enable when SCALAPACK_ENABLE_STRICT_C_WARNINGS=ON")
+
+if(SCALAPACK_ENABLE_STRICT_C_WARNINGS)
+  if(CMAKE_C_COMPILER_ID MATCHES "^(AppleClang|Clang)$")
+    set(_scalapack_strict_c_warning_flags)
+    foreach(_scalapack_warning_flag IN LISTS SCALAPACK_STRICT_C_WARNING_FLAGS)
+      string(MAKE_C_IDENTIFIER "${_scalapack_warning_flag}" _scalapack_warning_ident)
+      check_c_compiler_flag("${_scalapack_warning_flag}"
+                            "SCALAPACK_HAVE_C_WARNING_${_scalapack_warning_ident}")
+      if(SCALAPACK_HAVE_C_WARNING_${_scalapack_warning_ident})
+        list(APPEND _scalapack_strict_c_warning_flags "${_scalapack_warning_flag}")
+      else()
+        message(STATUS
+                "Skipping unsupported C warning flag: ${_scalapack_warning_flag}")
+      endif()
+    endforeach()
+
+    if(_scalapack_strict_c_warning_flags)
+      add_compile_options(
+        $<$<COMPILE_LANGUAGE:C>:${_scalapack_strict_c_warning_flags}>
+      )
+    else()
+      message(WARNING
+              "SCALAPACK_ENABLE_STRICT_C_WARNINGS is ON, but no requested warning flags are supported.")
+    endif()
+  else()
+    message(STATUS
+            "Ignoring SCALAPACK_ENABLE_STRICT_C_WARNINGS because the C compiler is ${CMAKE_C_COMPILER_ID}, not Clang.")
+  endif()
+endif()
 
 if(SCALAPACK_ENABLE_SANITIZERS)
   if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
