@@ -58,7 +58,7 @@
      $                   CHK1MAT_I8, DESCSET_I8, ZHETRD,
      $                   DGAMN2D, PCHK1MAT_I8, PZELSET_I8,
      $                   PZLAMR1D_I8, PDLAMR1D_I8,
-     $                   PZLATRD, PZHER2K, PZHETD2, PZHETTRD,
+     $                   PZLATRD_I8, PZHER2K, PZHETD2, PZHETTRD,
      $                   PZTRMR2D_I8, PDTRMR2D_I8,
      $                   PB_TOPGET, PB_TOPSET, PXERBLA,
      $                   NARROW_DESC8
@@ -281,9 +281,9 @@
                I4 = INT( IA + K8 - 1 )
                J4 = INT( JA + K8 - 1 )
 *
-               CALL PZLATRD( UPLO, K4+JB-1, JB, A, INT( IA ),
-     $              INT( JA ), DESCA4, D, E, TAU, WORK, 1, 1,
-     $              DESCW4, WORK( IPW ) )
+               CALL PZLATRD_I8( UPLO, K8+JB-1, JB, A, IA,
+     $              JA, DESCA, D, E, TAU, WORK, 1_8, 1_8,
+     $              DESCW, WORK( IPW ) )
 *
                CALL PZHER2K( UPLO, 'No transpose', K4-1, JB,
      $              -CONE, A, INT( IA ), J4, DESCA4,
@@ -317,8 +317,8 @@
                J4 = INT( JA + K8 - 1 )
                K4 = INT( K8 )
 *
-               CALL PZLATRD( UPLO, INT( N-K8+1 ), NB, A, I4, J4,
-     $              DESCA4, D, E, TAU, WORK, K4, 1, DESCW4,
+               CALL PZLATRD_I8( UPLO, N-K8+1, NB, A, IA+K8-1, JA+K8-1,
+     $              DESCA, D, E, TAU, WORK, K8, 1_8, DESCW,
      $              WORK( IPW ) )
 *
                CALL PZHER2K( UPLO, 'No transpose', INT( N-K8-NB+1 ),
