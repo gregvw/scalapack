@@ -139,10 +139,14 @@ if(SCALAPACK_ENABLE_SANITIZERS)
 
   string(REPLACE ";" "," _scalapack_sanitizer_list "${SCALAPACK_SANITIZERS}")
   foreach(_scalapack_sanitizer IN LISTS SCALAPACK_SANITIZERS)
-    string(MAKE_C_IDENTIFIER "${_scalapack_sanitizer}" _scalapack_sanitizer_ident)
-    check_c_compiler_flag("-fsanitize=${_scalapack_sanitizer}"
-                          "SCALAPACK_HAVE_C_SANITIZER_${_scalapack_sanitizer_ident}")
-    if(NOT SCALAPACK_HAVE_C_SANITIZER_${_scalapack_sanitizer_ident})
+    set(CMAKE_REQUIRED_FLAGS "-fsanitize=${_scalapack_sanitizer}")
+    set(CMAKE_REQUIRED_LINK_OPTIONS "-fsanitize=${_scalapack_sanitizer}")
+    check_c_source_compiles(
+"int main(void) { return 0; }"
+      "SCALAPACK_HAVE_C_SANITIZER_${_scalapack_sanitizer}")
+    unset(CMAKE_REQUIRED_FLAGS)
+    unset(CMAKE_REQUIRED_LINK_OPTIONS)
+    if(NOT SCALAPACK_HAVE_C_SANITIZER_${_scalapack_sanitizer})
       message(FATAL_ERROR
               "Requested C sanitizer flag is not supported: -fsanitize=${_scalapack_sanitizer}")
     endif()
