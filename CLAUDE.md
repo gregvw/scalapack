@@ -17,10 +17,11 @@ remains in the four reduction drivers.
 - **Tool routines:** NUMROC_I8, INDXL2G_I8, INDXG2L_I8, INDXG2P_I8, INFOG1L_I8, INFOG2L_I8, DESCINIT_I8, DESCSET_I8, PxELSET_I8, PxELGET_I8, NARROW_DESC8
 - **Copy utilities:** xLAMOV_I8, PxLACP2_I8, PxLACPY_I8 (all 4 types)
 - **Redistribution wrappers:** PxLAMR1D_I8 (all 4 types), PxLAMVE_I8 (D, S)
-- **PBLAS I8 entry points:** 42 C wrappers via pblas_i8_utils.h
-  - Level 1: PxAXPY, PxSCAL, PCSSCAL, PZDSCAL, PxNRM2, PxDOT/DOTC (18)
-  - Level 2: PxGEMV, PxSYMV/HEMV (8)
+- **PBLAS I8 entry points:** 54 C wrappers via pblas_i8_utils.h
+  - Level 1: PxAXPY, PxSCAL, PCSSCAL, PZDSCAL, PxNRM2, PxDOT/DOTC, PxAMAX, PxSWAP (26)
+  - Level 2: PxGEMV, PxSYMV/HEMV, PxGER/GERU (16)
   - Level 3: PxSYR2K/HER2K, PxSYRK/HERK, PxTRSM, PxGEMM (16)
+  Note: Duplicates removed from count (PCSSCAL/PZDSCAL counted once each)
 - **Fortran I8 auxiliaries:** PxLARFG (4), PxLACGV (2), PxLATRD (4), PxSYTD2_I8 (2), PxHETD2_I8 (2)
 - **Serial LAPACK I8 wrappers:** xSYTRD_I8 (2), xHETRD_I8 (2)
 - **Tailored parallel I8 wrappers:** PxSYTTRD_I8 (2), PxHETTRD_I8 (2)
@@ -30,23 +31,24 @@ remains in the four reduction drivers.
 - **Cholesky solvers:** PxPOTRF_I8 (4), PxPOTRS_I8 (4), PxPOSV_I8 (4)
 - **LU solvers:** PxGETRF_I8 (4), PxGETRS_I8 (4), PxGESV_I8 (4)
 - **LU support:** PxLASWP_I8 (4), PxLAPIV_I8 (4)
+- **Unblocked panel I8:** PxPOTF2_I8 (4), PxGETF2_I8 (4)
 - **Reduction drivers:** PDSYNTRD_I8, PSSYNTRD_I8, PCHENTRD_I8, PZHENTRD_I8
   - All paths (blocked, serial, tailored): fully I8-native (zero inline narrowing)
   - Bit-identical to legacy counterparts
 
 12 ctest targets, all passing on macOS arm64 and x86_64 Linux.
 
-### Known large-N limitations
+### Large-N status
 
-The dense solver cones (Cholesky, LU) accept I8 arguments at the public API but
-reject N > INTMAX at entry because unblocked panel factorizations (PxGETF2,
-PxPOTF2) are legacy INTEGER routines and the panel height M can equal N.
-Making these truly large-N requires either I8 panel factorizations or
-restructuring the blocked algorithms so narrowed dimensions are always bounded
-by NB.  The eigenvalue cone has the same limitation at PxLANSY/PxLANHE.
+The dense solver cones (Cholesky, LU) are fully large-N capable: PxGETF2_I8 and
+PxPOTF2_I8 are native I8 panel routines, and the blocked drivers have no INTMAX
+entry guards.  54 PBLAS I8 entry points support the full call tree.
+
+The eigenvalue cone still has an INTMAX guard because PxLANSY/PxLANHE (matrix
+norm) lacks an _I8 version.
 
 The banded/tridiagonal wrappers are thin wrappers that narrow all arguments —
-they do not support N > INTMAX either.
+they do not support N > INTMAX.
 
 ### Test coverage
 

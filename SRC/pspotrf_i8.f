@@ -8,8 +8,7 @@
 *     INTEGER*8 native version of PSPOTRF.
 *     All public integer arguments (N, IA, JA, DESCA) are INTEGER*8;
 *     INFO stays INTEGER.
-*     Uses I8 calls for PSSYRK and PSTRSM; PSPOTF2 stays legacy
-*     (narrowed at call boundary via NARROW_DESC8).
+*     Uses I8 calls for PSSYRK, PSTRSM, and PSPOTF2.
 *
 *     .. Scalar Arguments ..
       CHARACTER          UPLO
@@ -71,8 +70,6 @@
 *
 *     .. Parameters ..
       INCLUDE 'SL_i8_params.inc'
-      INTEGER*8          INTMAX
-      PARAMETER          ( INTMAX = 2147483647 )
       REAL               ONE
       PARAMETER          ( ONE = 1.0E+0 )
 *     ..
@@ -84,11 +81,11 @@
 *     ..
 *     .. Local Arrays ..
       INTEGER*8          IDUM1( 1 )
-      INTEGER            IDUM2( 1 ), DESCA4( 9 )
+      INTEGER            IDUM2( 1 )
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           BLACS_GRIDINFO, CHK1MAT_I8, NARROW_DESC8,
-     $                   PB_TOPGET, PB_TOPSET, PCHK1MAT_I8, PSPOTF2,
+      EXTERNAL           BLACS_GRIDINFO, CHK1MAT_I8, PCHK1MAT_I8,
+     $                   PB_TOPGET, PB_TOPSET, PSPOTF2_I8,
      $                   PSSYRK_I8, PSTRSM_I8, PXERBLA
 *     ..
 *     .. External Functions ..
@@ -146,20 +143,6 @@
       IF( N.EQ.0 )
      $   RETURN
 *
-*     Range check: PSPOTF2 requires narrowing to INTEGER.
-*     N, IA, JA must fit in INTEGER for the POTF2 calls.
-*     (The block size is always small, so JB is fine.)
-*
-      IF( N.GT.INTMAX .OR. IA.GT.INTMAX .OR. JA.GT.INTMAX ) THEN
-         INFO = -1
-         CALL PXERBLA( ICTXT, 'PSPOTRF_I8', 1 )
-         RETURN
-      END IF
-*
-*     Narrow descriptor for PSPOTF2 calls (legacy INTEGER interface)
-*
-      CALL NARROW_DESC8( DESCA, DESCA4 )
-*
       CALL PB_TOPGET( ICTXT, 'Broadcast', 'Rowwise', ROWBTOP )
       CALL PB_TOPGET( ICTXT, 'Broadcast', 'Columnwise', COLBTOP )
 *
@@ -181,7 +164,7 @@
 *
 *        Perform unblocked Cholesky factorization on JB block
 *
-         CALL PSPOTF2( UPLO, JB, A, INT( IA ), INT( JA ), DESCA4,
+         CALL PSPOTF2_I8( UPLO, INT( JB, 8 ), A, IA, JA, DESCA,
      $                 INFO )
          IF( INFO.NE.0 )
      $      GO TO 30
@@ -209,7 +192,7 @@
 *
 *           Perform unblocked Cholesky factorization on JB block
 *
-            CALL PSPOTF2( UPLO, JB, A, INT( I ), INT( J ), DESCA4,
+            CALL PSPOTF2_I8( UPLO, INT( JB, 8 ), A, I, J, DESCA,
      $                    INFO )
             IF( INFO.NE.0 ) THEN
                INFO = INFO + INT( J - JA )
@@ -251,7 +234,7 @@
 *
 *        Perform unblocked Cholesky factorization on JB block
 *
-         CALL PSPOTF2( UPLO, JB, A, INT( IA ), INT( JA ), DESCA4,
+         CALL PSPOTF2_I8( UPLO, INT( JB, 8 ), A, IA, JA, DESCA,
      $                 INFO )
          IF( INFO.NE.0 )
      $      GO TO 30
@@ -278,7 +261,7 @@
 *
 *           Perform unblocked Cholesky factorization on JB block
 *
-            CALL PSPOTF2( UPLO, JB, A, INT( I ), INT( J ), DESCA4,
+            CALL PSPOTF2_I8( UPLO, INT( JB, 8 ), A, I, J, DESCA,
      $                    INFO )
             IF( INFO.NE.0 ) THEN
                INFO = INFO + INT( J - JA )

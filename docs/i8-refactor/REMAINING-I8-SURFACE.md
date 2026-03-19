@@ -17,11 +17,11 @@ planning-relevant routine families rather than internal C helpers.
 - Redistribution wrappers: `PxLAMR1D_I8` (4), `PxLAMVE_I8` (D, S)
 - Element access: `PxELSET_I8`, `PxELGET_I8` (all 4 types)
 
-### PBLAS I8 entry points (42 C wrappers)
+### PBLAS I8 entry points (54 C wrappers)
 
 - Level 1: `PxAXPY`, `PxSCAL`, `PCSSCAL`, `PZDSCAL`, `PxNRM2`,
-  `PxDOT/DOTC` (18)
-- Level 2: `PxGEMV`, `PxSYMV/HEMV` (8)
+  `PxDOT/DOTC`, `PxAMAX`, `PxSWAP` (26)
+- Level 2: `PxGEMV`, `PxSYMV/HEMV`, `PxGER/GERU` (16)
 - Level 3: `PxSYR2K/HER2K`, `PxSYRK/HERK`, `PxTRSM`, `PxGEMM` (16)
 
 ### Tridiagonal reduction cone
@@ -51,11 +51,10 @@ planning-relevant routine families rather than internal C helpers.
 - Cholesky: `PxPOTRF_I8` (4), `PxPOTRS_I8` (4), `PxPOSV_I8` (4)
 - LU: `PxGETRF_I8` (4), `PxGETRS_I8` (4), `PxGESV_I8` (4)
 - LU support: `PxLASWP_I8` (4), `PxLAPIV_I8` (4)
+- Unblocked panels: `PxPOTF2_I8` (4), `PxGETF2_I8` (4)
 
-**Note:** Dense solver cones accept I8 at the API but reject
-N > INTMAX because unblocked panel factorizations (PxGETF2, PxPOTF2)
-are legacy INTEGER.  Making these truly large-N requires I8 panel
-factorizations or algorithmic restructuring.
+Dense solver cones are fully large-N capable: PxGETF2_I8 and
+PxPOTF2_I8 are native I8 panel routines with no INTMAX entry guards.
 
 ## Remaining: SVD cone
 
@@ -77,7 +76,7 @@ Deferred — recursive/index-heavy families requiring deep refactoring.
 
 ## Remaining: public PBLAS families without `_I8`
 
-Current missing public PBLAS surface: 81 entry points.
+Current missing public PBLAS surface: 69 entry points.
 
 ### Level 3 / matrix-matrix
 
@@ -93,8 +92,6 @@ Current missing public PBLAS surface: 81 entry points.
 - `pdasymv`, `psasymv`
 - `pcatrmv`, `pdatrmv`, `psatrmv`, `pzatrmv`
 - `pcgerc`, `pzgerc`
-- `pcgeru`, `pzgeru`
-- `pdger`, `psger`
 - `pcher`, `pzher`
 - `pcher2`, `pzher2`
 - `pdsyr`, `pssyr`
@@ -106,12 +103,10 @@ Current missing public PBLAS surface: 81 entry points.
 
 ### Level 1 / vector
 
-- `pcamax`, `pdamax`, `psamax`, `pzamax`
 - `pdasum`, `psasum`
 - `pscasum`, `pdzasum`
 - `pccopy`, `pdcopy`, `picopy`, `pscopy`, `pzcopy`
 - `pcdotu`, `pzdotu`
-- `pcswap`, `pdswap`, `psswap`, `pzswap`
 - `pctrmv`, `pdtrmv`, `pstrmv`, `pztrmv`
 - `pctrsv`, `pdtrsv`, `pstrsv`, `pztrsv`
 - `pcgeadd`, `pdgeadd`, `psgeadd`, `pzgeadd`
@@ -149,7 +144,7 @@ Mostly utility routines, not blockers for current solver cones.
   adding a new `*_i8` file, update this manifest manually.
 - Internal `PB_*` PBLAS helpers are intentionally excluded from the PBLAS
   list above.  This manifest is about public or phase-planning surface.
-- Routines like `PxLANSY`, `PxLANHE`, `PxGETF2`, `PxPOTF2` are internal
-  narrowing boundaries within the completed solver cones — they do not
-  appear in the "remaining" lists because they are not public entry points,
-  but they limit the large-N capability of the cones that call them.
+- `PxGETF2_I8` and `PxPOTF2_I8` are now native I8 — the dense solver
+  cones have no remaining internal narrowing boundaries.
+- `PxLANSY` / `PxLANHE` remain internal narrowing boundaries in the
+  eigensolver cone only.

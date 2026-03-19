@@ -180,6 +180,9 @@ set (I8SRC
    pdpotrf_i8.f   pspotrf_i8.f   pcpotrf_i8.f   pzpotrf_i8.f
    pdpotrs_i8.f   pspotrs_i8.f   pcpotrs_i8.f   pzpotrs_i8.f
    pdposv_i8.f    psposv_i8.f    pcposv_i8.f    pzposv_i8.f
+   # Unblocked panel I8 drivers (large-N enablement)
+   pdpotf2_i8.f   pspotf2_i8.f   pcpotf2_i8.f   pzpotf2_i8.f
+   pdgetf2_i8.f   psgetf2_i8.f   pcgetf2_i8.f   pzgetf2_i8.f
    # LU solver I8 drivers + support
    pdlaswp_i8.f   pslaswp_i8.f   pclaswp_i8.f   pzlaswp_i8.f
    pdlapiv_i8.f   pslapiv_i8.f   pclapiv_i8.f   pzlapiv_i8.f

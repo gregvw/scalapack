@@ -8,7 +8,7 @@
 *     INTEGER*8 native version of PSGETRF.
 *     All public integer arguments are INTEGER*8 except IPIV and INFO.
 *     Uses I8 PBLAS calls (PSTRSM_I8, PSGEMM_I8, PSLASWP_I8).
-*     PSGETF2 remains legacy (operates on a single block).
+*     Uses PSGETF2_I8 for panel factorization.
 *
 *     .. Scalar Arguments ..
       INTEGER*8          M, N, IA, JA
@@ -24,8 +24,6 @@
 *
 *     .. Parameters ..
       INCLUDE 'SL_i8_params.inc'
-      INTEGER*8          INTMAX
-      PARAMETER          ( INTMAX = 2147483647 )
       REAL               ONE
       PARAMETER          ( ONE = 1.0E+0 )
 *     ..
@@ -37,13 +35,13 @@
 *     ..
 *     .. Local Arrays ..
       INTEGER*8          IDUM1( 1 )
-      INTEGER            IDUM2( 1 ), DESCA4( 9 )
+      INTEGER            IDUM2( 1 )
 *     ..
 *     .. External Subroutines ..
       EXTERNAL           BLACS_GRIDINFO, CHK1MAT_I8, IGAMN2D,
      $                   PCHK1MAT_I8, PB_TOPGET, PB_TOPSET,
-     $                   PSGEMM_I8, PSGETF2, PSLASWP_I8, PSTRSM_I8,
-     $                   PXERBLA, NARROW_DESC8
+     $                   PSGEMM_I8, PSGETF2_I8, PSLASWP_I8,
+     $                   PSTRSM_I8, PXERBLA
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          INT, MIN, MOD
@@ -92,17 +90,6 @@
          RETURN
       END IF
 *
-*     Range check
-*
-      IF( M.GT.INTMAX .OR. N.GT.INTMAX .OR.
-     $    IA.GT.INTMAX .OR. JA.GT.INTMAX ) THEN
-         INFO = -1
-         CALL PXERBLA( ICTXT, 'PSGETRF_I8', 1 )
-         RETURN
-      END IF
-*
-      CALL NARROW_DESC8( DESCA, DESCA4 )
-*
       CALL PB_TOPGET( ICTXT, 'Broadcast', 'Rowwise', ROWBTOP )
       CALL PB_TOPGET( ICTXT, 'Broadcast', 'Columnwise', COLBTOP )
       CALL PB_TOPGET( ICTXT, 'Combine', 'Columnwise', COLCTOP )
@@ -116,7 +103,7 @@
       JN = MIN( ((JA + NB8 - 1) / NB8) * NB8, JA+MN-1 )
       JB = INT( JN - JA + 1 )
 *
-      CALL PSGETF2( INT( M ), JB, A, INT( IA ), INT( JA ), DESCA4,
+      CALL PSGETF2_I8( M, INT( JB, 8 ), A, IA, JA, DESCA,
      $              IPIV, INFO )
 *
       IF( JB+1.LE.N ) THEN
@@ -144,8 +131,8 @@
          JB = INT( MIN( MN-J+JA, NB8 ) )
          I = IA + J - JA
 *
-         CALL PSGETF2( INT( M-J+JA ), JB, A, INT( I ), INT( J ),
-     $                 DESCA4, IPIV, IINFO )
+         CALL PSGETF2_I8( M-J+JA, INT( JB, 8 ), A, I, J,
+     $                 DESCA, IPIV, IINFO )
 *
          IF( INFO.EQ.0 .AND. IINFO.GT.0 )
      $      INFO = IINFO + INT( J - JA )

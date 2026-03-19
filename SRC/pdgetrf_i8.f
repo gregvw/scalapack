@@ -8,7 +8,7 @@
 *     INTEGER*8 native version of PDGETRF.
 *     All public integer arguments are INTEGER*8 except IPIV and INFO.
 *     Uses I8 PBLAS calls (PDTRSM_I8, PDGEMM_I8, PDLASWP_I8).
-*     PDGETF2 remains legacy (operates on a single block, M-J+JA <= NB).
+*     Uses PDGETF2_I8 for panel factorization.
 *
 *     .. Scalar Arguments ..
       INTEGER*8          M, N, IA, JA
@@ -36,8 +36,6 @@
 *
 *     .. Parameters ..
       INCLUDE 'SL_i8_params.inc'
-      INTEGER*8          INTMAX
-      PARAMETER          ( INTMAX = 2147483647 )
       DOUBLE PRECISION   ONE
       PARAMETER          ( ONE = 1.0D+0 )
 *     ..
@@ -49,13 +47,13 @@
 *     ..
 *     .. Local Arrays ..
       INTEGER*8          IDUM1( 1 )
-      INTEGER            IDUM2( 1 ), DESCA4( 9 )
+      INTEGER            IDUM2( 1 )
 *     ..
 *     .. External Subroutines ..
       EXTERNAL           BLACS_GRIDINFO, CHK1MAT_I8, IGAMN2D,
      $                   PCHK1MAT_I8, PB_TOPGET, PB_TOPSET,
-     $                   PDGEMM_I8, PDGETF2, PDLASWP_I8, PDTRSM_I8,
-     $                   PXERBLA, NARROW_DESC8
+     $                   PDGEMM_I8, PDGETF2_I8, PDLASWP_I8,
+     $                   PDTRSM_I8, PXERBLA
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          INT, MIN, MOD
@@ -104,19 +102,6 @@
          RETURN
       END IF
 *
-*     Range check: M, N, IA, JA must fit in INTEGER for PDGETF2.
-*
-      IF( M.GT.INTMAX .OR. N.GT.INTMAX .OR.
-     $    IA.GT.INTMAX .OR. JA.GT.INTMAX ) THEN
-         INFO = -1
-         CALL PXERBLA( ICTXT, 'PDGETRF_I8', 1 )
-         RETURN
-      END IF
-*
-*     Prepare narrowed descriptor for PDGETF2 (legacy INTEGER).
-*
-      CALL NARROW_DESC8( DESCA, DESCA4 )
-*
 *     Split-ring topology for the communication along process rows
 *
       CALL PB_TOPGET( ICTXT, 'Broadcast', 'Rowwise', ROWBTOP )
@@ -138,7 +123,7 @@
 *     Factor diagonal and subdiagonal blocks and test for exact
 *     singularity.
 *
-      CALL PDGETF2( INT( M ), JB, A, INT( IA ), INT( JA ), DESCA4,
+      CALL PDGETF2_I8( M, INT( JB, 8 ), A, IA, JA, DESCA,
      $              IPIV, INFO )
 *
       IF( JB+1.LE.N ) THEN
@@ -177,8 +162,8 @@
 *        Factor diagonal and subdiagonal blocks and test for exact
 *        singularity.
 *
-         CALL PDGETF2( INT( M-J+JA ), JB, A, INT( I ), INT( J ),
-     $                 DESCA4, IPIV, IINFO )
+         CALL PDGETF2_I8( M-J+JA, INT( JB, 8 ), A, I, J,
+     $                 DESCA, IPIV, IINFO )
 *
          IF( INFO.EQ.0 .AND. IINFO.GT.0 )
      $      INFO = IINFO + INT( J - JA )
