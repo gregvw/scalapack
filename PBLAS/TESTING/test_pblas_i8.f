@@ -112,6 +112,30 @@
       CALL TEST_DGEMM( 30_8, 20_8, 4_8, ICTXT, NPROW, NPCOL,
      $                  MYROW, MYCOL, IAM, NTEST, NFAIL )
 *
+*     === PSTRSM (single triangular solve) ===
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- Level 3: STRSM ---'
+      CALL TEST_STRSM( 30_8, 4_8, ICTXT, NPROW, NPCOL,
+     $                  MYROW, MYCOL, IAM, NTEST, NFAIL )
+*
+*     === PCTRSM (complex triangular solve) ===
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- Level 3: CTRSM ---'
+      CALL TEST_CTRSM( 30_8, 4_8, ICTXT, NPROW, NPCOL,
+     $                  MYROW, MYCOL, IAM, NTEST, NFAIL )
+*
+*     === PCHERK (complex Hermitian rank-k) ===
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- Level 3: HERK ---'
+      CALL TEST_CHERK( 30_8, 4_8, ICTXT, NPROW, NPCOL,
+     $                  MYROW, MYCOL, IAM, NTEST, NFAIL )
+*
+*     === PCGEMM (complex general multiply) ===
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- Level 3: CGEMM ---'
+      CALL TEST_CGEMM( 30_8, 20_8, 4_8, ICTXT, NPROW, NPCOL,
+     $                  MYROW, MYCOL, IAM, NTEST, NFAIL )
+*
 *     Summary
 *
       NFAIL_G = NFAIL
@@ -1145,6 +1169,332 @@
             WRITE(*,'(A)') '  PDGEMM_I8: PASSED'
          ELSE
             WRITE(*,'(A,I6)') '  PDGEMM_I8: FAILED ', ERRS
+         END IF
+      END IF
+      DEALLOCATE( A, B, C, CREF )
+      END
+*
+*     ================================================================
+*     TEST_STRSM — PSTRSM_I8 vs legacy
+*     ================================================================
+*
+      SUBROUTINE TEST_STRSM( N8, NB8, ICTXT, NPROW, NPCOL,
+     $                        MYROW, MYCOL, IAM, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+      INTEGER*8          N8, NB8
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      INTEGER            NTEST, NFAIL
+      INTEGER*8          LR, LC, LLD8, I8, J8, GI, GJ
+      INTEGER*8          DESCA8( 9 ), DESCB8( 9 )
+      INTEGER            DESCA4( 9 ), DESCB4( 9 ), INFO, ERRS, N4, NB4
+      REAL, ALLOCATABLE :: A(:), B(:), BREF(:)
+      REAL               ALPHA
+      INTEGER*8          NUMROC_I8, INDXL2G_I8
+      EXTERNAL           NUMROC_I8, INDXL2G_I8
+      INTEGER            NUMROC
+      EXTERNAL           NUMROC, DESCINIT_I8, DESCINIT,
+     $                   PSTRSM_I8, PSTRSM
+      INTRINSIC          REAL, MAX, INT, ABS
+      N4 = INT( N8 )
+      NB4 = INT( NB8 )
+      LR = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LC = NUMROC_I8( N8, NB8, MYCOL, 0, NPCOL )
+      LLD8 = MAX( LR, 1_8 )
+      INFO = 0
+      CALL DESCINIT_I8( DESCA8, N8, N8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT_I8( DESCB8, N8, N8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT( DESCA4, N4, N4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+      CALL DESCINIT( DESCB4, N4, N4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+      ALLOCATE( A( MAX(LLD8*LC,1_8) ), B( MAX(LLD8*LC,1_8) ),
+     $          BREF( MAX(LLD8*LC,1_8) ) )
+      DO J8 = 1, LC
+         GJ = INDXL2G_I8( J8, NB8, MYCOL, 0, NPCOL )
+         DO I8 = 1, LR
+            GI = INDXL2G_I8( I8, NB8, MYROW, 0, NPROW )
+            IF( GI .EQ. GJ ) THEN
+               A( (J8-1)*LLD8 + I8 ) = REAL( N8 )
+            ELSE IF( GI .LT. GJ ) THEN
+               A( (J8-1)*LLD8 + I8 ) =
+     $              1.0 / REAL( 1 + ABS(GI-GJ) )
+            ELSE
+               A( (J8-1)*LLD8 + I8 ) = 0.0
+            END IF
+            B( (J8-1)*LLD8 + I8 ) = 1.0
+            BREF( (J8-1)*LLD8 + I8 ) = 1.0
+         END DO
+      END DO
+      ALPHA = 1.0
+      CALL PSTRSM_I8( 'L', 'U', 'N', 'N', N8, N8, ALPHA,
+     $     A, 1_8, 1_8, DESCA8, B, 1_8, 1_8, DESCB8 )
+      CALL PSTRSM( 'L', 'U', 'N', 'N', N4, N4, ALPHA,
+     $     A, 1, 1, DESCA4, BREF, 1, 1, DESCB4 )
+      NTEST = NTEST + 1
+      ERRS = 0
+      DO J8 = 1, LC
+         DO I8 = 1, LR
+            IF( B((J8-1)*LLD8+I8) .NE.
+     $          BREF((J8-1)*LLD8+I8) ) ERRS = ERRS + 1
+         END DO
+      END DO
+      NFAIL = NFAIL + ERRS
+      IF( IAM .EQ. 0 ) THEN
+         IF( ERRS .EQ. 0 ) THEN
+            WRITE(*,'(A)') '  PSTRSM_I8: PASSED'
+         ELSE
+            WRITE(*,'(A,I6)') '  PSTRSM_I8: FAILED ', ERRS
+         END IF
+      END IF
+      DEALLOCATE( A, B, BREF )
+      END
+*
+*     ================================================================
+*     TEST_CTRSM — PCTRSM_I8 vs legacy
+*     ================================================================
+*
+      SUBROUTINE TEST_CTRSM( N8, NB8, ICTXT, NPROW, NPCOL,
+     $                        MYROW, MYCOL, IAM, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+      INTEGER*8          N8, NB8
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      INTEGER            NTEST, NFAIL
+      INTEGER*8          LR, LC, LLD8, I8, J8, GI, GJ
+      INTEGER*8          DESCA8( 9 ), DESCB8( 9 )
+      INTEGER            DESCA4( 9 ), DESCB4( 9 ), INFO, ERRS, N4, NB4
+      COMPLEX, ALLOCATABLE :: A(:), B(:), BREF(:)
+      COMPLEX            ALPHA
+      INTEGER*8          NUMROC_I8, INDXL2G_I8
+      EXTERNAL           NUMROC_I8, INDXL2G_I8
+      INTEGER            NUMROC
+      EXTERNAL           NUMROC, DESCINIT_I8, DESCINIT,
+     $                   PCTRSM_I8, PCTRSM
+      INTRINSIC          CMPLX, REAL, MAX, INT, ABS
+      N4 = INT( N8 )
+      NB4 = INT( NB8 )
+      LR = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LC = NUMROC_I8( N8, NB8, MYCOL, 0, NPCOL )
+      LLD8 = MAX( LR, 1_8 )
+      INFO = 0
+      CALL DESCINIT_I8( DESCA8, N8, N8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT_I8( DESCB8, N8, N8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT( DESCA4, N4, N4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+      CALL DESCINIT( DESCB4, N4, N4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+      ALLOCATE( A( MAX(LLD8*LC,1_8) ), B( MAX(LLD8*LC,1_8) ),
+     $          BREF( MAX(LLD8*LC,1_8) ) )
+      DO J8 = 1, LC
+         GJ = INDXL2G_I8( J8, NB8, MYCOL, 0, NPCOL )
+         DO I8 = 1, LR
+            GI = INDXL2G_I8( I8, NB8, MYROW, 0, NPROW )
+            IF( GI .EQ. GJ ) THEN
+               A( (J8-1)*LLD8 + I8 ) = CMPLX( REAL(N8), 0.0 )
+            ELSE IF( GI .LT. GJ ) THEN
+               A( (J8-1)*LLD8 + I8 ) = CMPLX(
+     $              1.0/REAL(1+ABS(GI-GJ)), 0.1 )
+            ELSE
+               A( (J8-1)*LLD8 + I8 ) = CMPLX( 0.0, 0.0 )
+            END IF
+            B( (J8-1)*LLD8 + I8 ) = CMPLX( 1.0, 0.0 )
+            BREF( (J8-1)*LLD8 + I8 ) = CMPLX( 1.0, 0.0 )
+         END DO
+      END DO
+      ALPHA = CMPLX( 1.0, 0.0 )
+      CALL PCTRSM_I8( 'L', 'U', 'N', 'N', N8, N8, ALPHA,
+     $     A, 1_8, 1_8, DESCA8, B, 1_8, 1_8, DESCB8 )
+      CALL PCTRSM( 'L', 'U', 'N', 'N', N4, N4, ALPHA,
+     $     A, 1, 1, DESCA4, BREF, 1, 1, DESCB4 )
+      NTEST = NTEST + 1
+      ERRS = 0
+      DO J8 = 1, LC
+         DO I8 = 1, LR
+            IF( B((J8-1)*LLD8+I8) .NE.
+     $          BREF((J8-1)*LLD8+I8) ) ERRS = ERRS + 1
+         END DO
+      END DO
+      NFAIL = NFAIL + ERRS
+      IF( IAM .EQ. 0 ) THEN
+         IF( ERRS .EQ. 0 ) THEN
+            WRITE(*,'(A)') '  PCTRSM_I8: PASSED'
+         ELSE
+            WRITE(*,'(A,I6)') '  PCTRSM_I8: FAILED ', ERRS
+         END IF
+      END IF
+      DEALLOCATE( A, B, BREF )
+      END
+*
+*     ================================================================
+*     TEST_CHERK — PCHERK_I8 vs legacy
+*     ================================================================
+*
+      SUBROUTINE TEST_CHERK( N8, NB8, ICTXT, NPROW, NPCOL,
+     $                        MYROW, MYCOL, IAM, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+      INTEGER*8          N8, NB8
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      INTEGER            NTEST, NFAIL
+      INTEGER*8          LR, LC, LLD8, K8, I8, J8, GI, GJ
+      INTEGER*8          DESCA8( 9 ), DESCC8( 9 )
+      INTEGER            DESCA4( 9 ), DESCC4( 9 )
+      INTEGER            INFO, ERRS, N4, NB4, K4
+      COMPLEX, ALLOCATABLE :: A(:), C(:), CREF(:)
+      REAL               ALPHA, BETA
+      INTEGER*8          NUMROC_I8, INDXL2G_I8
+      EXTERNAL           NUMROC_I8, INDXL2G_I8
+      INTEGER            NUMROC
+      EXTERNAL           NUMROC, DESCINIT_I8, DESCINIT,
+     $                   PCHERK_I8, PCHERK
+      INTRINSIC          CMPLX, REAL, MAX, INT, ABS
+      N4 = INT( N8 )
+      NB4 = INT( NB8 )
+      K8 = NB8
+      K4 = NB4
+      LR = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LC = NUMROC_I8( N8, NB8, MYCOL, 0, NPCOL )
+      LLD8 = MAX( LR, 1_8 )
+      INFO = 0
+      CALL DESCINIT_I8( DESCC8, N8, N8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT_I8( DESCA8, N8, K8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT( DESCC4, N4, N4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+      CALL DESCINIT( DESCA4, N4, K4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+      ALLOCATE( A( MAX(LLD8*LC,1_8) ), C( MAX(LLD8*LC,1_8) ),
+     $          CREF( MAX(LLD8*LC,1_8) ) )
+      DO J8 = 1, LC
+         GJ = INDXL2G_I8( J8, NB8, MYCOL, 0, NPCOL )
+         DO I8 = 1, LR
+            GI = INDXL2G_I8( I8, NB8, MYROW, 0, NPROW )
+            A( (J8-1)*LLD8 + I8 ) = CMPLX( REAL(GI+GJ),
+     $                                       REAL(GI-GJ) )
+            IF( GI .EQ. GJ ) THEN
+               C( (J8-1)*LLD8 + I8 ) = CMPLX( REAL(2*N8), 0.0 )
+            ELSE
+               C( (J8-1)*LLD8 + I8 ) = CMPLX(
+     $              1.0/REAL(1+ABS(GI-GJ)),
+     $              REAL(GI-GJ)/REAL(N8) )
+            END IF
+            CREF( (J8-1)*LLD8 + I8 ) = C( (J8-1)*LLD8 + I8 )
+         END DO
+      END DO
+      ALPHA = 1.0
+      BETA = 1.0
+      CALL PCHERK_I8( 'L', 'N', N8, K8, ALPHA,
+     $     A, 1_8, 1_8, DESCA8, BETA,
+     $     C, 1_8, 1_8, DESCC8 )
+      CALL PCHERK( 'L', 'N', N4, K4, ALPHA,
+     $     A, 1, 1, DESCA4, BETA,
+     $     CREF, 1, 1, DESCC4 )
+      NTEST = NTEST + 1
+      ERRS = 0
+      DO J8 = 1, LC
+         DO I8 = 1, LR
+            IF( C((J8-1)*LLD8+I8) .NE.
+     $          CREF((J8-1)*LLD8+I8) ) ERRS = ERRS + 1
+         END DO
+      END DO
+      NFAIL = NFAIL + ERRS
+      IF( IAM .EQ. 0 ) THEN
+         IF( ERRS .EQ. 0 ) THEN
+            WRITE(*,'(A)') '  PCHERK_I8: PASSED'
+         ELSE
+            WRITE(*,'(A,I6)') '  PCHERK_I8: FAILED ', ERRS
+         END IF
+      END IF
+      DEALLOCATE( A, C, CREF )
+      END
+*
+*     ================================================================
+*     TEST_CGEMM — PCGEMM_I8 vs legacy
+*     ================================================================
+*
+      SUBROUTINE TEST_CGEMM( M8, N8, NB8, ICTXT, NPROW, NPCOL,
+     $                        MYROW, MYCOL, IAM, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+      INTEGER*8          M8, N8, NB8
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      INTEGER            NTEST, NFAIL
+      INTEGER*8          LRM, LCM, LRN, LCN, LLDM, LLDN, K8, I8
+      INTEGER*8          DESCA8( 9 ), DESCB8( 9 ), DESCC8( 9 )
+      INTEGER            DESCA4( 9 ), DESCB4( 9 ), DESCC4( 9 )
+      INTEGER            INFO, ERRS, M4, N4, NB4, K4
+      COMPLEX, ALLOCATABLE :: A(:), B(:), C(:), CREF(:)
+      COMPLEX            ALPHA, BETA
+      INTEGER*8          NUMROC_I8
+      EXTERNAL           NUMROC_I8
+      INTEGER            NUMROC
+      EXTERNAL           NUMROC, DESCINIT_I8, DESCINIT,
+     $                   PCGEMM_I8, PCGEMM
+      INTRINSIC          CMPLX, MAX, INT
+      M4 = INT( M8 )
+      N4 = INT( N8 )
+      NB4 = INT( NB8 )
+      K8 = NB8
+      K4 = NB4
+      LRM = NUMROC_I8( M8, NB8, MYROW, 0, NPROW )
+      LCM = NUMROC_I8( M8, NB8, MYCOL, 0, NPCOL )
+      LRN = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LCN = NUMROC_I8( N8, NB8, MYCOL, 0, NPCOL )
+      LLDM = MAX( LRM, 1_8 )
+      LLDN = MAX( LRN, 1_8 )
+      INFO = 0
+      CALL DESCINIT_I8( DESCA8, M8, K8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLDM, INFO )
+      CALL DESCINIT_I8( DESCB8, K8, N8, NB8, NB8, 0, 0, ICTXT,
+     $                  MAX(NUMROC_I8(K8,NB8,MYROW,0,NPROW),1_8),
+     $                  INFO )
+      CALL DESCINIT_I8( DESCC8, M8, N8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLDM, INFO )
+      CALL DESCINIT( DESCA4, M4, K4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLDM ), INFO )
+      CALL DESCINIT( DESCB4, K4, N4, NB4, NB4, 0, 0, ICTXT,
+     $               MAX(NUMROC(K4,NB4,MYROW,0,NPROW),1), INFO )
+      CALL DESCINIT( DESCC4, M4, N4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLDM ), INFO )
+      ALLOCATE( A( MAX(LLDM*LCM,1_8) ), B( MAX(LLDN*LCN,1_8) ),
+     $          C( MAX(LLDM*LCN,1_8) ), CREF( MAX(LLDM*LCN,1_8) ) )
+      DO I8 = 1, MAX( LLDM*LCM, 1_8 )
+         A( I8 ) = CMPLX( 1.0, 0.0 )
+      END DO
+      DO I8 = 1, MAX( LLDN*LCN, 1_8 )
+         B( I8 ) = CMPLX( 2.0, 0.0 )
+      END DO
+      DO I8 = 1, MAX( LLDM*LCN, 1_8 )
+         C( I8 ) = CMPLX( 0.0, 0.0 )
+         CREF( I8 ) = CMPLX( 0.0, 0.0 )
+      END DO
+      ALPHA = CMPLX( 1.0, 0.0 )
+      BETA = CMPLX( 0.0, 0.0 )
+      CALL PCGEMM_I8( 'N', 'N', M8, N8, K8, ALPHA,
+     $     A, 1_8, 1_8, DESCA8,
+     $     B, 1_8, 1_8, DESCB8, BETA,
+     $     C, 1_8, 1_8, DESCC8 )
+      CALL PCGEMM( 'N', 'N', M4, N4, K4, ALPHA,
+     $     A, 1, 1, DESCA4,
+     $     B, 1, 1, DESCB4, BETA,
+     $     CREF, 1, 1, DESCC4 )
+      NTEST = NTEST + 1
+      ERRS = 0
+      DO I8 = 1, MAX( LLDM*LCN, 1_8 )
+         IF( C( I8 ) .NE. CREF( I8 ) ) ERRS = ERRS + 1
+      END DO
+      NFAIL = NFAIL + ERRS
+      IF( IAM .EQ. 0 ) THEN
+         IF( ERRS .EQ. 0 ) THEN
+            WRITE(*,'(A)') '  PCGEMM_I8: PASSED'
+         ELSE
+            WRITE(*,'(A,I6)') '  PCGEMM_I8: FAILED ', ERRS
          END IF
       END IF
       DEALLOCATE( A, B, C, CREF )

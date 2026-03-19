@@ -51,7 +51,7 @@ they do not support N > INTMAX either.
 ### Test coverage
 
 - Driver tests exercise both UPLO='L' (serial/tailored path) and UPLO='U' (blocked path)
-- PBLAS I8 kernel tests cover Level 1 (AXPY, SCAL, DOT, NRM2, DOTC), Level 2 (GEMV, SYMV, HEMV), Level 3 (SYR2K, HER2K)
+- PBLAS I8 kernel tests cover Level 1 (AXPY, SCAL, DOT, NRM2, DOTC), Level 2 (GEMV, SYMV, HEMV), Level 3 (SYR2K, HER2K, SYRK, TRSM, GEMM — D and C types)
 - All comparisons are bit-identical against legacy routines
 
 ## Design rules
