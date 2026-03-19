@@ -4,11 +4,11 @@ Starting with an initial commit (b935167ca4d244735abc04a3cd4f6d56699702a0) after
 ScaLAPACK, we have been refactoring the codebase to be compatible with 64-bit integers
 for MPI 4+. Planning and progress notes are in `docs/i8-refactor/`.
 
-## Current state (Phase 8 complete)
+## Current state (Phase 11 complete — large-N solver closure)
 
-The tridiagonal reduction driver cone is fully I8-native.  All narrowing is
-encapsulated in dedicated _I8 wrapper files — zero inline INT() narrowing
-remains in the four reduction drivers.
+Dense direct-solve cones (LU, Cholesky) are fully large-N capable with no
+INTMAX entry guards.  All narrowing in the LU/Cholesky paths is encapsulated
+in native I8 panel routines (PxGETF2_I8, PxPOTF2_I8).
 
 ### I8 surface
 
@@ -21,22 +21,14 @@ remains in the four reduction drivers.
   - Level 1: PxAXPY, PxSCAL, PCSSCAL, PZDSCAL, PxNRM2, PxDOT/DOTC, PxAMAX, PxSWAP (26)
   - Level 2: PxGEMV, PxSYMV/HEMV, PxGER/GERU (16)
   - Level 3: PxSYR2K/HER2K, PxSYRK/HERK, PxTRSM, PxGEMM (16)
-  Note: Duplicates removed from count (PCSSCAL/PZDSCAL counted once each)
-- **Fortran I8 auxiliaries:** PxLARFG (4), PxLACGV (2), PxLATRD (4), PxSYTD2_I8 (2), PxHETD2_I8 (2)
-- **Serial LAPACK I8 wrappers:** xSYTRD_I8 (2), xHETRD_I8 (2)
-- **Tailored parallel I8 wrappers:** PxSYTTRD_I8 (2), PxHETTRD_I8 (2)
+- **Tridiagonal reduction cone:** PxSYNTRD_I8, PxHENTRD_I8 (4 native drivers), PxLATRD_I8 (4), PxLARFG_I8 (4), PxLACGV_I8 (2), PxSYTD2_I8 (2), PxHETD2_I8 (2), xSYTRD_I8 (2), xHETRD_I8 (2), PxSYTTRD_I8 (2), PxHETTRD_I8 (2)
 - **Banded/tridiagonal I8 wrappers:** 56 routines (DB, DT, GB, PB, PT families, all 4 types)
-- **Eigenvalue solvers:** PxSYEV_I8 (2), PxHEEV_I8 (2)
-- **Eigensolver support:** PxLASCL_I8 (4), PxLASET_I8 (4), PxORMTR_I8 (2), PxUNMTR_I8 (2)
+- **Eigenvalue solvers:** PxSYEV_I8 (2), PxHEEV_I8 (2) + support: PxLASCL_I8 (4), PxLASET_I8 (4), PxORMTR_I8 (2), PxUNMTR_I8 (2)
 - **Cholesky solvers:** PxPOTRF_I8 (4), PxPOTRS_I8 (4), PxPOSV_I8 (4)
-- **LU solvers:** PxGETRF_I8 (4), PxGETRS_I8 (4), PxGESV_I8 (4)
-- **LU support:** PxLASWP_I8 (4), PxLAPIV_I8 (4)
+- **LU solvers:** PxGETRF_I8 (4), PxGETRS_I8 (4), PxGESV_I8 (4) + support: PxLASWP_I8 (4), PxLAPIV_I8 (4)
 - **Unblocked panel I8:** PxPOTF2_I8 (4), PxGETF2_I8 (4)
-- **Reduction drivers:** PDSYNTRD_I8, PSSYNTRD_I8, PCHENTRD_I8, PZHENTRD_I8
-  - All paths (blocked, serial, tailored): fully I8-native (zero inline narrowing)
-  - Bit-identical to legacy counterparts
 
-12 ctest targets, all passing on macOS arm64 and x86_64 Linux.
+13 ctest targets, all passing on macOS arm64 and x86_64 Linux.
 
 ### Large-N status
 
@@ -52,8 +44,13 @@ they do not support N > INTMAX.
 
 ### Test coverage
 
-- Driver tests exercise both UPLO='L' (serial/tailored path) and UPLO='U' (blocked path)
-- PBLAS I8 kernel tests cover Level 1 (AXPY, SCAL, DOT, NRM2, DOTC), Level 2 (GEMV, SYMV, HEMV), Level 3 (SYR2K, HER2K, SYRK, TRSM, GEMM — D and C types)
+- **Solver tests:** xgesv_i8 (D, S, C, Z), xposv_i8 (D, S, C, Z + bad-UPLO N=0 edge case)
+- **Eigensolver tests:** xsyev_i8 (D, S, C, Z)
+- **Reduction tests:** xdsyntrd_i8 (D, S, UPLO=L+U), xchentrd_i8 (C, Z, UPLO=L+U)
+- **PBLAS kernel tests:** xpblas_i8 (18 tests: L1/L2/L3 + K=0 beta edge case, D and C types)
+- **Tools tests:** xi8tools (standalone), xi8tools_mpi (DESC_CONVERT 2D→1D, PCHK1MAT)
+- **Large-index test:** xlargeidx_i8 (NUMROC/DESCINIT/INDXL2G with N=3B, descriptor > INTMAX)
+- **Redistribution tests:** xdgemr_i8, xdtrmr_i8, xdlamr1d_i8, xdlamve_i8
 - All comparisons are bit-identical against legacy routines
 
 ## Design rules
@@ -61,5 +58,7 @@ they do not support N > INTMAX.
 - DTYPE encodes layout (1=2D, 501=1D-H, 502=1D-V). Width lives in symbol names (_I8 suffix).
 - All public _I8 integer arguments are INTEGER*8. INFO stays default INTEGER.
 - BLACS context narrowed to INTEGER at call boundary.
-- PBLAS I8 wrappers use pblas_i8_utils.h with SCALAPACK_FORTRAN_INT_BYTES for ILP64-safe range checks.
+- PBLAS I8 wrappers use pblas_i8_utils.h. No early returns — legacy handles all edge cases.
+- NARROW_DESC8 aborts on overflow (fail-fast, not clamp).
+- Workspace queries pass through to legacy (no premature quick returns in thin wrappers).
 - Workspace reductions use DBLE/DGAMN2D (never REAL/SGAMN2D) for I8-safe global min.

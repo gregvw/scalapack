@@ -205,6 +205,12 @@ add_test(NAME xchentrd_i8
          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
                  ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xchentrd_i8>)
 
+add_executable(xlargeidx_i8 test_large_index_i8.f)
+target_link_libraries(xlargeidx_i8 scalapack ${MPI_Fortran_LIBRARIES})
+add_test(NAME xlargeidx_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xlargeidx_i8>)
+
 add_executable(xgesv_i8 test_pgesv_i8.f)
 target_link_libraries(xgesv_i8 scalapack ${MPI_Fortran_LIBRARIES}
                       ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
