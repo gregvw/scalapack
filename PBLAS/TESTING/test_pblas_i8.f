@@ -136,6 +136,12 @@
       CALL TEST_CGEMM( 30_8, 20_8, 4_8, ICTXT, NPROW, NPCOL,
      $                  MYROW, MYCOL, IAM, NTEST, NFAIL )
 *
+*     === Edge case: K=0, beta!=1 must scale C (not early-return) ===
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- Edge: K=0 beta ---'
+      CALL TEST_GEMM_K0_BETA( 20_8, 4_8, ICTXT, NPROW, NPCOL,
+     $                         MYROW, MYCOL, IAM, NTEST, NFAIL )
+*
 *     Summary
 *
       NFAIL_G = NFAIL
@@ -1498,4 +1504,80 @@
          END IF
       END IF
       DEALLOCATE( A, B, C, CREF )
+      END
+*
+*     ================================================================
+*     TEST_GEMM_K0_BETA — K=0, beta!=1 must scale C (regression)
+*     ================================================================
+*
+      SUBROUTINE TEST_GEMM_K0_BETA( N8, NB8, ICTXT, NPROW, NPCOL,
+     $                               MYROW, MYCOL, IAM, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+      INTEGER*8          N8, NB8
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      INTEGER            NTEST, NFAIL
+      INTEGER*8          LR, LC, LLD8, I8
+      INTEGER*8          DESCA8( 9 ), DESCC8( 9 )
+      INTEGER            DESCA4( 9 ), DESCC4( 9 )
+      INTEGER            INFO, ERRS, N4, NB4
+      DOUBLE PRECISION, ALLOCATABLE :: A(:), C(:), CREF(:)
+      DOUBLE PRECISION   ALPHA, BETA
+      INTEGER*8          NUMROC_I8
+      EXTERNAL           NUMROC_I8
+      INTEGER            NUMROC
+      EXTERNAL           NUMROC, DESCINIT_I8, DESCINIT,
+     $                   PDGEMM_I8, PDGEMM
+      INTRINSIC          DBLE, MAX, INT
+*
+      N4 = INT( N8 )
+      NB4 = INT( NB8 )
+      LR = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LC = NUMROC_I8( N8, NB8, MYCOL, 0, NPCOL )
+      LLD8 = MAX( LR, 1_8 )
+      INFO = 0
+      CALL DESCINIT_I8( DESCA8, N8, 0_8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT_I8( DESCC8, N8, N8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT( DESCA4, N4, 0, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+      CALL DESCINIT( DESCC4, N4, N4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+*
+      ALLOCATE( A( 1 ) )
+      ALLOCATE( C( MAX( LLD8*LC, 1_8 ) ) )
+      ALLOCATE( CREF( MAX( LLD8*LC, 1_8 ) ) )
+*
+*     C = 3.0, then GEMM with K=0, alpha=1, beta=2 should give C = 6.0
+      DO I8 = 1, MAX( LLD8*LC, 1_8 )
+         C( I8 ) = 3.0D0
+         CREF( I8 ) = 3.0D0
+      END DO
+*
+      ALPHA = 1.0D0
+      BETA = 2.0D0
+      CALL PDGEMM_I8( 'N', 'N', N8, N8, 0_8, ALPHA,
+     $     A, 1_8, 1_8, DESCA8,
+     $     A, 1_8, 1_8, DESCA8, BETA,
+     $     C, 1_8, 1_8, DESCC8 )
+      CALL PDGEMM( 'N', 'N', N4, N4, 0, ALPHA,
+     $     A, 1, 1, DESCA4,
+     $     A, 1, 1, DESCA4, BETA,
+     $     CREF, 1, 1, DESCC4 )
+*
+      NTEST = NTEST + 1
+      ERRS = 0
+      DO I8 = 1, MAX( LLD8*LC, 1_8 )
+         IF( C( I8 ) .NE. CREF( I8 ) ) ERRS = ERRS + 1
+      END DO
+      NFAIL = NFAIL + ERRS
+      IF( IAM .EQ. 0 ) THEN
+         IF( ERRS .EQ. 0 ) THEN
+            WRITE(*,'(A)') '  PDGEMM_I8 K=0 beta: PASSED'
+         ELSE
+            WRITE(*,'(A,I6)') '  PDGEMM_I8 K=0 beta: FAILED ', ERRS
+         END IF
+      END IF
+      DEALLOCATE( A, C, CREF )
       END

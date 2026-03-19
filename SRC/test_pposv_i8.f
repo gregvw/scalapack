@@ -66,6 +66,12 @@
      $                MYROW, MYCOL, IAM, 'Z:N=30,NB=4 ',
      $                NTEST, NFAIL )
 *
+*     === Edge: bad UPLO on N=0 must still report error ===
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- Edge: bad UPLO N=0 ---'
+      CALL RUN_POTRS_BAD_UPLO( ICTXT, NPROW, NPCOL, MYROW, MYCOL,
+     $                          IAM, NTEST, NFAIL )
+*
 *     Summary
 *
       NFAIL_G = NFAIL
@@ -588,4 +594,49 @@
          END IF
       END IF
       DEALLOCATE( A, ACOPY, B, BCOPY, BREF )
+      END
+*
+*     ================================================================
+*     RUN_POTRS_BAD_UPLO — N=0 with bad UPLO must still report error
+*     ================================================================
+*
+      SUBROUTINE RUN_POTRS_BAD_UPLO( ICTXT, NPROW, NPCOL, MYROW,
+     $                                MYCOL, IAM, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      INTEGER            NTEST, NFAIL
+*
+      INTEGER*8          DESCA8( 9 ), DESCB8( 9 )
+      INTEGER            INFO
+      DOUBLE PRECISION   A( 1 ), B( 1 )
+*
+      EXTERNAL           DESCINIT_I8, PDPOTRS_I8
+*
+*     Build minimal valid descriptors (N=1 matrix on a 2x2 grid)
+*
+      INFO = 0
+      CALL DESCINIT_I8( DESCA8, 1_8, 1_8, 1_8, 1_8, 0, 0, ICTXT,
+     $                  1_8, INFO )
+      CALL DESCINIT_I8( DESCB8, 1_8, 1_8, 1_8, 1_8, 0, 0, ICTXT,
+     $                  1_8, INFO )
+*
+*     Call PDPOTRS_I8 with N=0, NRHS=0, but UPLO='X' (invalid).
+*     The routine should still detect the bad UPLO and set INFO < 0,
+*     NOT silently return.
+*
+      INFO = 0
+      CALL PDPOTRS_I8( 'X', 0_8, 0_8, A, 1_8, 1_8, DESCA8,
+     $                  B, 1_8, 1_8, DESCB8, INFO )
+*
+      NTEST = NTEST + 1
+      IF( INFO .EQ. 0 ) THEN
+         NFAIL = NFAIL + 1
+         IF( IAM .EQ. 0 )
+     $      WRITE(*,'(A)') '  POTRS bad UPLO N=0: FAILED (no error)'
+      ELSE
+         IF( IAM .EQ. 0 )
+     $      WRITE(*,'(A,I4)') '  POTRS bad UPLO N=0: PASSED INFO=',
+     $                         INFO
+      END IF
       END
