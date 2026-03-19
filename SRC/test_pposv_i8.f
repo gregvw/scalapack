@@ -47,6 +47,13 @@
      $                MYROW, MYCOL, IAM, 'D:N=30,NB=4 ',
      $                NTEST, NFAIL )
 *
+*     === REAL ===
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PSPOSV_I8 (S) ---'
+      CALL RUN_SPOSV( 30_8, 4_8, 5_8, ICTXT, NPROW, NPCOL,
+     $                MYROW, MYCOL, IAM, 'S:N=30,NB=4 ',
+     $                NTEST, NFAIL )
+*
 *     === COMPLEX*16 ===
 *
       IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- PZPOSV_I8 (Z) ---'
@@ -339,5 +346,122 @@
          END IF
       END IF
 *
+      DEALLOCATE( A, ACOPY, B, BCOPY, BREF )
+      END
+*
+*     ================================================================
+*     RUN_SPOSV — compare PSPOSV_I8 vs legacy PSPOSV
+*     ================================================================
+*
+      SUBROUTINE RUN_SPOSV( N8, NB8, NRHS8, ICTXT, NPROW, NPCOL,
+     $                       MYROW, MYCOL, IAM, LABEL, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+*
+      INTEGER*8          N8, NB8, NRHS8
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      CHARACTER*(*)      LABEL
+      INTEGER            NTEST, NFAIL
+*
+      INTEGER*8          LRA, LCA, LRB, LCB, LLDA, LLDB
+      INTEGER*8          I8, J8, GI, GJ
+      INTEGER*8          DESCA8( 9 ), DESCB8( 9 )
+      INTEGER            DESCA4( 9 ), DESCB4( 9 ), INFO, ERRS
+      INTEGER            NB4, N4, NRHS4
+      REAL, ALLOCATABLE :: A(:), ACOPY(:),
+     $                   B(:), BCOPY(:), BREF(:)
+*
+      INTEGER*8          NUMROC_I8, INDXL2G_I8
+      EXTERNAL           NUMROC_I8, INDXL2G_I8
+      INTEGER            NUMROC
+      EXTERNAL           NUMROC
+      EXTERNAL           DESCINIT_I8, DESCINIT, PSPOSV_I8, PSPOSV
+      INTRINSIC          REAL, MAX, INT, ABS
+*
+      NB4 = INT( NB8 )
+      N4  = INT( N8 )
+      NRHS4 = INT( NRHS8 )
+      LRA  = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LCA  = NUMROC_I8( N8, NB8, MYCOL, 0, NPCOL )
+      LRB  = LRA
+      LCB  = NUMROC_I8( NRHS8, NB8, MYCOL, 0, NPCOL )
+      LLDA = MAX( LRA, 1_8 )
+      LLDB = MAX( LRB, 1_8 )
+*
+      INFO = 0
+      CALL DESCINIT_I8( DESCA8, N8, N8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLDA, INFO )
+      CALL DESCINIT_I8( DESCB8, N8, NRHS8, NB8, NB8, 0, 0, ICTXT,
+     $                  LLDB, INFO )
+      CALL DESCINIT( DESCA4, N4, N4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLDA ), INFO )
+      CALL DESCINIT( DESCB4, N4, NRHS4, NB4, NB4, 0, 0, ICTXT,
+     $               INT( LLDB ), INFO )
+*
+      ALLOCATE( A( MAX( LLDA*LCA, 1_8 ) ) )
+      ALLOCATE( ACOPY( MAX( LLDA*LCA, 1_8 ) ) )
+      ALLOCATE( B( MAX( LLDB*LCB, 1_8 ) ) )
+      ALLOCATE( BCOPY( MAX( LLDB*LCB, 1_8 ) ) )
+      ALLOCATE( BREF( MAX( LLDB*LCB, 1_8 ) ) )
+*
+      DO J8 = 1, LCA
+         GJ = INDXL2G_I8( J8, NB8, MYCOL, 0, NPCOL )
+         DO I8 = 1, LRA
+            GI = INDXL2G_I8( I8, NB8, MYROW, 0, NPROW )
+            IF( GI .EQ. GJ ) THEN
+               A( (J8-1)*LLDA + I8 ) = 2.0 * REAL( N8 )
+            ELSE
+               A( (J8-1)*LLDA + I8 ) =
+     $              REAL( N8 + 1 - ABS( GI - GJ ) )
+            END IF
+         END DO
+      END DO
+      DO J8 = 1, LCB
+         DO I8 = 1, LRB
+            B( (J8-1)*LLDB + I8 ) = 1.0
+         END DO
+      END DO
+      DO I8 = 1, MAX( LLDA*LCA, 1_8 )
+         ACOPY( I8 ) = A( I8 )
+      END DO
+      DO I8 = 1, MAX( LLDB*LCB, 1_8 )
+         BCOPY( I8 ) = B( I8 )
+         BREF( I8 ) = B( I8 )
+      END DO
+*
+      INFO = 0
+      CALL PSPOSV_I8( 'L', N8, NRHS8, A, 1_8, 1_8, DESCA8,
+     $                B, 1_8, 1_8, DESCB8, INFO )
+      NTEST = NTEST + 1
+      IF( INFO .NE. 0 ) THEN
+         IF( IAM .EQ. 0 )
+     $      WRITE(*,*) 'FAIL ', LABEL, ': I8 INFO =', INFO
+         NFAIL = NFAIL + 1
+         DEALLOCATE( A, ACOPY, B, BCOPY, BREF )
+         RETURN
+      END IF
+*
+      INFO = 0
+      CALL PSPOSV( 'L', N4, NRHS4, ACOPY, 1, 1, DESCA4,
+     $             BREF, 1, 1, DESCB4, INFO )
+*
+      ERRS = 0
+      NTEST = NTEST + 1
+      DO J8 = 1, LCB
+         DO I8 = 1, LRB
+            IF( B( (J8-1)*LLDB+I8 ) .NE.
+     $          BREF( (J8-1)*LLDB+I8 ) ) ERRS = ERRS + 1
+         END DO
+      END DO
+      NFAIL = NFAIL + ERRS
+*
+      IF( IAM .EQ. 0 ) THEN
+         IF( ERRS .EQ. 0 ) THEN
+            WRITE(*,'(A,A,A)') '  ', LABEL, ': PASSED'
+         ELSE
+            WRITE(*,'(A,A,A,I6,A)') '  ', LABEL, ': FAILED (',
+     $                               ERRS, ' errors)'
+         END IF
+      END IF
       DEALLOCATE( A, ACOPY, B, BCOPY, BREF )
       END

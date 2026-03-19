@@ -36,6 +36,18 @@ remains in the four reduction drivers.
 
 12 ctest targets, all passing on macOS arm64 and x86_64 Linux.
 
+### Known large-N limitations
+
+The dense solver cones (Cholesky, LU) accept I8 arguments at the public API but
+reject N > INTMAX at entry because unblocked panel factorizations (PxGETF2,
+PxPOTF2) are legacy INTEGER routines and the panel height M can equal N.
+Making these truly large-N requires either I8 panel factorizations or
+restructuring the blocked algorithms so narrowed dimensions are always bounded
+by NB.  The eigenvalue cone has the same limitation at PxLANSY/PxLANHE.
+
+The banded/tridiagonal wrappers are thin wrappers that narrow all arguments —
+they do not support N > INTMAX either.
+
 ### Test coverage
 
 - Driver tests exercise both UPLO='L' (serial/tailored path) and UPLO='U' (blocked path)
