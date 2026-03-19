@@ -17,7 +17,6 @@ void pctrsm_i8_(F_CHAR_T SIDE, F_CHAR_T UPLO, F_CHAR_T TRANS, F_CHAR_T DIAG,
     Int m4, n4, ia4, ja4, ib4, jb4;
     Int desca4[9], descb4[9];
 
-    if (*M <= 0 || *N <= 0) return;
 
     if (!pblas_i8_narrow(*M, &m4) || !pblas_i8_narrow(*N, &n4) ||
         !pblas_i8_narrow(*IA, &ia4) || !pblas_i8_narrow(*JA, &ja4) ||

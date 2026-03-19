@@ -22,7 +22,6 @@ void pzgemv_i8_(F_CHAR_T TRANS, int64_t *M, int64_t *N, double *ALPHA,
     Int m4, n4, ia4, ja4, ix4, jx4, incx4, iy4, jy4, incy4;
     Int desca4[9], descx4[9], descy4[9];
 
-    if (*M <= 0 || *N <= 0) return;
 
     if (!pblas_i8_narrow(*M, &m4) ||
         !pblas_i8_narrow(*N, &n4) ||

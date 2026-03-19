@@ -23,7 +23,6 @@ void pdaxpy_i8_(int64_t *N, double *ALPHA,
     Int ctxt;
 
     /* Quick return */
-    if (*N <= 0) return;
 
     /* Narrow all integer args */
     if (!pblas_i8_narrow(*N, &n4) ||

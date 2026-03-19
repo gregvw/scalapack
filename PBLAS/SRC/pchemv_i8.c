@@ -22,7 +22,6 @@ void pchemv_i8_(F_CHAR_T UPLO, int64_t *N, float *ALPHA,
     Int n4, ia4, ja4, ix4, jx4, incx4, iy4, jy4, incy4;
     Int desca4[9], descx4[9], descy4[9];
 
-    if (*N <= 0) return;
 
     if (!pblas_i8_narrow(*N, &n4) ||
         !pblas_i8_narrow(*IA, &ia4) ||

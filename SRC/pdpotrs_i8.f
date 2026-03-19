@@ -66,10 +66,6 @@
 *     ..
 *     .. Executable Statements ..
 *
-*     Quick return
-*
-      IF( N.EQ.0 .OR. NRHS.EQ.0 ) RETURN
-*
 *     Get grid parameters.
 *
       ICTXT = INT( DESCA( CTXT_ ) )
@@ -131,6 +127,10 @@
          CALL PXERBLA( ICTXT, 'PDPOTRS_I8', -INFO )
          RETURN
       END IF
+*
+*     Quick return if possible
+*
+      IF( N.EQ.0 .OR. NRHS.EQ.0 ) RETURN
 *
       IF( UPPER ) THEN
 *

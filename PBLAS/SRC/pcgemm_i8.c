@@ -20,7 +20,6 @@ void pcgemm_i8_(F_CHAR_T TRANSA, F_CHAR_T TRANSB,
     Int m4, n4, k4, ia4, ja4, ib4, jb4, ic4, jc4;
     Int desca4[9], descb4[9], descc4[9];
 
-    if (*M <= 0 || *N <= 0 || *K <= 0) return;
 
     if (!pblas_i8_narrow(*M, &m4) || !pblas_i8_narrow(*N, &n4) ||
         !pblas_i8_narrow(*K, &k4) ||

@@ -18,7 +18,6 @@ void pcherk_i8_(F_CHAR_T UPLO, F_CHAR_T TRANS,
     Int n4, k4, ia4, ja4, ic4, jc4;
     Int desca4[9], descc4[9];
 
-    if (*N <= 0 || *K <= 0) return;
 
     if (!pblas_i8_narrow(*N, &n4) || !pblas_i8_narrow(*K, &k4) ||
         !pblas_i8_narrow(*IA, &ia4) || !pblas_i8_narrow(*JA, &ja4) ||

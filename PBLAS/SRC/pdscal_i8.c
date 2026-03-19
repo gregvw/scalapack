@@ -14,7 +14,6 @@ void pdscal_i8_(int64_t *N, double *ALPHA,
     Int n4, ix4, jx4, incx4;
     Int descx4[9];
 
-    if (*N <= 0) return;
 
     if (!pblas_i8_narrow(*N, &n4) ||
         !pblas_i8_narrow(*IX, &ix4) ||
