@@ -22,7 +22,7 @@ Deferred — recursive/index-heavy families requiring deep refactoring.
 
 ## Public PBLAS families without `_I8`
 
-69 entry points.
+65 entry points.
 
 ### Level 3 / matrix-matrix
 
@@ -51,7 +51,7 @@ Deferred — recursive/index-heavy families requiring deep refactoring.
 
 - `pdasum`, `psasum`
 - `pscasum`, `pdzasum`
-- `pccopy`, `pdcopy`, `picopy`, `pscopy`, `pzcopy`
+- `picopy`
 - `pcdotu`, `pzdotu`
 - `pctrmv`, `pdtrmv`, `pstrmv`, `pztrmv`
 - `pctrsv`, `pdtrsv`, `pstrsv`, `pztrsv`

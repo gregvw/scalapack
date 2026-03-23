@@ -21,8 +21,8 @@ These enable ButterflyPACK's core compression and factorization paths.
 - **Tool routines:** NUMROC_I8, INDXL2G_I8, INDXG2L_I8, INDXG2P_I8, INFOG1L_I8, INFOG2L_I8, DESCINIT_I8, DESCSET_I8, PxELSET_I8, PxELGET_I8, NARROW_DESC8
 - **Copy utilities:** xLAMOV_I8, PxLACP2_I8, PxLACPY_I8 (all 4 types)
 - **Redistribution wrappers:** PxLAMR1D_I8 (all 4 types), PxLAMVE_I8 (D, S)
-- **PBLAS I8 entry points:** 54 C wrappers via pblas_i8_utils.h
-  - Level 1: PxAXPY, PxSCAL, PCSSCAL, PZDSCAL, PxNRM2, PxDOT/DOTC, PxAMAX, PxSWAP (26)
+- **PBLAS I8 entry points:** 58 C wrappers via pblas_i8_utils.h
+  - Level 1: PxAXPY, PxSCAL, PCSSCAL, PZDSCAL, PxNRM2, PxDOT/DOTC, PxAMAX, PxSWAP, PxCOPY (30)
   - Level 2: PxGEMV, PxSYMV/HEMV, PxGER/GERU (16)
   - Level 3: PxSYR2K/HER2K, PxSYRK/HERK, PxTRSM, PxGEMM (16)
 - **Tridiagonal reduction cone:** PxSYNTRD_I8, PxHENTRD_I8 (4 native drivers), PxLATRD_I8 (4), PxLARFG_I8 (4), PxLACGV_I8 (2), PxSYTD2_I8 (2), PxHETD2_I8 (2), xSYTRD_I8 (2), xHETRD_I8 (2), PxSYTTRD_I8 (2), PxHETTRD_I8 (2)

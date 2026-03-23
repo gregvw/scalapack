@@ -12,10 +12,10 @@ Inventory of all public `_I8` routines implemented so far.
 - Redistribution wrappers: `PxLAMR1D_I8` (4), `PxLAMVE_I8` (D, S)
 - Element access: `PxELSET_I8`, `PxELGET_I8` (all 4 types)
 
-## PBLAS I8 entry points (54 C wrappers)
+## PBLAS I8 entry points (58 C wrappers)
 
 - Level 1: `PxAXPY`, `PxSCAL`, `PCSSCAL`, `PZDSCAL`, `PxNRM2`,
-  `PxDOT/DOTC`, `PxAMAX`, `PxSWAP` (26)
+  `PxDOT/DOTC`, `PxAMAX`, `PxSWAP`, `PxCOPY` (30)
 - Level 2: `PxGEMV`, `PxSYMV/HEMV`, `PxGER/GERU` (16)
 - Level 3: `PxSYR2K/HER2K`, `PxSYRK/HERK`, `PxTRSM`, `PxGEMM` (16)
 

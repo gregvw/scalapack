@@ -82,6 +82,14 @@
       CALL TEST_CDOTC( 80_8, 4_8, ICTXT, NPROW, NPCOL,
      $                  MYROW, MYCOL, IAM, NTEST, NFAIL )
 *
+*     === PDCOPY / PCCOPY ===
+*
+      IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- Level 1: COPY ---'
+      CALL TEST_DCOPY( 100_8, 4_8, ICTXT, NPROW, NPCOL,
+     $                  MYROW, MYCOL, IAM, NTEST, NFAIL )
+      CALL TEST_CCOPY( 100_8, 4_8, ICTXT, NPROW, NPCOL,
+     $                  MYROW, MYCOL, IAM, NTEST, NFAIL )
+*
 *     === PDSYR2K (double symmetric rank-2k) ===
 *
       IF( IAM .EQ. 0 ) WRITE(*,'(A)') '--- Level 3: SYR2K ---'
@@ -1580,4 +1588,136 @@
          END IF
       END IF
       DEALLOCATE( A, C, CREF )
+      END
+*
+*     ================================================================
+*     TEST_DCOPY — PDCOPY_I8 vs legacy PDCOPY
+*     ================================================================
+*
+      SUBROUTINE TEST_DCOPY( N8, NB8, ICTXT, NPROW, NPCOL,
+     $                        MYROW, MYCOL, IAM, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+*
+      INTEGER*8          N8, NB8
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      INTEGER            NTEST, NFAIL
+*
+      INTEGER*8          LR, LLD8, I8
+      INTEGER*8          DESCA8( 9 )
+      INTEGER            DESCA4( 9 ), N4, NB4, INFO, ERRS
+      DOUBLE PRECISION, ALLOCATABLE :: X(:), Y(:), YREF(:)
+*
+      INTEGER*8          NUMROC_I8
+      EXTERNAL           NUMROC_I8
+      EXTERNAL           DESCINIT_I8, DESCINIT, PDCOPY_I8, PDCOPY
+      INTRINSIC          DBLE, MAX, INT
+*
+      N4 = INT( N8 )
+      NB4 = INT( NB8 )
+      LR = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LLD8 = MAX( LR, 1_8 )
+*
+      INFO = 0
+      CALL DESCINIT_I8( DESCA8, N8, 1_8, NB8, 1_8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT( DESCA4, N4, 1, NB4, 1, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+*
+      ALLOCATE( X( MAX( LR, 1_8 ) ) )
+      ALLOCATE( Y( MAX( LR, 1_8 ) ) )
+      ALLOCATE( YREF( MAX( LR, 1_8 ) ) )
+*
+      DO I8 = 1, LR
+         X( I8 ) = DBLE( I8 )
+         Y( I8 ) = 0.0D0
+         YREF( I8 ) = 0.0D0
+      END DO
+*
+      CALL PDCOPY_I8( N8, X, 1_8, 1_8, DESCA8, 1_8,
+     $                Y, 1_8, 1_8, DESCA8, 1_8 )
+      CALL PDCOPY( N4, X, 1, 1, DESCA4, 1,
+     $             YREF, 1, 1, DESCA4, 1 )
+*
+      NTEST = NTEST + 1
+      ERRS = 0
+      DO I8 = 1, LR
+         IF( Y( I8 ) .NE. YREF( I8 ) ) ERRS = ERRS + 1
+      END DO
+      NFAIL = NFAIL + ERRS
+      IF( IAM .EQ. 0 ) THEN
+         IF( ERRS .EQ. 0 ) THEN
+            WRITE(*,'(A)') '  PDCOPY_I8: PASSED'
+         ELSE
+            WRITE(*,'(A,I6)') '  PDCOPY_I8: FAILED ', ERRS
+         END IF
+      END IF
+*
+      DEALLOCATE( X, Y, YREF )
+      END
+*
+*     ================================================================
+*     TEST_CCOPY — PCCOPY_I8 vs legacy PCCOPY
+*     ================================================================
+*
+      SUBROUTINE TEST_CCOPY( N8, NB8, ICTXT, NPROW, NPCOL,
+     $                        MYROW, MYCOL, IAM, NTEST, NFAIL )
+      IMPLICIT NONE
+      INCLUDE 'SL_i8_params.inc'
+*
+      INTEGER*8          N8, NB8
+      INTEGER            ICTXT, NPROW, NPCOL, MYROW, MYCOL, IAM
+      INTEGER            NTEST, NFAIL
+*
+      INTEGER*8          LR, LLD8, I8
+      INTEGER*8          DESCA8( 9 )
+      INTEGER            DESCA4( 9 ), N4, NB4, INFO, ERRS
+      COMPLEX, ALLOCATABLE :: X(:), Y(:), YREF(:)
+*
+      INTEGER*8          NUMROC_I8
+      EXTERNAL           NUMROC_I8
+      EXTERNAL           DESCINIT_I8, DESCINIT, PCCOPY_I8, PCCOPY
+      INTRINSIC          CMPLX, REAL, MAX, INT
+*
+      N4 = INT( N8 )
+      NB4 = INT( NB8 )
+      LR = NUMROC_I8( N8, NB8, MYROW, 0, NPROW )
+      LLD8 = MAX( LR, 1_8 )
+*
+      INFO = 0
+      CALL DESCINIT_I8( DESCA8, N8, 1_8, NB8, 1_8, 0, 0, ICTXT,
+     $                  LLD8, INFO )
+      CALL DESCINIT( DESCA4, N4, 1, NB4, 1, 0, 0, ICTXT,
+     $               INT( LLD8 ), INFO )
+*
+      ALLOCATE( X( MAX( LR, 1_8 ) ) )
+      ALLOCATE( Y( MAX( LR, 1_8 ) ) )
+      ALLOCATE( YREF( MAX( LR, 1_8 ) ) )
+*
+      DO I8 = 1, LR
+         X( I8 ) = CMPLX( REAL( I8 ), REAL( I8 * 2 ) )
+         Y( I8 ) = CMPLX( 0.0, 0.0 )
+         YREF( I8 ) = CMPLX( 0.0, 0.0 )
+      END DO
+*
+      CALL PCCOPY_I8( N8, X, 1_8, 1_8, DESCA8, 1_8,
+     $                Y, 1_8, 1_8, DESCA8, 1_8 )
+      CALL PCCOPY( N4, X, 1, 1, DESCA4, 1,
+     $             YREF, 1, 1, DESCA4, 1 )
+*
+      NTEST = NTEST + 1
+      ERRS = 0
+      DO I8 = 1, LR
+         IF( Y( I8 ) .NE. YREF( I8 ) ) ERRS = ERRS + 1
+      END DO
+      NFAIL = NFAIL + ERRS
+      IF( IAM .EQ. 0 ) THEN
+         IF( ERRS .EQ. 0 ) THEN
+            WRITE(*,'(A)') '  PCCOPY_I8: PASSED'
+         ELSE
+            WRITE(*,'(A,I6)') '  PCCOPY_I8: FAILED ', ERRS
+         END IF
+      END IF
+*
+      DEALLOCATE( X, Y, YREF )
       END

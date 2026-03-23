@@ -76,7 +76,8 @@ set (PBLAS_I8
       pdgemm_i8.c  psgemm_i8.c  pcgemm_i8.c  pzgemm_i8.c
       pdamax_i8.c  psamax_i8.c  pcamax_i8.c  pzamax_i8.c
       pdswap_i8.c  psswap_i8.c  pcswap_i8.c  pzswap_i8.c
-      pdger_i8.c   psger_i8.c   pcgeru_i8.c  pzgeru_i8.c)
+      pdger_i8.c   psger_i8.c   pcgeru_i8.c  pzgeru_i8.c
+      pdcopy_i8.c  pscopy_i8.c  pccopy_i8.c  pzcopy_i8.c)
 
 set (pblas
       ${PIBLAS1}
