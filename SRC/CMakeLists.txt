@@ -196,7 +196,12 @@ set (I8SRC
    # Matrix inverse I8 wrappers (Phase 12)
    pdgetri_i8.f   psgetri_i8.f   pcgetri_i8.f   pzgetri_i8.f
    # Matrix norm I8 wrappers
-   pdlange_i8.f   pslange_i8.f   pclange_i8.f   pzlange_i8.f)
+   pdlange_i8.f   pslange_i8.f   pclange_i8.f   pzlange_i8.f
+   # SVD cone I8 wrappers
+   pdormlq_i8.f   psormlq_i8.f   pcunmlq_i8.f   pzunmlq_i8.f
+   pdormbr_i8.f   psormbr_i8.f   pcunmbr_i8.f   pzunmbr_i8.f
+   pdgebrd_i8.f   psgebrd_i8.f   pcgebrd_i8.f   pzgebrd_i8.f
+   pdgesvd_i8.f   psgesvd_i8.f   pcgesvd_i8.f   pzgesvd_i8.f)
 
 # I8 SRC test targets
 add_executable(xdsyntrd_i8 test_pdsyntrd_i8.f)
@@ -246,6 +251,13 @@ target_link_libraries(xgeqrf_i8 scalapack ${MPI_Fortran_LIBRARIES}
 add_test(NAME xgeqrf_i8
          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
                  ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xgeqrf_i8>)
+
+add_executable(xgesvd_i8 test_pgesvd_i8.f)
+target_link_libraries(xgesvd_i8 scalapack ${MPI_Fortran_LIBRARIES}
+                      ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+add_test(NAME xgesvd_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xgesvd_i8>)
 
 add_executable(xlange_i8 test_plange_i8.f)
 target_link_libraries(xlange_i8 scalapack ${MPI_Fortran_LIBRARIES}

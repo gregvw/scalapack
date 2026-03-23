@@ -49,6 +49,13 @@ Inventory of all public `_I8` routines implemented so far.
 - Unblocked panels: `PxPOTF2_I8` (4), `PxGETF2_I8` (4)
 - Matrix inverse: `PxGETRI_I8` (4)
 
+## SVD cone (16 thin wrappers)
+
+- Bidiagonal reduction: `PxGEBRD_I8` (4)
+- Orthogonal/unitary multiply from bidiag: `PxORMBR_I8` (2), `PxUNMBR_I8` (2)
+- LQ multiply: `PxORMLQ_I8` (2), `PxUNMLQ_I8` (2)
+- SVD driver: `PxGESVD_I8` (4)
+
 ## Matrix norms (4 thin wrappers)
 
 - `PxLANGE_I8` (4) — general matrix norm (M, 1, I, F)

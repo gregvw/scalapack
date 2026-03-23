@@ -34,8 +34,9 @@ These enable ButterflyPACK's core compression and factorization paths.
 - **QR factorization cone:** PxGEQRF_I8 (4), PxORGQR_I8 (2), PxUNGQR_I8 (2), PxORMQR_I8 (2), PxUNMQR_I8 (2)
 - **Matrix inverse:** PxGETRI_I8 (4)
 - **Matrix norms:** PxLANGE_I8 (4)
+- **SVD cone:** PxGESVD_I8 (4), PxGEBRD_I8 (4), PxORMBR_I8 (2), PxUNMBR_I8 (2), PxORMLQ_I8 (2), PxUNMLQ_I8 (2)
 
-16 ctest targets, all passing on macOS arm64 and x86_64 Linux.
+17 ctest targets, all passing on macOS arm64 and x86_64 Linux.
 
 ### Large-N status
 
@@ -60,6 +61,7 @@ they do not support N > INTMAX.
 - **QR tests:** xgeqrf_i8 (D, S, C, Z: GEQRF + ORGQR/UNGQR + ORMQR/UNMQR bit-identical)
 - **Matrix inverse tests:** xgetri_i8 (D, S, C, Z: GETRF + GETRI bit-identical)
 - **Norm tests:** xlange_i8 (D, S, C, Z: 4 norm types each, bit-identical)
+- **SVD tests:** xgesvd_i8 (D, S, C, Z: singular values + U/VT bit-identical)
 - **Redistribution tests:** xdgemr_i8, xdtrmr_i8, xdlamr1d_i8, xdlamve_i8
 - All comparisons are bit-identical against legacy routines
 

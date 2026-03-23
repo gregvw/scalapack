@@ -2,13 +2,6 @@
 
 Public routine families that do not yet have `_I8` variants.
 
-## SVD cone
-
-Requires `PxGEBRD_I8` and `PxORMBR_I8` as foundational pieces
-before the driver can be made native I8.
-
-- `pcgesvd`, `pdgesvd`, `psgesvd`, `pzgesvd`
-
 ## Schur / eigenvalue variants
 
 Deferred — recursive/index-heavy families requiring deep refactoring.
