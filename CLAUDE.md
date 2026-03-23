@@ -4,15 +4,17 @@ Starting with an initial commit (b935167ca4d244735abc04a3cd4f6d56699702a0) after
 ScaLAPACK, we have been refactoring the codebase to be compatible with 64-bit integers
 for MPI 4+. Planning and progress notes are in `docs/i8-refactor/`.
 
-## Current state (Phase 12 complete — QR cone + matrix inverse)
+## Current state (Phase 13 complete — SVD cone + ButterflyPACK coverage)
 
 Dense direct-solve cones (LU, Cholesky) are fully large-N capable with no
 INTMAX entry guards.  All narrowing in the LU/Cholesky paths is encapsulated
 in native I8 panel routines (PxGETF2_I8, PxPOTF2_I8).
 
-Phase 12 adds the QR factorization cone (PxGEQRF_I8, PxORGQR_I8/PxUNGQR_I8,
-PxORMQR_I8/PxUNMQR_I8) and matrix inverse (PxGETRI_I8) as thin wrappers.
-These enable ButterflyPACK's core compression and factorization paths.
+Phase 12 added the QR factorization cone, matrix inverse, matrix norms,
+and PxCOPY as thin wrappers.  Phase 13 completed the SVD cone
+(PxGESVD_I8 + dependencies: PxGEBRD_I8, PxORMBR_I8/PxUNMBR_I8,
+PxORMLQ_I8/PxUNMLQ_I8).  Together these cover all ScaLAPACK routines
+needed by ButterflyPACK's compression, factorization, and SVD paths.
 
 ### I8 surface
 
@@ -36,13 +38,16 @@ These enable ButterflyPACK's core compression and factorization paths.
 - **Matrix norms:** PxLANGE_I8 (4)
 - **SVD cone:** PxGESVD_I8 (4), PxGEBRD_I8 (4), PxORMBR_I8 (2), PxUNMBR_I8 (2), PxORMLQ_I8 (2), PxUNMLQ_I8 (2)
 
-17 ctest targets, all passing on macOS arm64 and x86_64 Linux.
+17 ctest targets, all passing on macOS arm64 and x86_64 Linux (GCC 15 + OpenMPI 5).
 
 ### Large-N status
 
 The dense solver cones (Cholesky, LU) are fully large-N capable: PxGETF2_I8 and
 PxPOTF2_I8 are native I8 panel routines, and the blocked drivers have no INTMAX
-entry guards.  54 PBLAS I8 entry points support the full call tree.
+entry guards.  58 PBLAS I8 entry points support the full call tree.
+
+The QR, SVD, matrix inverse, and LQ multiply cones are thin wrappers that
+narrow all arguments — they accept I8 descriptors but require N < INTMAX.
 
 The eigenvalue cone still has an INTMAX guard because PxLANSY/PxLANHE (matrix
 norm) lacks an _I8 version.
