@@ -4,11 +4,15 @@ Starting with an initial commit (b935167ca4d244735abc04a3cd4f6d56699702a0) after
 ScaLAPACK, we have been refactoring the codebase to be compatible with 64-bit integers
 for MPI 4+. Planning and progress notes are in `docs/i8-refactor/`.
 
-## Current state (Phase 11 complete — large-N solver closure)
+## Current state (Phase 12 complete — QR cone + matrix inverse)
 
 Dense direct-solve cones (LU, Cholesky) are fully large-N capable with no
 INTMAX entry guards.  All narrowing in the LU/Cholesky paths is encapsulated
 in native I8 panel routines (PxGETF2_I8, PxPOTF2_I8).
+
+Phase 12 adds the QR factorization cone (PxGEQRF_I8, PxORGQR_I8/PxUNGQR_I8,
+PxORMQR_I8/PxUNMQR_I8) and matrix inverse (PxGETRI_I8) as thin wrappers.
+These enable ButterflyPACK's core compression and factorization paths.
 
 ### I8 surface
 
@@ -27,8 +31,10 @@ in native I8 panel routines (PxGETF2_I8, PxPOTF2_I8).
 - **Cholesky solvers:** PxPOTRF_I8 (4), PxPOTRS_I8 (4), PxPOSV_I8 (4)
 - **LU solvers:** PxGETRF_I8 (4), PxGETRS_I8 (4), PxGESV_I8 (4) + support: PxLASWP_I8 (4), PxLAPIV_I8 (4)
 - **Unblocked panel I8:** PxPOTF2_I8 (4), PxGETF2_I8 (4)
+- **QR factorization cone:** PxGEQRF_I8 (4), PxORGQR_I8 (2), PxUNGQR_I8 (2), PxORMQR_I8 (2), PxUNMQR_I8 (2)
+- **Matrix inverse:** PxGETRI_I8 (4)
 
-13 ctest targets, all passing on macOS arm64 and x86_64 Linux.
+15 ctest targets, all passing on macOS arm64 and x86_64 Linux.
 
 ### Large-N status
 
@@ -50,6 +56,8 @@ they do not support N > INTMAX.
 - **PBLAS kernel tests:** xpblas_i8 (18 tests: L1/L2/L3 + K=0 beta edge case, D and C types)
 - **Tools tests:** xi8tools (standalone), xi8tools_mpi (DESC_CONVERT 2D→1D, PCHK1MAT)
 - **Large-index test:** xlargeidx_i8 (NUMROC/DESCINIT/INDXL2G with N=3B, descriptor > INTMAX)
+- **QR tests:** xgeqrf_i8 (D, S, C, Z: GEQRF + ORGQR/UNGQR + ORMQR/UNMQR bit-identical)
+- **Matrix inverse tests:** xgetri_i8 (D, S, C, Z: GETRF + GETRI bit-identical)
 - **Redistribution tests:** xdgemr_i8, xdtrmr_i8, xdlamr1d_i8, xdlamve_i8
 - All comparisons are bit-identical against legacy routines
 

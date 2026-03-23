@@ -2,6 +2,15 @@
 
 Public routine families that do not yet have `_I8` variants.
 
+## Recently completed (Phase 12)
+
+These families now have `_I8` thin wrappers:
+
+- `pdgeqrf`, `psgeqrf`, `pcgeqrf`, `pzgeqrf` — QR factorization
+- `pdorgqr`, `psorgqr`, `pcungqr`, `pzungqr` — explicit Q generation
+- `pdormqr`, `psormqr`, `pcunmqr`, `pzunmqr` — Q multiply
+- `pdgetri`, `psgetri`, `pcgetri`, `pzgetri` — matrix inverse
+
 ## SVD cone
 
 Requires `PxGEBRD_I8` and `PxORMBR_I8` as foundational pieces

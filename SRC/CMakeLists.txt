@@ -188,7 +188,13 @@ set (I8SRC
    pdlapiv_i8.f   pslapiv_i8.f   pclapiv_i8.f   pzlapiv_i8.f
    pdgetrf_i8.f   psgetrf_i8.f   pcgetrf_i8.f   pzgetrf_i8.f
    pdgetrs_i8.f   psgetrs_i8.f   pcgetrs_i8.f   pzgetrs_i8.f
-   pdgesv_i8.f    psgesv_i8.f    pcgesv_i8.f    pzgesv_i8.f)
+   pdgesv_i8.f    psgesv_i8.f    pcgesv_i8.f    pzgesv_i8.f
+   # QR factorization cone I8 wrappers (Phase 12)
+   pdgeqrf_i8.f   psgeqrf_i8.f   pcgeqrf_i8.f   pzgeqrf_i8.f
+   pdorgqr_i8.f   psorgqr_i8.f   pcungqr_i8.f   pzungqr_i8.f
+   pdormqr_i8.f   psormqr_i8.f   pcunmqr_i8.f   pzunmqr_i8.f
+   # Matrix inverse I8 wrappers (Phase 12)
+   pdgetri_i8.f   psgetri_i8.f   pcgetri_i8.f   pzgetri_i8.f)
 
 # I8 SRC test targets
 add_executable(xdsyntrd_i8 test_pdsyntrd_i8.f)
@@ -231,6 +237,20 @@ target_link_libraries(xsyev_i8 scalapack ${MPI_Fortran_LIBRARIES}
 add_test(NAME xsyev_i8
          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
                  ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xsyev_i8>)
+
+add_executable(xgeqrf_i8 test_pgeqrf_i8.f)
+target_link_libraries(xgeqrf_i8 scalapack ${MPI_Fortran_LIBRARIES}
+                      ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+add_test(NAME xgeqrf_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xgeqrf_i8>)
+
+add_executable(xgetri_i8 test_pgetri_i8.f)
+target_link_libraries(xgetri_i8 scalapack ${MPI_Fortran_LIBRARIES}
+                      ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+add_test(NAME xgetri_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xgetri_i8>)
 
 set(src
       ${ALLAUX} ${SCLAUX} ${DZLAUX}
