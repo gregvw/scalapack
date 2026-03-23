@@ -194,7 +194,9 @@ set (I8SRC
    pdorgqr_i8.f   psorgqr_i8.f   pcungqr_i8.f   pzungqr_i8.f
    pdormqr_i8.f   psormqr_i8.f   pcunmqr_i8.f   pzunmqr_i8.f
    # Matrix inverse I8 wrappers (Phase 12)
-   pdgetri_i8.f   psgetri_i8.f   pcgetri_i8.f   pzgetri_i8.f)
+   pdgetri_i8.f   psgetri_i8.f   pcgetri_i8.f   pzgetri_i8.f
+   # Matrix norm I8 wrappers
+   pdlange_i8.f   pslange_i8.f   pclange_i8.f   pzlange_i8.f)
 
 # I8 SRC test targets
 add_executable(xdsyntrd_i8 test_pdsyntrd_i8.f)
@@ -244,6 +246,13 @@ target_link_libraries(xgeqrf_i8 scalapack ${MPI_Fortran_LIBRARIES}
 add_test(NAME xgeqrf_i8
          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
                  ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xgeqrf_i8>)
+
+add_executable(xlange_i8 test_plange_i8.f)
+target_link_libraries(xlange_i8 scalapack ${MPI_Fortran_LIBRARIES}
+                      ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+add_test(NAME xlange_i8
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4
+                 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:xlange_i8>)
 
 add_executable(xgetri_i8 test_pgetri_i8.f)
 target_link_libraries(xgetri_i8 scalapack ${MPI_Fortran_LIBRARIES}

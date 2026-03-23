@@ -49,6 +49,10 @@ Inventory of all public `_I8` routines implemented so far.
 - Unblocked panels: `PxPOTF2_I8` (4), `PxGETF2_I8` (4)
 - Matrix inverse: `PxGETRI_I8` (4)
 
+## Matrix norms (4 thin wrappers)
+
+- `PxLANGE_I8` (4) — general matrix norm (M, 1, I, F)
+
 ## QR factorization cone (16 thin wrappers)
 
 - QR factorization: `PxGEQRF_I8` (4)
