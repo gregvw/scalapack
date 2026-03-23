@@ -47,6 +47,13 @@ Inventory of all public `_I8` routines implemented so far.
 - LU: `PxGETRF_I8` (4), `PxGETRS_I8` (4), `PxGESV_I8` (4)
 - LU support: `PxLASWP_I8` (4), `PxLAPIV_I8` (4)
 - Unblocked panels: `PxPOTF2_I8` (4), `PxGETF2_I8` (4)
+- Matrix inverse: `PxGETRI_I8` (4)
+
+## QR factorization cone (16 thin wrappers)
+
+- QR factorization: `PxGEQRF_I8` (4)
+- Q generation: `PxORGQR_I8` (2), `PxUNGQR_I8` (2)
+- Q multiply: `PxORMQR_I8` (2), `PxUNMQR_I8` (2)
 
 ## Large-N status
 
