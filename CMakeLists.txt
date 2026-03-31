@@ -330,10 +330,25 @@ endif()
 message(STATUS "Requesting BLAS/LAPACK integer ABI: ${BLA_SIZEOF_INTEGER} bytes")
 
 if(NOT SCALAPACK_FORTRAN_INT_BYTES STREQUAL SCALAPACK_EXPECT_BLAS_INT_BYTES)
+   set(_scalapack_fortran_i8_hint
+       "Reconfigure with a compiler setup whose default INTEGER is 8 bytes, or set SCALAPACK_FORTRAN_INT_BYTES explicitly if auto-detection is not possible.")
+   if(CMAKE_Fortran_COMPILER_ID MATCHES "GNU|LLVMFlang|Flang|NAG")
+      set(_scalapack_fortran_i8_hint
+          "GNU/Flang-style compilers default to 4-byte INTEGER unless you add -fdefault-integer-8. Reconfigure with -DCMAKE_Fortran_FLAGS=-fdefault-integer-8 (or pass that flag through your mpif90 wrapper) so ScaLAPACK and the ILP64 BLAS use the same INTEGER ABI.")
+   elseif(CMAKE_Fortran_COMPILER_ID MATCHES "Intel|IntelLLVM|NVHPC|PGI")
+      set(_scalapack_fortran_i8_hint
+          "Intel/NVHPC-style compilers usually need -i8 to make default INTEGER 8 bytes. Reconfigure with -DCMAKE_Fortran_FLAGS=-i8 (or pass that flag through your mpif90 wrapper) so ScaLAPACK and the ILP64 BLAS use the same INTEGER ABI.")
+   elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "XL")
+      set(_scalapack_fortran_i8_hint
+          "XL Fortran usually needs -qintsize=8 to make default INTEGER 8 bytes. Reconfigure with -DCMAKE_Fortran_FLAGS=-qintsize=8 so ScaLAPACK and the ILP64 BLAS use the same INTEGER ABI.")
+   endif()
    message(FATAL_ERROR
            "Mixed-width ScaLAPACK/BLAS builds are not supported yet: "
            "Fortran INTEGER is ${SCALAPACK_FORTRAN_INT_BYTES} bytes, "
-           "but SCALAPACK_EXPECT_BLAS_INT_BYTES is ${SCALAPACK_EXPECT_BLAS_INT_BYTES}.")
+           "but SCALAPACK_EXPECT_BLAS_INT_BYTES is ${SCALAPACK_EXPECT_BLAS_INT_BYTES}. "
+           "The Fortran INTEGER width was auto-detected from the current compiler "
+           "configuration for `${CMAKE_Fortran_COMPILER}` (${CMAKE_Fortran_COMPILER_ID}). "
+           "${_scalapack_fortran_i8_hint}")
 endif()
 
 check_c_source_compiles(
