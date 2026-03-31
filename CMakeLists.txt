@@ -273,7 +273,7 @@ option(SCALAPACK_PREFER_OPENBLAS_ON_APPLE_SILICON
        "Prefer OpenBLAS over Accelerate on macOS arm64 unless the user explicitly selects another BLAS/LAPACK backend"
        ON)
 set(SCALAPACK_FORTRAN_INT_BYTES "" CACHE STRING
-    "Default Fortran INTEGER width in bytes (auto-detected when empty; supported values: 4 or 8)")
+    "Detected default Fortran INTEGER width in bytes for the current compiler configuration (set by CMake; supported values: 4 or 8)")
 set(SCALAPACK_EXPECT_BLAS_INT_BYTES "" CACHE STRING
     "Advanced override for the expected BLAS integer width in bytes (auto-derived from SCALAPACK_ENABLE_ILP64 when empty; supported values: 4 or 8)")
 set(SCALAPACK_BLACS_BUFFER_SIZE_TYPE "size_t" CACHE STRING
@@ -286,15 +286,15 @@ else()
 endif()
 
 if(DEFINED SCALAPACK_FORTRAN_INT_BYTES AND NOT "${SCALAPACK_FORTRAN_INT_BYTES}" STREQUAL "")
-   if(SCALAPACK_ENABLE_ILP64 AND NOT "${SCALAPACK_FORTRAN_INT_BYTES}" STREQUAL "8")
+   if(NOT SCALAPACK_FORTRAN_INT_BYTES MATCHES "^(4|8)$")
       message(FATAL_ERROR
-              "SCALAPACK_ENABLE_ILP64=ON requires SCALAPACK_FORTRAN_INT_BYTES=8 when "
-              "SCALAPACK_FORTRAN_INT_BYTES is set explicitly.")
-   elseif(NOT SCALAPACK_ENABLE_ILP64 AND NOT "${SCALAPACK_FORTRAN_INT_BYTES}" STREQUAL "4")
-      message(FATAL_ERROR
-              "SCALAPACK_FORTRAN_INT_BYTES=${SCALAPACK_FORTRAN_INT_BYTES} requires "
-              "SCALAPACK_ENABLE_ILP64=ON. Prefer using SCALAPACK_ENABLE_ILP64 as the "
-              "top-level ILP64 switch.")
+              "SCALAPACK_FORTRAN_INT_BYTES must be 4 or 8 when present in the cache.")
+   endif()
+   if(NOT "${SCALAPACK_FORTRAN_INT_BYTES}" STREQUAL "${_scalapack_requested_int_bytes}")
+      message(STATUS
+              "Ignoring cached SCALAPACK_FORTRAN_INT_BYTES=${SCALAPACK_FORTRAN_INT_BYTES}; "
+              "the default Fortran INTEGER width is auto-detected from the current "
+              "compiler configuration on each configure.")
    endif()
 endif()
 
@@ -348,7 +348,7 @@ endif()
 
 CheckFortranIntegerABI(_scalapack_fortran_int_bytes)
 set(SCALAPACK_FORTRAN_INT_BYTES "${_scalapack_fortran_int_bytes}" CACHE STRING
-    "Default Fortran INTEGER width in bytes (auto-detected when empty; supported values: 4 or 8)" FORCE)
+    "Detected default Fortran INTEGER width in bytes for the current compiler configuration (set by CMake; supported values: 4 or 8)" FORCE)
 message(STATUS "Default Fortran INTEGER width: ${SCALAPACK_FORTRAN_INT_BYTES} bytes")
 
 set(_scalapack_mpi_version "")
@@ -450,8 +450,21 @@ include_directories(${SCALAPACK_BINARY_DIR})
 include_directories(${SCALAPACK_SOURCE_DIR}/TOOLS)
 
 message(STATUS "CHECKING BLAS AND LAPACK LIBRARIES")
+include(CheckFortranFunctionExists)
 
 set(_scalapack_force_openblas FALSE)
+set(_scalapack_openblas_formula "openblas")
+set(_scalapack_openblas_pkgconfig_module "openblas")
+set(_scalapack_openblas_example_package "openblas")
+set(_scalapack_openblas_direct_lib "")
+if(SCALAPACK_EXPECT_BLAS_INT_BYTES STREQUAL "8")
+   set(_scalapack_openblas_formula "openblas64")
+   set(_scalapack_openblas_pkgconfig_module "openblas64")
+   set(_scalapack_openblas_example_package "openblas64")
+   set(_scalapack_openblas_direct_lib "/opt/homebrew/opt/openblas64/lib/libopenblas64_.dylib")
+else()
+   set(_scalapack_openblas_direct_lib "/opt/homebrew/opt/openblas/lib/libopenblas.dylib")
+endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin"
    AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$"
    AND SCALAPACK_PREFER_OPENBLAS_ON_APPLE_SILICON
@@ -459,23 +472,35 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin"
    AND NOT DEFINED BLA_VENDOR)
    set(_scalapack_force_openblas TRUE)
    set(BLA_VENDOR OpenBLAS)
+   set(BLA_PREFER_PKGCONFIG ON)
+   set(BLA_PKGCONFIG_BLAS "${_scalapack_openblas_pkgconfig_module}")
+   set(BLA_PKGCONFIG_LAPACK "${_scalapack_openblas_pkgconfig_module}")
    foreach(_scalapack_openblas_hint
-           /opt/homebrew/opt/openblas
-           /opt/homebrew/opt/openblas/lib
+           /opt/homebrew/opt/${_scalapack_openblas_formula}
+           /opt/homebrew/opt/${_scalapack_openblas_formula}/lib
+           /opt/homebrew/opt/${_scalapack_openblas_formula}/lib/pkgconfig
            /opt/local/lib/openblas
            /opt/local/lib)
       if(EXISTS "${_scalapack_openblas_hint}")
          list(PREPEND CMAKE_PREFIX_PATH "${_scalapack_openblas_hint}")
       endif()
    endforeach()
+   if(EXISTS "/opt/homebrew/opt/${_scalapack_openblas_formula}/lib/pkgconfig")
+      if(DEFINED ENV{PKG_CONFIG_PATH} AND NOT "$ENV{PKG_CONFIG_PATH}" STREQUAL "")
+         set(ENV{PKG_CONFIG_PATH}
+             "/opt/homebrew/opt/${_scalapack_openblas_formula}/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+      else()
+         set(ENV{PKG_CONFIG_PATH}
+             "/opt/homebrew/opt/${_scalapack_openblas_formula}/lib/pkgconfig")
+      endif()
+   endif()
    message(STATUS
-           "macOS arm64 detected: preferring OpenBLAS over Accelerate. "
-           "Install OpenBLAS or set "
+           "macOS arm64 detected: preferring ${_scalapack_openblas_formula} over Accelerate. "
+           "Install ${_scalapack_openblas_example_package} or set "
            "-DSCALAPACK_PREFER_OPENBLAS_ON_APPLE_SILICON=OFF to allow Accelerate.")
 endif()
 
 IF(LAPACK_LIBRARIES)
-  include(CheckFortranFunctionExists)
   message(STATUS "--> LAPACK supplied by user is ${LAPACK_LIBRARIES}.")
   set(CMAKE_REQUIRED_LIBRARIES ${LAPACK_LIBRARIES})
   CHECK_FORTRAN_FUNCTION_EXISTS("dgesv" LAPACK_FOUND)
@@ -489,11 +514,24 @@ else(LAPACK_FOUND)
    if(USE_OPTIMIZED_LAPACK_BLAS)
       message(STATUS "--> Searching for optimized LAPACK and BLAS libraries on your machine.")
       find_package(LAPACK)
+      if(_scalapack_force_openblas
+         AND NOT LAPACK_FOUND
+         AND EXISTS "${_scalapack_openblas_direct_lib}")
+         set(LAPACK_LIBRARIES "${_scalapack_openblas_direct_lib}")
+         set(BLAS_LIBRARIES "${_scalapack_openblas_direct_lib}")
+         set(CMAKE_REQUIRED_LIBRARIES "${LAPACK_LIBRARIES}")
+         CHECK_FORTRAN_FUNCTION_EXISTS("dgesv" LAPACK_FOUND)
+         unset(CMAKE_REQUIRED_LIBRARIES)
+         if(LAPACK_FOUND)
+            message(STATUS
+                    "--> Using Homebrew ${_scalapack_openblas_formula} fallback: ${LAPACK_LIBRARIES}")
+         endif()
+      endif()
       if(_scalapack_force_openblas AND NOT LAPACK_FOUND)
          message(FATAL_ERROR
-                 "macOS arm64 builds default to OpenBLAS because Accelerate can cause "
+                 "macOS arm64 builds default to ${_scalapack_openblas_formula} because Accelerate can cause "
                  "pathological eigensolver test behavior on Apple Silicon. "
-                 "Install OpenBLAS (for example: brew install openblas) or configure "
+                 "Install ${_scalapack_openblas_example_package} (for example: brew install ${_scalapack_openblas_example_package}) or configure "
                  "with -DSCALAPACK_PREFER_OPENBLAS_ON_APPLE_SILICON=OFF to allow "
                  "CMake to fall back to Accelerate.")
       endif()
@@ -525,6 +563,34 @@ if(LAPACK_FOUND)
    CheckBlasIntegerABI(${SCALAPACK_EXPECT_BLAS_INT_BYTES})
 endif()
 
+set(SCALAPACK_BLAS_SYMBOL_ALIAS_FILE "")
+if(APPLE
+   AND LAPACK_FOUND
+   AND SCALAPACK_BLAS_SYMBOL_STYLE STREQUAL "suffix64")
+   set(SCALAPACK_BLAS_SYMBOL_ALIAS_FILE
+       "${SCALAPACK_BINARY_DIR}/scalapack-blas-symbol-aliases.txt")
+   set(_scalapack_alias_inputs "${BLAS_LIBRARIES};${LAPACK_LIBRARIES}")
+   execute_process(
+     COMMAND ${CMAKE_COMMAND}
+             "-DINPUTS=${_scalapack_alias_inputs}"
+             "-DOUTPUT=${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}"
+             "-DNM=${CMAKE_NM}"
+             -P "${SCALAPACK_SOURCE_DIR}/CMAKE/GenerateDarwinBlasAliasList.cmake"
+     RESULT_VARIABLE _scalapack_alias_result
+   )
+   if(NOT _scalapack_alias_result EQUAL 0)
+      message(FATAL_ERROR
+              "Failed to generate the Darwin BLAS/LAPACK alias list for "
+              "suffix64 ILP64 symbols.")
+   endif()
+   set(_scalapack_blas_alias_link_option_build
+       "-Wl,-alias_list,${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}")
+   set(_scalapack_blas_alias_link_option_install
+       "-Wl,-alias_list,${CMAKE_INSTALL_FULL_LIBDIR}/cmake/scalapack-${SCALAPACK_VERSION}/scalapack-blas-symbol-aliases.txt")
+   message(STATUS
+           "Generated Darwin BLAS/LAPACK alias list: ${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}")
+endif()
+
 MESSAGE(STATUS "=========")
 
 # --------------------------------------------------
@@ -536,6 +602,17 @@ foreach(depfile ${holder})
   list(APPEND ${variable} "${dirname}/${depfile}")
 endforeach()
 endmacro()
+
+function(scalapack_apply_blas_symbol_aliasing target)
+  if(NOT APPLE OR "${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}" STREQUAL "")
+    return()
+  endif()
+
+  target_link_options(${target} PUBLIC
+    $<BUILD_INTERFACE:${_scalapack_blas_alias_link_option_build}>
+    $<INSTALL_INTERFACE:${_scalapack_blas_alias_link_option_install}>
+  )
+endfunction()
 
 
 #
@@ -582,6 +659,7 @@ if (NOT MSVC)
     VERSION ${SCALAPACK_VERSION}
     SOVERSION ${SCALAPACK_VERSION_MAJOR}.${SCALAPACK_VERSION_MINOR})
    target_link_libraries( scalapack ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} MPI::MPI_C)
+   scalapack_apply_blas_symbol_aliasing(scalapack)
    scalapack_install_library(scalapack)
 else () # Need to separate Fortran and C Code
    OPTION(BUILD_SHARED_LIBS "Build shared libraries" ON )
@@ -590,11 +668,13 @@ else () # Need to separate Fortran and C Code
     VERSION ${SCALAPACK_VERSION}
     SOVERSION ${SCALAPACK_VERSION_MAJOR}.${SCALAPACK_VERSION_MINOR})
    target_link_libraries( scalapack ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} MPI::MPI_C)
+   scalapack_apply_blas_symbol_aliasing(scalapack)
    add_library(scalapack-F ${pblas-F} ${pbblas} ${ptzblas} ${tools} ${src} ${extra_lapack} )
    set_target_properties(scalapack-F PROPERTIES
     VERSION ${SCALAPACK_VERSION}
     SOVERSION ${SCALAPACK_VERSION_MAJOR}.${SCALAPACK_VERSION_MINOR})
    target_link_libraries( scalapack-F ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} MPI::MPI_Fortran)
+   scalapack_apply_blas_symbol_aliasing(scalapack-F)
    scalapack_install_library(scalapack)
    scalapack_install_library(scalapack-F)
 endif ()
@@ -667,6 +747,14 @@ install(FILES
   ${SCALAPACK_BINARY_DIR}/scalapack-config-version.cmake
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/scalapack-${SCALAPACK_VERSION}
   )
+
+if("${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}" STREQUAL "")
+else()
+ install(FILES
+  ${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/scalapack-${SCALAPACK_VERSION}
+   )
+endif()
 
 install(EXPORT scalapack-targets
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/scalapack-${SCALAPACK_VERSION})

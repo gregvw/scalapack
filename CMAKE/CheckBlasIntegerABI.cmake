@@ -13,6 +13,45 @@ function(CheckBlasIntegerABI expected_bytes)
 
   set(_saved_required_libraries "${CMAKE_REQUIRED_LIBRARIES}")
   set(CMAKE_REQUIRED_LIBRARIES ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+  set(_scalapack_blas_symbol_style "plain")
+
+  unset(SCALAPACK_HAVE_BLAS_UNDERSCORE_SYMBOL CACHE)
+  unset(SCALAPACK_HAVE_BLAS_64_UNDERSCORE_SYMBOL CACHE)
+
+  check_c_source_compiles(
+"extern void sgemm_(void);
+int main(void) {
+  sgemm_();
+  return 0;
+}
+" SCALAPACK_HAVE_BLAS_UNDERSCORE_SYMBOL)
+
+  check_c_source_compiles(
+"extern void sgemm_64_(void);
+int main(void) {
+  sgemm_64_();
+  return 0;
+}
+" SCALAPACK_HAVE_BLAS_64_UNDERSCORE_SYMBOL)
+
+  if(expected_bytes STREQUAL "8"
+     AND NOT SCALAPACK_HAVE_BLAS_UNDERSCORE_SYMBOL
+     AND SCALAPACK_HAVE_BLAS_64_UNDERSCORE_SYMBOL)
+    set(_scalapack_blas_symbol_style "suffix64")
+    if(APPLE)
+      message(STATUS
+        "Detected an ILP64 BLAS/LAPACK that exports suffixed Fortran symbols like "
+        "sgemm_64_. ScaLAPACK will enable Darwin linker aliases so unsuffixed calls "
+        "such as sgemm_ resolve correctly.")
+    else()
+      message(FATAL_ERROR
+        "Detected an ILP64 BLAS/LAPACK that exports suffixed Fortran symbols like "
+        "sgemm_64_ instead of the unsuffixed names ScaLAPACK currently calls "
+        "(for example sgemm_). This build is not link-compatible with that BLAS "
+        "yet; a BLAS/LAPACK symbol translation layer is still needed on this "
+        "platform.")
+    endif()
+  endif()
 
   check_c_source_compiles(
 "extern const char *openblas_get_config(void);
@@ -47,4 +86,5 @@ int main(void) {
   endif()
 
   set(CMAKE_REQUIRED_LIBRARIES "${_saved_required_libraries}")
+  set(SCALAPACK_BLAS_SYMBOL_STYLE "${_scalapack_blas_symbol_style}" PARENT_SCOPE)
 endfunction()
