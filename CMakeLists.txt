@@ -315,6 +315,20 @@ else()
    message(FATAL_ERROR "SCALAPACK_EXPECT_BLAS_INT_BYTES must be 4 or 8.")
 endif()
 
+if(DEFINED BLA_SIZEOF_INTEGER AND NOT "${BLA_SIZEOF_INTEGER}" STREQUAL "")
+   if(NOT "${BLA_SIZEOF_INTEGER}" STREQUAL "${SCALAPACK_EXPECT_BLAS_INT_BYTES}")
+      message(FATAL_ERROR
+              "BLA_SIZEOF_INTEGER=${BLA_SIZEOF_INTEGER} conflicts with "
+              "SCALAPACK_EXPECT_BLAS_INT_BYTES=${SCALAPACK_EXPECT_BLAS_INT_BYTES}. "
+              "Use matching values so CMake searches for a BLAS/LAPACK with the "
+              "expected integer ABI.")
+   endif()
+else()
+   set(BLA_SIZEOF_INTEGER "${SCALAPACK_EXPECT_BLAS_INT_BYTES}" CACHE STRING
+       "Requested BLAS/LAPACK integer size for CMake FindBLAS/FindLAPACK." FORCE)
+endif()
+message(STATUS "Requesting BLAS/LAPACK integer ABI: ${BLA_SIZEOF_INTEGER} bytes")
+
 if(NOT SCALAPACK_FORTRAN_INT_BYTES STREQUAL SCALAPACK_EXPECT_BLAS_INT_BYTES)
    message(FATAL_ERROR
            "Mixed-width ScaLAPACK/BLAS builds are not supported yet: "
