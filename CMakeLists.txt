@@ -570,25 +570,14 @@ if(APPLE
    set(SCALAPACK_BLAS_SYMBOL_ALIAS_FILE
        "${SCALAPACK_BINARY_DIR}/scalapack-blas-symbol-aliases.txt")
    set(_scalapack_alias_inputs "${BLAS_LIBRARIES};${LAPACK_LIBRARIES}")
-   execute_process(
-     COMMAND ${CMAKE_COMMAND}
-             "-DINPUTS=${_scalapack_alias_inputs}"
-             "-DOUTPUT=${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}"
-             "-DNM=${CMAKE_NM}"
-             -P "${SCALAPACK_SOURCE_DIR}/CMAKE/GenerateDarwinBlasAliasList.cmake"
-     RESULT_VARIABLE _scalapack_alias_result
-   )
-   if(NOT _scalapack_alias_result EQUAL 0)
-      message(FATAL_ERROR
-              "Failed to generate the Darwin BLAS/LAPACK alias list for "
-              "suffix64 ILP64 symbols.")
-   endif()
+   file(WRITE "${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}"
+        "# Generated during the build after libscalapack.a is available.\n")
    set(_scalapack_blas_alias_link_option_build
        "-Wl,-alias_list,${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}")
    set(_scalapack_blas_alias_link_option_install
        "-Wl,-alias_list,${CMAKE_INSTALL_FULL_LIBDIR}/cmake/scalapack-${SCALAPACK_VERSION}/scalapack-blas-symbol-aliases.txt")
    message(STATUS
-           "Generated Darwin BLAS/LAPACK alias list: ${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}")
+           "Darwin BLAS/LAPACK alias list will be generated at build time: ${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}")
 endif()
 
 MESSAGE(STATUS "=========")
@@ -659,6 +648,17 @@ if (NOT MSVC)
     VERSION ${SCALAPACK_VERSION}
     SOVERSION ${SCALAPACK_VERSION_MAJOR}.${SCALAPACK_VERSION_MINOR})
    target_link_libraries( scalapack ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} MPI::MPI_C)
+   if(APPLE AND NOT "${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}" STREQUAL "")
+      add_custom_command(TARGET scalapack POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+                "-DINPUTS=${_scalapack_alias_inputs}"
+                "-DREQUIRED_INPUTS=$<TARGET_FILE:scalapack>"
+                "-DOUTPUT=${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}"
+                "-DNM=${CMAKE_NM}"
+                -P "${SCALAPACK_SOURCE_DIR}/CMAKE/GenerateDarwinBlasAliasList.cmake"
+        BYPRODUCTS "${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}"
+        VERBATIM)
+   endif()
    scalapack_apply_blas_symbol_aliasing(scalapack)
    scalapack_install_library(scalapack)
 else () # Need to separate Fortran and C Code
