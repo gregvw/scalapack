@@ -266,15 +266,85 @@ ADD_DEFINITIONS( "-D${CDEFS}")
 # ScaLAPACK needs BLAS and LAPACK
 
 option(USE_OPTIMIZED_LAPACK_BLAS "Whether or not to search for optimized LAPACK and BLAS libraries on your machine (if not found, Reference LAPACK and BLAS will be downloaded and installed)" ON)
+option(SCALAPACK_ENABLE_ILP64
+       "Build ScaLAPACK with 8-byte default Fortran INTEGER and ILP64 BLAS/LAPACK"
+       OFF)
 option(SCALAPACK_PREFER_OPENBLAS_ON_APPLE_SILICON
        "Prefer OpenBLAS over Accelerate on macOS arm64 unless the user explicitly selects another BLAS/LAPACK backend"
        ON)
 set(SCALAPACK_FORTRAN_INT_BYTES "" CACHE STRING
     "Default Fortran INTEGER width in bytes (auto-detected when empty; supported values: 4 or 8)")
-set(SCALAPACK_EXPECT_BLAS_INT_BYTES 4 CACHE STRING
-    "Expected BLAS integer width in bytes when an OpenBLAS library is detected (supported values: 4 or 8)")
+set(SCALAPACK_EXPECT_BLAS_INT_BYTES "" CACHE STRING
+    "Advanced override for the expected BLAS integer width in bytes (auto-derived from SCALAPACK_ENABLE_ILP64 when empty; supported values: 4 or 8)")
 set(SCALAPACK_BLACS_BUFFER_SIZE_TYPE "size_t" CACHE STRING
     "C type used for BLACS internal packed-buffer byte lengths")
+
+if(SCALAPACK_ENABLE_ILP64)
+   set(_scalapack_requested_int_bytes "8")
+else()
+   set(_scalapack_requested_int_bytes "4")
+endif()
+
+if(DEFINED SCALAPACK_FORTRAN_INT_BYTES AND NOT "${SCALAPACK_FORTRAN_INT_BYTES}" STREQUAL "")
+   if(SCALAPACK_ENABLE_ILP64 AND NOT "${SCALAPACK_FORTRAN_INT_BYTES}" STREQUAL "8")
+      message(FATAL_ERROR
+              "SCALAPACK_ENABLE_ILP64=ON requires SCALAPACK_FORTRAN_INT_BYTES=8 when "
+              "SCALAPACK_FORTRAN_INT_BYTES is set explicitly.")
+   elseif(NOT SCALAPACK_ENABLE_ILP64 AND NOT "${SCALAPACK_FORTRAN_INT_BYTES}" STREQUAL "4")
+      message(FATAL_ERROR
+              "SCALAPACK_FORTRAN_INT_BYTES=${SCALAPACK_FORTRAN_INT_BYTES} requires "
+              "SCALAPACK_ENABLE_ILP64=ON. Prefer using SCALAPACK_ENABLE_ILP64 as the "
+              "top-level ILP64 switch.")
+   endif()
+endif()
+
+if(DEFINED SCALAPACK_EXPECT_BLAS_INT_BYTES AND NOT "${SCALAPACK_EXPECT_BLAS_INT_BYTES}" STREQUAL "")
+   if(NOT SCALAPACK_EXPECT_BLAS_INT_BYTES MATCHES "^(4|8)$")
+      message(FATAL_ERROR
+              "SCALAPACK_EXPECT_BLAS_INT_BYTES must be 4 or 8 when set explicitly.")
+   endif()
+   if(NOT "${SCALAPACK_EXPECT_BLAS_INT_BYTES}" STREQUAL "${_scalapack_requested_int_bytes}")
+      message(FATAL_ERROR
+              "SCALAPACK_ENABLE_ILP64=${SCALAPACK_ENABLE_ILP64} conflicts with "
+              "SCALAPACK_EXPECT_BLAS_INT_BYTES=${SCALAPACK_EXPECT_BLAS_INT_BYTES}. "
+              "Prefer using SCALAPACK_ENABLE_ILP64 as the top-level ILP64 switch.")
+   endif()
+else()
+   set(SCALAPACK_EXPECT_BLAS_INT_BYTES "${_scalapack_requested_int_bytes}" CACHE STRING
+       "Advanced override for the expected BLAS integer width in bytes (auto-derived from SCALAPACK_ENABLE_ILP64 when empty; supported values: 4 or 8)" FORCE)
+endif()
+
+if(SCALAPACK_ENABLE_ILP64)
+   set(_scalapack_ilp64_fortran_flag "")
+   if(CMAKE_Fortran_COMPILER_ID MATCHES "GNU|LLVMFlang|Flang|NAG")
+      set(_scalapack_ilp64_fortran_flag "-fdefault-integer-8")
+   elseif(CMAKE_Fortran_COMPILER_ID MATCHES "Intel|IntelLLVM|NVHPC|PGI")
+      set(_scalapack_ilp64_fortran_flag "-i8")
+   elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "XL")
+      set(_scalapack_ilp64_fortran_flag "-qintsize=8")
+   else()
+      message(FATAL_ERROR
+              "SCALAPACK_ENABLE_ILP64=ON, but no default-8-byte-INTEGER compiler flag "
+              "is known for Fortran compiler ID ${CMAKE_Fortran_COMPILER_ID}.")
+   endif()
+
+   check_fortran_compiler_flag("${_scalapack_ilp64_fortran_flag}"
+                               SCALAPACK_HAVE_ILP64_FORTRAN_FLAG)
+   if(NOT SCALAPACK_HAVE_ILP64_FORTRAN_FLAG)
+      message(FATAL_ERROR
+              "SCALAPACK_ENABLE_ILP64=ON, but ${CMAKE_Fortran_COMPILER} does not accept "
+              "the required flag ${_scalapack_ilp64_fortran_flag}.")
+   endif()
+
+   string(FIND " ${CMAKE_Fortran_FLAGS} " " ${_scalapack_ilp64_fortran_flag} "
+          _scalapack_ilp64_flag_index)
+   if(_scalapack_ilp64_flag_index EQUAL -1)
+      string(STRIP "${CMAKE_Fortran_FLAGS} ${_scalapack_ilp64_fortran_flag}"
+             CMAKE_Fortran_FLAGS)
+   endif()
+   message(STATUS
+           "SCALAPACK_ENABLE_ILP64=ON: using Fortran flag ${_scalapack_ilp64_fortran_flag}")
+endif()
 
 CheckFortranIntegerABI(_scalapack_fortran_int_bytes)
 set(SCALAPACK_FORTRAN_INT_BYTES "${_scalapack_fortran_int_bytes}" CACHE STRING
@@ -290,7 +360,7 @@ elseif(DEFINED MPI_Fortran_VERSION AND NOT "${MPI_Fortran_VERSION}" STREQUAL "")
    set(_scalapack_mpi_version "${MPI_Fortran_VERSION}")
 endif()
 
-if(SCALAPACK_FORTRAN_INT_BYTES STREQUAL "8")
+if(SCALAPACK_ENABLE_ILP64)
    if(_scalapack_mpi_version STREQUAL "" OR _scalapack_mpi_version VERSION_LESS 4)
       message(FATAL_ERROR
               "ILP64 builds require MPI 4.0 or newer because BLACS relies on MPI "
@@ -349,6 +419,13 @@ if(NOT SCALAPACK_FORTRAN_INT_BYTES STREQUAL SCALAPACK_EXPECT_BLAS_INT_BYTES)
            "The Fortran INTEGER width was auto-detected from the current compiler "
            "configuration for `${CMAKE_Fortran_COMPILER}` (${CMAKE_Fortran_COMPILER_ID}). "
            "${_scalapack_fortran_i8_hint}")
+endif()
+
+if(SCALAPACK_ENABLE_ILP64 AND NOT SCALAPACK_FORTRAN_INT_BYTES STREQUAL "8")
+   message(FATAL_ERROR
+           "SCALAPACK_ENABLE_ILP64=ON, but the current Fortran compiler configuration "
+           "still defaults to ${SCALAPACK_FORTRAN_INT_BYTES}-byte INTEGER. "
+           "Check the ILP64 compiler flag handling in CMake or your mpif90 wrapper.")
 endif()
 
 check_c_source_compiles(
