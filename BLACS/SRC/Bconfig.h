@@ -63,9 +63,24 @@ _Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
       return MPI_Send_c(buf, count, datatype, dest, tag, comm);
     }
 
+    static inline int _MPI_Rsend(const void *buf, MPI_Count count, MPI_Datatype datatype,
+                          int dest, int tag, MPI_Comm comm) {
+      return MPI_Rsend_c(buf, count, datatype, dest, tag, comm);
+    }
+
     static inline int _MPI_Recv(void *buf, MPI_Count count, MPI_Datatype datatype,
                          int source, int tag, MPI_Comm comm, MPI_Status *status) {
       return MPI_Recv_c(buf, count, datatype, source, tag, comm, status);
+    }
+
+    static inline int _MPI_Sendrecv(const void *sendbuf, MPI_Count sendcount,
+                              MPI_Datatype sendtype, int dest, int sendtag,
+                              void *recvbuf, MPI_Count recvcount,
+                              MPI_Datatype recvtype, int source, int recvtag,
+                              MPI_Comm comm, MPI_Status *status) {
+      return MPI_Sendrecv_c(sendbuf, sendcount, sendtype, dest, sendtag,
+                            recvbuf, recvcount, recvtype, source, recvtag,
+                            comm, status);
     }
 
     static inline int _MPI_Op_create(MPI_User_function_c *user_fn, int commute, MPI_Op *op) {
@@ -175,9 +190,24 @@ _Static_assert(sizeof(Int) == sizeof(ScaLAPACK_ApiInt),
       return MPI_Send(buf, count, datatype, dest, tag, comm);
     }
 
+    static inline int _MPI_Rsend(const void *buf, int count, MPI_Datatype datatype,
+                          int dest, int tag, MPI_Comm comm) {
+      return MPI_Rsend(buf, count, datatype, dest, tag, comm);
+    }
+
     static inline int _MPI_Recv(void *buf, int count, MPI_Datatype datatype,
                          int source, int tag, MPI_Comm comm, MPI_Status *status) {
       return MPI_Recv(buf, count, datatype, source, tag, comm, status);
+    }
+
+    static inline int _MPI_Sendrecv(const void *sendbuf, int sendcount,
+                              MPI_Datatype sendtype, int dest, int sendtag,
+                              void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                              int source, int recvtag, MPI_Comm comm,
+                              MPI_Status *status) {
+      return MPI_Sendrecv(sendbuf, sendcount, sendtype, dest, sendtag,
+                          recvbuf, recvcount, recvtype, source, recvtag,
+                          comm, status);
     }
 
     static inline int _MPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op) {

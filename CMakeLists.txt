@@ -281,6 +281,24 @@ set(SCALAPACK_FORTRAN_INT_BYTES "${_scalapack_fortran_int_bytes}" CACHE STRING
     "Default Fortran INTEGER width in bytes (auto-detected when empty; supported values: 4 or 8)" FORCE)
 message(STATUS "Default Fortran INTEGER width: ${SCALAPACK_FORTRAN_INT_BYTES} bytes")
 
+set(_scalapack_mpi_version "")
+if(DEFINED MPI_VERSION AND NOT "${MPI_VERSION}" STREQUAL "")
+   set(_scalapack_mpi_version "${MPI_VERSION}")
+elseif(DEFINED MPI_C_VERSION AND NOT "${MPI_C_VERSION}" STREQUAL "")
+   set(_scalapack_mpi_version "${MPI_C_VERSION}")
+elseif(DEFINED MPI_Fortran_VERSION AND NOT "${MPI_Fortran_VERSION}" STREQUAL "")
+   set(_scalapack_mpi_version "${MPI_Fortran_VERSION}")
+endif()
+
+if(SCALAPACK_FORTRAN_INT_BYTES STREQUAL "8")
+   if(_scalapack_mpi_version STREQUAL "" OR _scalapack_mpi_version VERSION_LESS 4)
+      message(FATAL_ERROR
+              "ILP64 builds require MPI 4.0 or newer because BLACS relies on MPI "
+              "large-count _c APIs. Detected MPI version: ${_scalapack_mpi_version}.")
+   endif()
+   message(STATUS "ILP64 build enabled with MPI ${_scalapack_mpi_version} large-count support")
+endif()
+
 if(SCALAPACK_FORTRAN_INT_BYTES STREQUAL "4")
    set(SCALAPACK_API_INT_C_TYPE "int32_t")
 elseif(SCALAPACK_FORTRAN_INT_BYTES STREQUAL "8")

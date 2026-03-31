@@ -88,9 +88,9 @@ void BI_BeComb(BLACSCONTEXT *ctxt, BLACBUFF *bp, BLACBUFF *bp2,
       for (bit=1; (bit ^ np2); bit <<= 1)
       {
          dest = Iam ^ bit;
-         ierr=MPI_Sendrecv(bp->Buff, bp->N, bp->dtype, dest, msgid, bp2->Buff,
-                         bp2->N, bp2->dtype, dest, msgid, ctxt->scp->comm,
-                         BI_Stats);
+         ierr=_MPI_Sendrecv(bp->Buff, bp->N, bp->dtype, dest, msgid, bp2->Buff,
+                            bp2->N, bp2->dtype, dest, msgid, ctxt->scp->comm,
+                            BI_Stats);
 	 Xvvop(N, bp->Buff, bp2->Buff);
       }
 /*
