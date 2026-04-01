@@ -3,10 +3,10 @@ file(COPY ../SRC/PTOOLS/PB_Cabort.c DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
 
 set (PblasErrorHandler  PB_Cwarn.c PB_Cabort.c)
 set (pbtcom pblastst.f ${PblasErrorHandler})
-set (spbtcom psblastst.f slamch.f ${pbtcom})
-set (dpbtcom pdblastst.f dlamch.f ${pbtcom})
-set (cpbtcom pcblastst.f slamch.f ${pbtcom})
-set (zpbtcom pzblastst.f dlamch.f ${pbtcom})
+set (spbtcom psblastst.f ${pbtcom})
+set (dpbtcom pdblastst.f ${pbtcom})
+set (cpbtcom pcblastst.f ${pbtcom})
+set (zpbtcom pzblastst.f ${pbtcom})
 
 set_property(
    SOURCE ${PblasErrorHandler}
