@@ -26,15 +26,20 @@
 #include <math.h>
 #include <mpi.h>
 
-/* BLACS C-interface declarations */
-extern void Cblacs_pinfo(int *mypnum, int *nprocs);
-extern void Cblacs_get(int context, int what, int *val);
-extern void Cblacs_gridinit(int *context, const char *order,
-                            int nprow, int npcol);
-extern void Cblacs_gridinfo(int context, int *nprow, int *npcol,
-                            int *myprow, int *mypcol);
-extern void Cblacs_gridexit(int context);
-extern void Cblacs_exit(int status);
+/* BLACS C-interface declarations — use ScaLAPACK_ApiInt so that the
+ * prototypes match the actual BLACS entry points in ILP64 builds. */
+#include "scalapack-types.h"
+
+typedef ScaLAPACK_ApiInt BlInt;
+
+extern void Cblacs_pinfo(BlInt *mypnum, BlInt *nprocs);
+extern void Cblacs_get(BlInt context, BlInt what, BlInt *val);
+extern void Cblacs_gridinit(BlInt *context, const char *order,
+                            BlInt nprow, BlInt npcol);
+extern void Cblacs_gridinfo(BlInt context, BlInt *nprow, BlInt *npcol,
+                            BlInt *myprow, BlInt *mypcol);
+extern void Cblacs_gridexit(BlInt context);
+extern void Cblacs_exit(BlInt status);
 
 /* I8 entry point — Fortran-mangled name */
 #if defined(Add_) || defined(f77IsF2C)
@@ -70,7 +75,7 @@ extern void pdgemr2d_i8(int64_t *m, int64_t *n,
 /* numroc — local row/column count for block-cyclic distribution      */
 /* ------------------------------------------------------------------ */
 static int64_t
-numroc(int64_t n, int64_t nb, int iproc, int isrcproc, int nprocs)
+numroc(int64_t n, int64_t nb, BlInt iproc, BlInt isrcproc, BlInt nprocs)
 {
     int64_t nblocks, mydist, extra;
     mydist = (iproc + nprocs - isrcproc) % nprocs;
@@ -85,9 +90,9 @@ numroc(int64_t n, int64_t nb, int iproc, int isrcproc, int nprocs)
 /* make_desc — fill an I8 descriptor array                            */
 /* ------------------------------------------------------------------ */
 static void
-make_desc(int64_t desc[9], int ctxt,
+make_desc(int64_t desc[9], BlInt ctxt,
           int64_t m, int64_t n, int64_t mb, int64_t nb,
-          int rsrc, int csrc, int64_t lld)
+          BlInt rsrc, BlInt csrc, int64_t lld)
 {
     desc[DTYPE_] = BLOCK_CYCLIC_2D_I8;
     desc[CTXT_]  = (int64_t)ctxt;
@@ -116,8 +121,8 @@ global_value(int gi, int gj)
 static void
 init_distributed(double *buf, int64_t lld,
                  int64_t m, int64_t n, int64_t mb, int64_t nb,
-                 int myprow, int mypcol, int nprow, int npcol,
-                 int rsrc, int csrc)
+                 BlInt myprow, BlInt mypcol, BlInt nprow, BlInt npcol,
+                 BlInt rsrc, BlInt csrc)
 {
     int64_t lr = numroc(m, mb, myprow, rsrc, nprow);
     int64_t lc = numroc(n, nb, mypcol, csrc, npcol);
@@ -143,8 +148,8 @@ init_distributed(double *buf, int64_t lld,
 static int
 check_distributed(const double *buf, int64_t lld,
                   int64_t m, int64_t n, int64_t mb, int64_t nb,
-                  int myprow, int mypcol, int nprow, int npcol,
-                  int rsrc, int csrc, const char *label, int mypnum)
+                  BlInt myprow, BlInt mypcol, BlInt nprow, BlInt npcol,
+                  BlInt rsrc, BlInt csrc, const char *label, BlInt mypnum)
 {
     int errs = 0;
     int64_t lr = numroc(m, mb, myprow, rsrc, nprow);
@@ -165,7 +170,7 @@ check_distributed(const double *buf, int64_t lld,
                 if (errs < 5)
                     fprintf(stderr, "%s proc %d: MISMATCH at g(%lld,%lld) "
                             "expected=%f got=%f\n",
-                            label, mypnum,
+                            label, (int)mypnum,
                             (long long)gi, (long long)gj,
                             expected, actual);
                 errs++;
@@ -191,10 +196,10 @@ collect_errors(int local_errors)
 /* Test 1: big-block descriptor, single-owner round-trip              */
 /* ================================================================== */
 static int
-test1_big_block(int mypnum, int nprocs)
+test1_big_block(BlInt mypnum, BlInt nprocs)
 {
-    int gcontext;
-    int nprow, npcol, myprow, mypcol;
+    BlInt gcontext;
+    BlInt nprow, npcol, myprow, mypcol;
     int errors = 0;
 
     int64_t M = 10, N = 5;
@@ -258,7 +263,7 @@ test1_big_block(int mypnum, int nprocs)
 /* Test 2: cross-rank redistribution between different grids          */
 /* ================================================================== */
 static int
-test2_cross_rank(int mypnum, int nprocs)
+test2_cross_rank(BlInt mypnum, BlInt nprocs)
 {
     if (nprocs < 4) {
         if (mypnum == 0)
@@ -266,20 +271,20 @@ test2_cross_rank(int mypnum, int nprocs)
         return 0;
     }
 
-    int gcontext, ctx0, ctx1;
-    int nprow0, npcol0, myprow0, mypcol0;
-    int nprow1, npcol1, myprow1, mypcol1;
+    BlInt gcontext, ctx0, ctx1;
+    BlInt nprow0, npcol0, myprow0, mypcol0;
+    BlInt nprow1, npcol1, myprow1, mypcol1;
     int errors = 0;
 
     /* Submatrix to redistribute */
     int64_t M = 12, N = 8;
 
     /* Grid 0: 2×2, block sizes 3×2 */
-    int p0 = 2, q0 = 2;
+    BlInt p0 = 2, q0 = 2;
     int64_t mb0 = 3, nb0 = 2;
 
     /* Grid 1: 1×4, block sizes 4×3 */
-    int p1 = 1, q1 = 4;
+    BlInt p1 = 1, q1 = 4;
     int64_t mb1 = 4, nb1 = 3;
 
     /* Global matrix dimensions (≥ M, N; same for both descriptors) */
@@ -388,14 +393,14 @@ test2_cross_rank(int mypnum, int nprocs)
 int
 main(int argc, char *argv[])
 {
-    int mypnum, nprocs;
+    BlInt mypnum, nprocs;
     int total_errors = 0;
 
     MPI_Init(&argc, &argv);
     Cblacs_pinfo(&mypnum, &nprocs);
 
     if (mypnum == 0)
-        printf("test_pdgemr2d_i8: nprocs=%d\n", nprocs);
+        printf("test_pdgemr2d_i8: nprocs=%d\n", (int)nprocs);
 
     /* Test 1: big-block descriptor */
     if (mypnum == 0) printf("  test1: big-block descriptor...\n");

@@ -5,6 +5,13 @@ if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU" AND CMAKE_Fortran_COMPILER_VER
     set_source_files_properties(blacstest.f PROPERTIES COMPILE_FLAGS "-std=legacy")
 endif()
 
+# The upstream BLACS test harness (blacstest.f) communicates process
+# coordinates via MPI_INTEGER, which is 4 bytes regardless of the
+# Fortran default INTEGER width.  In ILP64 builds the default INTEGER
+# is 8 bytes, so the communicated values are corrupted.  Until the
+# test harness is ported to ILP64, skip these tests.
+if(NOT SCALAPACK_ENABLE_ILP64)
+
 add_executable(xFbtest ${FTestObj})
 target_link_libraries(xFbtest scalapack MPI::MPI_Fortran)
 
@@ -24,12 +31,9 @@ file(COPY bt.dat DESTINATION ${SCALAPACK_BINARY_DIR}/BLACS/TESTING)
 file(COPY comb.dat DESTINATION ${SCALAPACK_BINARY_DIR}/BLACS/TESTING)
 file(COPY sdrv.dat DESTINATION ${SCALAPACK_BINARY_DIR}/BLACS/TESTING)
 
-# We could run the BLACS TESTING the following way
-# But BLACS TESTING are TESTING anormal exit so even if they pass,
-# CTest will determine they fail
-#add_test(xFbtest0 ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ./xFbtest)
-#add_test(xCbtest0 ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ./xCbtest)
-
+# The BLACS tests exit abnormally by design, so a direct add_test
+# would always report failure.  The runtest.cmake wrapper checks
+# that the output contains "DONE BLACS_GRIDEXIT" instead.
 add_test(xCbtest
      ${CMAKE_COMMAND}
     -DMPIEXEC=${MPIEXEC}
@@ -53,3 +57,5 @@ add_test(xFbtest
     -DSOURCEDIR=${CMAKE_CURRENT_SOURCE_DIR}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/runtest.cmake
     )
+
+endif() # NOT SCALAPACK_ENABLE_ILP64
