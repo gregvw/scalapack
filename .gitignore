@@ -1,8 +1,15 @@
 *.o
 *.oo
+*.a
+.DS_Store
+SLmake.inc
+
+# In-source build artifacts (test binaries)
 BLACS/INSTALL/cmake_install.cmake
 BLACS/INSTALL/Makefile
 BLACS/INSTALL/x*
+BLACS/TESTING/xCbtest
+BLACS/TESTING/xFbtest
 TESTING/traditional/x*
 REDIST/TESTING/x*
 PBLAS/TESTING/x*
@@ -11,13 +18,9 @@ PBLAS/TESTING/PB_Cwarn.c
 PBLAS/TIMING/x*tim
 PBLAS/TIMING/PB_Cabort.c
 PBLAS/TIMING/PB_Cwarn.c
-*.a
-BLACS/TESTING/xCbtest
-BLACS/TESTING/xFbtest
-SLmake.inc
-.DS_Store
 
-Testing/
-build/
-build-*/
-build_*/
+# Out-of-source build directories (anchored to repo root)
+/Testing/
+/build/
+/build-*/
+/build_*/
