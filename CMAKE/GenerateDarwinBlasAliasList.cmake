@@ -6,6 +6,10 @@ if(NOT DEFINED INPUTS OR "${INPUTS}" STREQUAL "")
   message(FATAL_ERROR "GenerateDarwinBlasAliasList.cmake requires INPUTS.")
 endif()
 
+if(NOT DEFINED EXCLUDE_INPUTS OR "${EXCLUDE_INPUTS}" STREQUAL "")
+  set(EXCLUDE_INPUTS "")
+endif()
+
 if(DEFINED NM AND NOT "${NM}" STREQUAL "")
   set(_scalapack_nm "${NM}")
 else()
@@ -34,7 +38,41 @@ if("${_scalapack_nm_output}" STREQUAL "")
   message(FATAL_ERROR "No BLAS/LAPACK libraries were available to generate a Darwin alias list.")
 endif()
 
-# Collect all exported plain symbols and _64_-suffixed symbols.
+# Scan EXCLUDE_INPUTS (e.g. libscalapack) for symbols they define.
+# Aliases must not be generated for these — the plain name is already
+# provided by the library itself and an alias would create a duplicate.
+set(_scalapack_exclude_defined_symbols "")
+foreach(_scalapack_exclude_lib IN LISTS EXCLUDE_INPUTS)
+  if(EXISTS "${_scalapack_exclude_lib}")
+    execute_process(
+      COMMAND "${_scalapack_nm}" -gU "${_scalapack_exclude_lib}"
+      RESULT_VARIABLE _scalapack_exclude_result
+      OUTPUT_VARIABLE _scalapack_exclude_nm_output
+      ERROR_VARIABLE _scalapack_exclude_error
+    )
+    if(NOT _scalapack_exclude_result EQUAL 0)
+      message(FATAL_ERROR
+        "Failed to inspect defined symbols in ${_scalapack_exclude_lib} with ${_scalapack_nm}: ${_scalapack_exclude_error}")
+    endif()
+
+    string(REPLACE "\n" ";" _scalapack_exclude_nm_lines "${_scalapack_exclude_nm_output}")
+    foreach(_scalapack_line IN LISTS _scalapack_exclude_nm_lines)
+      string(STRIP "${_scalapack_line}" _scalapack_line)
+      if(NOT _scalapack_line STREQUAL "")
+        string(REGEX MATCH "(_[a-z0-9_]+_)$" _scalapack_exclude_match "${_scalapack_line}")
+        if(_scalapack_exclude_match)
+          list(APPEND _scalapack_exclude_defined_symbols "${CMAKE_MATCH_1}")
+        endif()
+      endif()
+    endforeach()
+  endif()
+endforeach()
+
+if(_scalapack_exclude_defined_symbols)
+  list(REMOVE_DUPLICATES _scalapack_exclude_defined_symbols)
+endif()
+
+# Collect all exported plain symbols and _64_-suffixed symbols from BLAS/LAPACK.
 string(REPLACE "\n" ";" _scalapack_nm_lines "${_scalapack_nm_output}")
 set(_scalapack_exported_symbols "")
 set(_scalapack_suffix64_symbols "")
@@ -60,17 +98,22 @@ list(REMOVE_DUPLICATES _scalapack_exported_symbols)
 list(REMOVE_DUPLICATES _scalapack_suffix64_symbols)
 
 # For every _64_-suffixed symbol, emit an alias from the plain name to the
-# suffixed name — unless the BLAS library already exports the plain name.
-# This covers all consumers (libscalapack and test executables) without
-# needing to know which symbols each target references.
+# suffixed name — unless the BLAS library already exports the plain name or
+# the plain name is defined by an EXCLUDE_INPUTS library (e.g. libscalapack
+# bundles some LAPACK routines like slamch_).
 set(_scalapack_alias_lines "")
 foreach(_scalapack_suffix64_symbol IN LISTS _scalapack_suffix64_symbols)
   string(REGEX REPLACE "_64_$" "_" _scalapack_plain_symbol "${_scalapack_suffix64_symbol}")
   list(FIND _scalapack_exported_symbols "${_scalapack_plain_symbol}" _scalapack_plain_index)
-  if(_scalapack_plain_index EQUAL -1)
-    string(APPEND _scalapack_alias_lines
-           "${_scalapack_suffix64_symbol} ${_scalapack_plain_symbol}\n")
+  if(NOT _scalapack_plain_index EQUAL -1)
+    continue()
   endif()
+  list(FIND _scalapack_exclude_defined_symbols "${_scalapack_plain_symbol}" _scalapack_exclude_index)
+  if(NOT _scalapack_exclude_index EQUAL -1)
+    continue()
+  endif()
+  string(APPEND _scalapack_alias_lines
+         "${_scalapack_suffix64_symbol} ${_scalapack_plain_symbol}\n")
 endforeach()
 
 if("${_scalapack_alias_lines}" STREQUAL "")
