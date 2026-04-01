@@ -190,7 +190,7 @@ void PB_Cplaprnt( TYPE, M, N, A, IA, JA, DESCA, IRPRNT, ICPRNT, CMATNM )
          {
             if( ( myrow == IRPRNT ) && ( mycol == ICPRNT ) )
                (void) fprintf( stdout,
-               "Colum-replicated array -- copy in process column: %d\n", pcol );
+               "Colum-replicated array -- copy in process column: " SLINT_FMT "\n", pcol );
             PB_Cplaprn2( TYPE, M, N, A, IA, JA, DESCA, IRPRNT, ICPRNT, CMATNM,
                          DESCA[ RSRC_ ], pcol );
          }
@@ -210,7 +210,7 @@ void PB_Cplaprnt( TYPE, M, N, A, IA, JA, DESCA, IRPRNT, ICPRNT, CMATNM )
          {
             if( ( myrow == IRPRNT ) && ( mycol == ICPRNT ) )
                (void) fprintf( stdout,
-               "Row-replicated array -- copy in process row: %d\n", prow );
+               "Row-replicated array -- copy in process row: " SLINT_FMT "\n", prow );
             PB_Cplaprn2( TYPE, M, N, A, IA, JA, DESCA, IRPRNT, ICPRNT, CMATNM,
                          prow, DESCA[ CSRC_ ] );
          }
@@ -226,7 +226,7 @@ void PB_Cplaprnt( TYPE, M, N, A, IA, JA, DESCA, IRPRNT, ICPRNT, CMATNM )
             {
                if( ( myrow == IRPRNT ) && ( mycol == ICPRNT ) )
                   (void) fprintf( stdout,
-               "Replicated array -- copy in process (%d,%d)\n", prow, pcol );
+               "Replicated array -- copy in process (" SLINT_FMT "," SLINT_FMT ")\n", prow, pcol );
                PB_Cplaprn2( TYPE, M, N, A, IA, JA, DESCA, IRPRNT, ICPRNT,
                             CMATNM, prow, pcol );
             }
@@ -520,24 +520,24 @@ void PB_Cprnt( TYPE, SIZE, USIZ, N, A, IA, JA, CMATNM )
 */
    if( TYPE == INT )
       for( k = 0; k < N; k++ )
-         (void) fprintf( stdout, "%s(%6d,%6d)=%8d\n",      CMATNM, IA+k, JA,
+         (void) fprintf( stdout, "%s(" SLINT_FMT "," SLINT_FMT ")=" SLINT_FMT "\n",      CMATNM, IA+k, JA,
                          *((Int *)(&A[k*SIZE])) );
    else if( TYPE == SREAL )
       for( k = 0; k < N; k++ )
-         (void) fprintf( stdout, "%s(%6d,%6d)=%16.8f\n",   CMATNM, IA+k, JA,
+         (void) fprintf( stdout, "%s(" SLINT_FMT "," SLINT_FMT ")=%16.8f\n",   CMATNM, IA+k, JA,
                          *((float *)(&A[k*SIZE])) );
    else if( TYPE == DREAL )
       for( k = 0; k < N; k++ )
-         (void) fprintf( stdout, "%s(%6d,%6d)=%30.18f\n",  CMATNM, IA+k, JA,
+         (void) fprintf( stdout, "%s(" SLINT_FMT "," SLINT_FMT ")=%30.18f\n",  CMATNM, IA+k, JA,
                          *((double *)(&A[k*SIZE])) );
    else if( TYPE == SCPLX )
       for( k = 0; k < N; k++ )
-         (void) fprintf( stdout, "%s(%6d,%6d)=%16.8f+i*(%16.8f)\n",   CMATNM,
+         (void) fprintf( stdout, "%s(" SLINT_FMT "," SLINT_FMT ")=%16.8f+i*(%16.8f)\n",   CMATNM,
                          IA+k, JA, *((float *)(&A[k*SIZE])),
                          *((float *)(&A[k*SIZE+USIZ])) );
    else if( TYPE == DCPLX )
       for( k = 0; k < N; k++ )
-         (void) fprintf( stdout, "%s(%6d,%6d)=%30.18f+i*(%30.18f)\n", CMATNM,
+         (void) fprintf( stdout, "%s(" SLINT_FMT "," SLINT_FMT ")=%30.18f+i*(%30.18f)\n", CMATNM,
                          IA+k, JA, *((double *)(&A[k*SIZE])),
                          *((double *)(&A[k*SIZE+USIZ])) );
 /*

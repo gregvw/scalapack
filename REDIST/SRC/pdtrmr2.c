@@ -236,7 +236,7 @@ intersect(char *uplo, char *diag,
   case SIZEBUFF:	/* computation of sizebuff */
     break;
   default:
-    printf("action is  %d outside the scope of the case [0..2] !! \n ", action);
+    printf("action is  " SLINT_FMT " outside the scope of the case [0..2] !! \n ", action);
     exit(0);
     break;
   }	/* switch (action) */

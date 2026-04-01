@@ -230,15 +230,15 @@ paramcheck(MDESC *a, Int i, Int j, Int m, Int n, Int p, Int q, Int gcontext)
     exit(1);
   }
   if (i < 0 || j < 0 || i + m > a->m || j + n > a->n) {
-    fprintf(stderr, "??MR2D:Bad submatrix:i=%d,j=%d,\
-m=%d,n=%d,M=%d,N=%d\n",
+    fprintf(stderr, "??MR2D:Bad submatrix:i=" SLINT_FMT ",j=" SLINT_FMT ",\
+m=" SLINT_FMT ",n=" SLINT_FMT ",M=" SLINT_FMT ",N=" SLINT_FMT "\n",
 	    i, j, m, n, a->m, a->n);
     exit(1);
   }
   if ((myprow >= 0 || mypcol >= 0) &&
       localsize(SHIFT(myprow, a->sprow, p), p, a->nbrow, a->m) > a->lda) {
-    fprintf(stderr, "??MR2D:bad lda arg:row=%d,m=%d,p=%d,\
-nbrow=%d,lda=%d,sprow=%d\n",
+    fprintf(stderr, "??MR2D:bad lda arg:row=" SLINT_FMT ",m=" SLINT_FMT ",p=" SLINT_FMT ",\
+nbrow=" SLINT_FMT ",lda=" SLINT_FMT ",sprow=" SLINT_FMT "\n",
 	    myprow, a->m, p, a->nbrow, a->lda, a->sprow);
     exit(1);
   }

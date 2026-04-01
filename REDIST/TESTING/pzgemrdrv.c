@@ -179,7 +179,7 @@ va_dcl
   do {
     next = fgets(buffer, 200, f);
     if (next == NULL) {
-      fprintf(stderr, "bad configuration driver file:after line %d\n", nbline);
+      fprintf(stderr, "bad configuration driver file:after line " SLINT_FMT "\n", nbline);
       exit(1);
     }
     nbline += 1;
@@ -189,7 +189,7 @@ va_dcl
   while (var != NULL) {
     *var = strtol(ptr, &next, 10);
     if (ptr == next) {
-      fprintf(stderr, "bad configuration driver file:error line %d\n", nbline);
+      fprintf(stderr, "bad configuration driver file:error line " SLINT_FMT "\n", nbline);
       exit(1);
     }
     ptr = next;
@@ -263,7 +263,7 @@ main(int argc, char *argv[])
     };
     printf("\n// ZGEMR2D TESTER for COMPLEX*16 //\n");
     getparam(fp, &nbre, NULL);
-    printf("////////// %d tests \n\n", nbre);
+    printf("////////// " SLINT_FMT " tests \n\n", nbre);
     parameters[0] = nbre;
     Cigebs2d(gcontext, "All", "H", (Int)1, (Int)1, parameters, (Int)1);
   } else {
@@ -278,7 +278,7 @@ m1  n1  sr1 sc1 i1  j1  p1  q1 nbr1 nbc1\n\n");
   /* Here we are in grip 1xnprocs */
   nbremax = nbre;
 #ifdef DEBUG
-  fprintf(stderr, "bonjour,je suis le noeud %d\n", mypnum);
+  fprintf(stderr, "bonjour,je suis le noeud " SLINT_FMT "\n", mypnum);
 #endif
   while (nbre-- != 0) {	/* Loop on the serie of tests */
     /* All the processors read the parameters so we have to be in a 1xnprocs
@@ -293,10 +293,10 @@ m1  n1  sr1 sc1 i1  j1  p1  q1 nbr1 nbc1\n\n");
 	       &mb.m, &mb.n, &mb.sprow, &mb.spcol,
 	       &ib, &jb, &p1, &q1, &mb.nbrow, &mb.nbcol,
 	       NULL);
-      printf("\t\t************* TEST # %d **********\n",
+      printf("\t\t************* TEST # " SLINT_FMT " **********\n",
 	     nbremax - nbre);
-      printf(" %3d %3d %3d %3d %3d %3d %3d %3d \
-%3d %3d %3d %3d %3d %3d %3d %3d %3d %3d %3d %3d %3d %3d",
+      printf(" %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " \
+%3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT " %3" SLINT_FMT "",
 	     m, n,
 	     ma.m, ma.n, ma.sprow, ma.spcol,
 	     ia, ja, p0, q0, ma.nbrow, ma.nbcol,
@@ -304,7 +304,7 @@ m1  n1  sr1 sc1 i1  j1  p1  q1 nbr1 nbc1\n\n");
 	     ib, jb, p1, q1, mb.nbrow, mb.nbcol);
       printf("\n");
       if (p0 * q0 > nprocs || p1 * q1 > nprocs) {
-	fprintf(stderr, "not enough nodes:%d processors required\n",
+	fprintf(stderr, "not enough nodes:" SLINT_FMT " processors required\n",
 		max(p0 * q0, p1 * q1));
 	exit(1);
       }
@@ -427,14 +427,14 @@ m1  n1  sr1 sc1 i1  j1  p1  q1 nbr1 nbc1\n\n");
 	}
 	if (ptrmyblockvide[i].r != ptrmyblockcopy[i].r) {
 	  nberrors++;
-	  printf("Proc %d : Error element number %d, value = %f , initvalue =%f \n"
+	  printf("Proc " SLINT_FMT " : Error element number " SLINT_FMT ", value = %f , initvalue =%f \n"
 		 ,mypnum, i,
 		 ptrmyblockvide[i].r, ptrmyblockcopy[i].r);
 	};
       };
       if (nberrors > 0) {
-	printf("Processor %d, has tested  %d COMPLEX*16 elements,\
-Number of redistribution errors = %d \n",
+	printf("Processor " SLINT_FMT ", has tested  " SLINT_FMT " COMPLEX*16 elements,\
+Number of redistribution errors = " SLINT_FMT " \n",
 	       mypnum, blocksize0, nberrors);
       }
     }
@@ -442,7 +442,7 @@ Number of redistribution errors = %d \n",
     Cigsum2d(gcontext, "All", "H", (Int)1, (Int)1, &nberrors, (Int)1, (Int)0, (Int)0);
     if (mypnum == 0)
       if (nberrors)
-	printf("  => Total number of redistribution errors = %d \n",
+	printf("  => Total number of redistribution errors = " SLINT_FMT " \n",
 	       nberrors);
       else
 	printf("TEST PASSED OK\n");

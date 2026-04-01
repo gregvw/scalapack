@@ -150,11 +150,11 @@ va_dcl
 *  Display an error message
 */
    if( LINE <= 0 )
-      (void) fprintf( stderr, "%s'%s'\n%s{%d,%d}, %s%d, %s%d%s'%s'.\n\n",
+      (void) fprintf( stderr, "%s'%s'\n%s{" SLINT_FMT "," SLINT_FMT "}, %s" SLINT_FMT ", %s" SLINT_FMT "%s'%s'.\n\n",
                       "PBLAS ERROR ", cline, "from ", myrow, mycol, "pnum=",
                       iam, "Contxt=", ICTXT, ", in routine ", ROUT );
    else
-      (void) fprintf( stderr, "%s'%s'\n%s{%d,%d}, %s%d, %s%d%s%d%s'%s'.\n\n",
+      (void) fprintf( stderr, "%s'%s'\n%s{" SLINT_FMT "," SLINT_FMT "}, %s" SLINT_FMT ", %s" SLINT_FMT "%s" SLINT_FMT "%s'%s'.\n\n",
                       "PBLAS ERROR ", cline, "from ", myrow, mycol, "pnum=",
                       iam, "Contxt=", ICTXT, ", on line ", LINE,
                       " of routine ", ROUT );

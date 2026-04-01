@@ -17,6 +17,13 @@
 #define SCALAPACK_BLAS_INT_BYTES @SCALAPACK_EXPECT_BLAS_INT_BYTES@
 
 typedef @SCALAPACK_API_INT_C_TYPE@ ScaLAPACK_ApiInt;
+
+/* printf format specifier for ScaLAPACK_ApiInt */
+#if SCALAPACK_FORTRAN_INT_BYTES == 8
+#  define SLINT_FMT "%lld"
+#else
+#  define SLINT_FMT "%d"
+#endif
 typedef @SCALAPACK_BLAS_INT_C_TYPE@ ScaLAPACK_BlasInt;
 typedef @SCALAPACK_BLACS_BUFFER_SIZE_TYPE@ ScaLAPACK_BufLen;
 typedef ScaLAPACK_BufLen ScaLAPACK_ByteCount;
