@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.26)
 project(ScaLAPACKInspectFindMPI LANGUAGES C Fortran)
 
 include(CheckCSourceCompiles)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/..")
+include(CheckMpiLargeCount)
 
 option(MPI_PROBE_ENABLE_FIND_DEBUG_MODE
        "Enable CMake's CMAKE_FIND_DEBUG_MODE while running FindMPI"
@@ -95,16 +97,12 @@ foreach(_probe_var IN ITEMS
   _probe_print_var(${_probe_var})
 endforeach()
 
-set(CMAKE_REQUIRED_QUIET FALSE)
-set(CMAKE_REQUIRED_LIBRARIES MPI::MPI_C)
-
-file(READ "${CMAKE_CURRENT_LIST_DIR}/check_mpi_large_count.c"
-     _probe_large_count_source)
-check_c_source_compiles("${_probe_large_count_source}"
-                        SCALAPACK_PROBE_HAVE_MPI_LARGE_COUNT_APIS)
+CheckMpiLargeCount(SCALAPACK_PROBE_HAVE_MPI_LARGE_COUNT_APIS
+                   OUTPUT_LOG_VAR SCALAPACK_PROBE_MPI_LARGE_COUNT_LOG)
 
 message(STATUS "===== Large-Count API Probe =====")
 _probe_print_var(SCALAPACK_PROBE_HAVE_MPI_LARGE_COUNT_APIS)
+message(STATUS "SCALAPACK_PROBE_MPI_LARGE_COUNT_LOG=[${SCALAPACK_PROBE_MPI_LARGE_COUNT_LOG}]")
 
 message(STATUS "===== C Header Probe =====")
 try_run(
@@ -142,4 +140,3 @@ if(SCALAPACK_PROBE_HAVE_MPI_LARGE_COUNT_APIS)
 else()
   message(STATUS "BLACS large-count _c APIs: NOT AVAILABLE")
 endif()
-

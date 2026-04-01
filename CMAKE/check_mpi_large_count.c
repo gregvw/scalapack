@@ -14,7 +14,7 @@ int main(void)
   MPI_Count count = 1;
   MPI_Count blocklengths[1] = { 1 };
   MPI_Count displacements[1] = { 0 };
-  MPI_Aint struct_displacements[1] = { 0 };
+  MPI_Count struct_displacements[1] = { 0 };
   MPI_Datatype datatype = MPI_INT;
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
   MPI_Status status;
@@ -48,4 +48,3 @@ int main(void)
 
   return 0;
 }
-

@@ -10,6 +10,7 @@ include(CheckFortranCompilerFlag)
 # Add the CMake directory for custon CMake modules
 set(CMAKE_MODULE_PATH "${SCALAPACK_SOURCE_DIR}/CMAKE" ${CMAKE_MODULE_PATH})
 include(CheckFortranIntegerABI)
+include(CheckMpiLargeCount)
 
 if (UNIX)
    if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
@@ -74,14 +75,15 @@ message(STATUS "--> MPI Fortran Compiler : ${MPI_Fortran_COMPILER}")
 message(STATUS "--> Fortran Compiler : ${CMAKE_Fortran_COMPILER}")
 
 # --------------------------------------------------
-# ILP64 Support via MPI 4.0+
+# ILP64 Support via MPI large-count _c APIs
 #
-# ScaLAPACK will automatically use MPI 4.0+ large count support if available.
-# MPI 4.0+ provides native support for counts > INT_MAX via _c variants.
+# ScaLAPACK ILP64 support requires the MPI large-count _c entry points used in
+# BLACS. Those routines were standardized in MPI 4.0, but we probe the actual
+# headers/libs directly instead of trusting the MPI implementation release name.
 #
 # Note: BigMPI is NOT supported because it lacks MPI_Op_create_c functionality
 # which is required for ScaLAPACK's custom reduction operations.
-message(STATUS "ILP64 support: Will use MPI 4.0+ _c variants if MPI_VERSION >= 4")
+message(STATUS "ILP64 support: probing MPI large-count _c APIs required by BLACS")
 
 if (UNIX)
    if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
@@ -360,13 +362,29 @@ elseif(DEFINED MPI_Fortran_VERSION AND NOT "${MPI_Fortran_VERSION}" STREQUAL "")
    set(_scalapack_mpi_version "${MPI_Fortran_VERSION}")
 endif()
 
+set(_scalapack_mpi_library_version "")
+if(DEFINED MPI_C_LIBRARY_VERSION_STRING AND NOT "${MPI_C_LIBRARY_VERSION_STRING}" STREQUAL "")
+   set(_scalapack_mpi_library_version "${MPI_C_LIBRARY_VERSION_STRING}")
+elseif(DEFINED MPI_Fortran_LIBRARY_VERSION_STRING AND NOT "${MPI_Fortran_LIBRARY_VERSION_STRING}" STREQUAL "")
+   set(_scalapack_mpi_library_version "${MPI_Fortran_LIBRARY_VERSION_STRING}")
+endif()
+
 if(SCALAPACK_ENABLE_ILP64)
-   if(_scalapack_mpi_version STREQUAL "" OR _scalapack_mpi_version VERSION_LESS 4)
+   CheckMpiLargeCount(SCALAPACK_HAVE_MPI_LARGE_COUNT_APIS
+                      OUTPUT_LOG_VAR SCALAPACK_MPI_LARGE_COUNT_LOG)
+   if(NOT SCALAPACK_HAVE_MPI_LARGE_COUNT_APIS)
       message(FATAL_ERROR
-              "ILP64 builds require MPI 4.0 or newer because BLACS relies on MPI "
-              "large-count _c APIs. Detected MPI version: ${_scalapack_mpi_version}.")
+              "ILP64 builds require the MPI large-count _c APIs used by BLACS "
+              "(for example MPI_Send_c, MPI_Type_vector_c, MPI_Pack_c, and "
+              "MPI_Op_create_c), but the current MPI C interface does not provide "
+              "them. Detected MPI standard version from CMake/headers: "
+              "${_scalapack_mpi_version}. MPI library version string: "
+              "${_scalapack_mpi_library_version}\n"
+              "MPI large-count probe build log:\n${SCALAPACK_MPI_LARGE_COUNT_LOG}")
    endif()
-   message(STATUS "ILP64 build enabled with MPI ${_scalapack_mpi_version} large-count support")
+   message(STATUS
+           "ILP64 build enabled with MPI large-count _c support "
+           "(reported MPI standard version: ${_scalapack_mpi_version})")
 endif()
 
 if(SCALAPACK_FORTRAN_INT_BYTES STREQUAL "4")
