@@ -6,16 +6,13 @@ if(NOT DEFINED INPUTS OR "${INPUTS}" STREQUAL "")
   message(FATAL_ERROR "GenerateDarwinBlasAliasList.cmake requires INPUTS.")
 endif()
 
-if(NOT DEFINED REQUIRED_INPUTS OR "${REQUIRED_INPUTS}" STREQUAL "")
-  message(FATAL_ERROR "GenerateDarwinBlasAliasList.cmake requires REQUIRED_INPUTS.")
-endif()
-
 if(DEFINED NM AND NOT "${NM}" STREQUAL "")
   set(_scalapack_nm "${NM}")
 else()
   set(_scalapack_nm "nm")
 endif()
 
+# Scan BLAS/LAPACK libraries for exported symbols.
 set(_scalapack_nm_output "")
 foreach(_scalapack_lib IN LISTS INPUTS)
   if(IS_ABSOLUTE "${_scalapack_lib}" AND EXISTS "${_scalapack_lib}")
@@ -37,47 +34,10 @@ if("${_scalapack_nm_output}" STREQUAL "")
   message(FATAL_ERROR "No BLAS/LAPACK libraries were available to generate a Darwin alias list.")
 endif()
 
-set(_scalapack_required_nm_output "")
-set(_scalapack_required_defined_nm_output "")
-foreach(_scalapack_required_input IN LISTS REQUIRED_INPUTS)
-  if(EXISTS "${_scalapack_required_input}")
-    execute_process(
-      COMMAND "${_scalapack_nm}" -u "${_scalapack_required_input}"
-      RESULT_VARIABLE _scalapack_required_result
-      OUTPUT_VARIABLE _scalapack_required_input_nm_output
-      ERROR_VARIABLE _scalapack_required_error
-    )
-    if(NOT _scalapack_required_result EQUAL 0)
-      message(FATAL_ERROR
-        "Failed to inspect undefined symbols in ${_scalapack_required_input} with ${_scalapack_nm}: ${_scalapack_required_error}")
-    endif()
-    string(APPEND _scalapack_required_nm_output "${_scalapack_required_input_nm_output}\n")
-
-    execute_process(
-      COMMAND "${_scalapack_nm}" -gU "${_scalapack_required_input}"
-      RESULT_VARIABLE _scalapack_required_defined_result
-      OUTPUT_VARIABLE _scalapack_required_defined_input_nm_output
-      ERROR_VARIABLE _scalapack_required_defined_error
-    )
-    if(NOT _scalapack_required_defined_result EQUAL 0)
-      message(FATAL_ERROR
-        "Failed to inspect defined symbols in ${_scalapack_required_input} with ${_scalapack_nm}: ${_scalapack_required_defined_error}")
-    endif()
-    string(APPEND _scalapack_required_defined_nm_output "${_scalapack_required_defined_input_nm_output}\n")
-  endif()
-endforeach()
-
-if("${_scalapack_required_nm_output}" STREQUAL "")
-  message(FATAL_ERROR "No required-input libraries were available to generate a Darwin alias list.")
-endif()
-
+# Collect all exported plain symbols and _64_-suffixed symbols.
 string(REPLACE "\n" ";" _scalapack_nm_lines "${_scalapack_nm_output}")
-string(REPLACE "\n" ";" _scalapack_required_nm_lines "${_scalapack_required_nm_output}")
-string(REPLACE "\n" ";" _scalapack_required_defined_nm_lines "${_scalapack_required_defined_nm_output}")
 set(_scalapack_exported_symbols "")
 set(_scalapack_suffix64_symbols "")
-set(_scalapack_required_symbols "")
-set(_scalapack_required_defined_symbols "")
 
 foreach(_scalapack_line IN LISTS _scalapack_nm_lines)
   string(STRIP "${_scalapack_line}" _scalapack_line)
@@ -96,47 +56,16 @@ foreach(_scalapack_line IN LISTS _scalapack_nm_lines)
   endif()
 endforeach()
 
-foreach(_scalapack_required_line IN LISTS _scalapack_required_nm_lines)
-  string(STRIP "${_scalapack_required_line}" _scalapack_required_line)
-  if(_scalapack_required_line STREQUAL "")
-    continue()
-  endif()
-
-  string(REGEX MATCH "(_[A-Za-z0-9_]+)$" _scalapack_required_symbol_match "${_scalapack_required_line}")
-  if(_scalapack_required_symbol_match)
-    list(APPEND _scalapack_required_symbols "${CMAKE_MATCH_1}")
-  endif()
-endforeach()
-
-foreach(_scalapack_required_defined_line IN LISTS _scalapack_required_defined_nm_lines)
-  string(STRIP "${_scalapack_required_defined_line}" _scalapack_required_defined_line)
-  if(_scalapack_required_defined_line STREQUAL "")
-    continue()
-  endif()
-
-  string(REGEX MATCH "(_[a-z0-9_]+_)$" _scalapack_required_defined_symbol_match
-                      "${_scalapack_required_defined_line}")
-  if(_scalapack_required_defined_symbol_match)
-    list(APPEND _scalapack_required_defined_symbols "${CMAKE_MATCH_1}")
-  endif()
-endforeach()
-
 list(REMOVE_DUPLICATES _scalapack_exported_symbols)
 list(REMOVE_DUPLICATES _scalapack_suffix64_symbols)
-list(REMOVE_DUPLICATES _scalapack_required_symbols)
-list(REMOVE_DUPLICATES _scalapack_required_defined_symbols)
 
+# For every _64_-suffixed symbol, emit an alias from the plain name to the
+# suffixed name — unless the BLAS library already exports the plain name.
+# This covers all consumers (libscalapack and test executables) without
+# needing to know which symbols each target references.
 set(_scalapack_alias_lines "")
 foreach(_scalapack_suffix64_symbol IN LISTS _scalapack_suffix64_symbols)
   string(REGEX REPLACE "_64_$" "_" _scalapack_plain_symbol "${_scalapack_suffix64_symbol}")
-  list(FIND _scalapack_required_symbols "${_scalapack_plain_symbol}" _scalapack_required_index)
-  if(_scalapack_required_index EQUAL -1)
-    continue()
-  endif()
-  list(FIND _scalapack_required_defined_symbols "${_scalapack_plain_symbol}" _scalapack_required_defined_index)
-  if(NOT _scalapack_required_defined_index EQUAL -1)
-    continue()
-  endif()
   list(FIND _scalapack_exported_symbols "${_scalapack_plain_symbol}" _scalapack_plain_index)
   if(_scalapack_plain_index EQUAL -1)
     string(APPEND _scalapack_alias_lines

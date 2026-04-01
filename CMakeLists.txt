@@ -109,7 +109,6 @@ if (NOT MSVC)
       add_custom_command(TARGET scalapack POST_BUILD
         COMMAND ${CMAKE_COMMAND}
                 "-DINPUTS=${_scalapack_alias_inputs}"
-                "-DREQUIRED_INPUTS=$<TARGET_FILE:scalapack>"
                 "-DOUTPUT=${SCALAPACK_BLAS_SYMBOL_ALIAS_FILE}"
                 "-DNM=${CMAKE_NM}"
                 -P "${SCALAPACK_SOURCE_DIR}/CMAKE/GenerateDarwinBlasAliasList.cmake"
